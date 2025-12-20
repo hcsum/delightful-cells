@@ -1,0 +1,11 @@
+full_name,email,department,company,job_title,location,status
+John Smith,john.smith@gmail.com,Sales,ABC Corp,Sales Manager,New York,Active
+Emily Chen,emily.chen@yahoo.com,Marketing,XYZ Inc,Marketing Specialist,San Francisco,Active
+Michael Brown,michael.brown@outlook.com,Engineering,TechSolutions,Software Engineer,Seattle,Inactive
+Sarah Johnson,sarah.johnson@companymail.com,HR,Global Enterprises,HR Coordinator,Chicago,Active
+David Lee,david.lee@startup.io,Product,InnovateX,Product Manager,Austin,Active
+Anna Williams,anna.williams@marketinghub.co,Marketing,MarketPro,Content Strategist,Los Angeles,Active
+Robert Kim,robert.kim@enterprise.org,Finance,FinCorp,Financial Analyst,Boston,Inactive
+Linda Martinez,linda.martinez@consulting.net,Consulting,ConsultPlus,Consultant,Miami,Active
+Kevin Nguyen,kevin.nguyen@techlabs.ai,Engineering,TechLabs,DevOps Engineer,San Jose,Active
+Olivia Taylor,olivia.taylor@retailgroup.com,Operations,RetailGroup,Operations Manager,Denver,Active

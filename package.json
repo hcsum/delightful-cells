@@ -1,0 +1,30 @@
+{
+  "name": "excel-extract-column-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "cf:deploy:prod": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env prod"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "papaparse": "5.4.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-hook-form": "7",
+    "@opennextjs/cloudflare": "^1.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.30",
+    "@types/react": "18.2.73",
+    "@types/react-dom": "18.2.24",
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.13",
+    "typescript": "5.6.2",
+    "wrangler": "4.56.0"
+  }
+}
