@@ -1,7 +1,7 @@
 "use client";
 
 import Papa from "papaparse";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { processRows } from "@/lib/process";
 
 type Extractor = (input: string) => string | null;
