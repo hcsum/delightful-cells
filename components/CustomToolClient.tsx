@@ -60,7 +60,7 @@ export default function CustomToolClient() {
             className="bg-transparent border border-white/10 rounded p-1 text-sm"
             placeholder="TARGET (e.g., state, SKU, email)"
           />
-          <label className="text-sm">from</label>
+          <label className="text-sm">From</label>
           <input
             {...register('source')}
             className="bg-transparent border border-white/10 rounded p-1 text-sm"

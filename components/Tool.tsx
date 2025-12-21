@@ -40,8 +40,39 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
   const [uploadRows, setUploadRows] = useState<Row[]>([]);
   const [uploadColumns, setUploadColumns] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const uploadErrorRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    uploadErrorRef.current = uploadError;
+  }, [uploadError]);
+
+  // Check if Process CSV button should be shown
+  const canProcess = useMemo(() => {
+    if (uploadRows.length === 0) return false;
+    if (uploadError) return false;
+    
+    const extractFromTrimmed = (extractFrom || '').trim();
+    const toBeExtractedTrimmed = (toBeExtracted || '').trim();
+    
+    // In custom mode, both fields must be filled
+    if (mode === 'custom' && (!extractFromTrimmed || !toBeExtractedTrimmed)) {
+      return false;
+    }
+    
+    // Check if column exists in headers
+    const header = uploadRows[0] || [];
+    const columnName = mode === 'custom' ? (sourceHeader || '') : extractFrom;
+    const columnNameTrimmed = (columnName || '').trim();
+    if (!columnNameTrimmed) {
+      return false;
+    }
+    
+    const idx = findColumnIndex(header, columnNameTrimmed);
+    return idx >= 0;
+  }, [uploadRows, uploadError, mode, extractFrom, toBeExtracted, sourceHeader]);
 
   // Preview state (calls real worker; no heuristic). Runs only when user clicks Load Preview.
   const [previewResults, setPreviewResults] = useState<{ input: string; output: string | null }[]>([]);
@@ -72,6 +103,32 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     }
   }, [mode, extractFrom, toBeExtracted, uploadError]);
 
+  // Re-validate headers when extractFrom changes and a file is already loaded
+  useEffect(() => {
+    // Re-validate if there's a file loaded
+    if (uploadRows.length > 0) {
+      const header = uploadRows[0] || [];
+      const columnName = mode === 'custom' ? (sourceHeader || '') : extractFrom;
+      const columnNameTrimmed = (columnName || '').trim();
+      if (columnNameTrimmed) {
+        const idx = findColumnIndex(header, columnNameTrimmed);
+        
+        if (idx >= 0) {
+          // Column is found, clear column-related errors
+          const currentError = uploadErrorRef.current;
+          if (currentError && typeof currentError === 'string' && currentError.includes("Column") && currentError.includes("not found")) {
+            setUploadError(null);
+          }
+        } else {
+          // Column not found, set/update error message
+          const expectedError = `Column "${columnNameTrimmed}" not found in CSV headers. Available columns: ${header.join(', ') || '(none)'}`;
+          setUploadError(expectedError);
+        }
+      }
+      // If column name is empty, keep existing "Column not found" error (don't clear it)
+    }
+  }, [mode, extractFrom, sourceHeader, uploadRows]);
+
   const clearPaste = useCallback(() => {
     setPasteRows([]);
     setPasteColumns(0);
@@ -95,14 +152,13 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
 
   const handleFile = useCallback((file: File) => {
     setUploadError(null);
-    setDownloadFailed(false);
     
     // In custom mode, require both extractFrom and toBeExtracted to be set
     if (mode === 'custom') {
       const extractFromTrimmed = (extractFrom || '').trim();
       const toBeExtractedTrimmed = (toBeExtracted || '').trim();
       if (!extractFromTrimmed || !toBeExtractedTrimmed) {
-        setUploadError("Please fill in both 'Extract' and 'from' fields before selecting a CSV file.");
+        setUploadError("Please fill in both 'Extract' and 'From' fields before selecting a CSV file.");
         // Clear file input so the same file can be selected again after filling fields
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
@@ -131,6 +187,10 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
           .map((r) => (Array.isArray(r) ? r.slice(0, HARD_LIMITS.maxCols) : []));
         const maxCols = sanitized.reduce((m, r) => Math.max(m, r.length), 0);
         
+        // Always set uploadRows so re-validation can run when column name changes
+        setUploadRows(sanitized);
+        setUploadColumns(maxCols);
+        
         // Validate headers - check if required column exists
         if (sanitized.length > 0) {
           const header = sanitized[0] || [];
@@ -138,14 +198,16 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
           const idx = findColumnIndex(header, columnName);
           if (idx < 0) {
             setUploadError(`Column "${columnName}" not found in CSV headers. Available columns: ${header.join(', ') || '(none)'}`);
-            setUploadRows([]);
-            setUploadColumns(0);
             return;
           }
+          // Column found, clear any column-related errors
+          setUploadError((prevError) => {
+            if (prevError && typeof prevError === 'string' && prevError.includes("Column") && prevError.includes("not found")) {
+              return null;
+            }
+            return prevError;
+          });
         }
-        
-        setUploadRows(sanitized);
-        setUploadColumns(maxCols);
       },
       error: (err) => {
         setUploadError(`Failed to parse CSV: ${err.message || String(err)}`);
@@ -401,15 +463,16 @@ function findColumnIndex(header: string[], name: string): number {
 
       {(uploadRows.length > 0) && (
         <section className="space-y-3">
-          <div className="flex items-center gap-3 pt-2">
-            <button className="px-3 py-1 rounded bg-white/10 text-sm disabled:opacity-60" onClick={onDownload} disabled={downloading}>
-              {downloading ? 'Processing…' : 'Process CSV'}
-            </button>
-            <span className="text-xs text-white/60">Download includes all original columns plus a new extracted column.</span>
-          </div>
-          {uploadError && uploadRows.length > 0 && (
+          {uploadError ? (
             <div className="text-sm text-red-400">{uploadError}</div>
-          )}
+          ) : canProcess ? (
+            <div className="flex items-center gap-3 pt-2">
+              <button className="px-3 py-1 rounded bg-white/10 text-sm disabled:opacity-60" onClick={onDownload} disabled={downloading}>
+                {downloading ? 'Processing…' : 'Process CSV'}
+              </button>
+              <span className="text-xs text-white/60">Download includes all original columns plus a new extracted column.</span>
+            </div>
+          ) : null}
       </section>
     )}
   </div>
