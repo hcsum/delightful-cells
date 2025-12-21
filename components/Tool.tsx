@@ -183,7 +183,10 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
         if ((e as any)?.name === 'AbortError') {
           // ignore
         } else {
-          setPreviewError('Failed to process preview via worker.');
+          const ee: any = e || {};
+          const isRateLimited = ee?.status === 429 && (ee?.code === 'rate_limited' || /rate limit/i.test(String(ee?.message || '')));
+          const msg = isRateLimited ? String(ee?.message || 'Rate limit exceeded. Please try again soon.') : 'Something went wrong. Please try again.';
+          setPreviewError(msg);
           setPreviewFailed(true);
         }
       })
@@ -222,7 +225,10 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
     } catch (e) {
       setDownloading(false);
       setDownloadFailed(true);
-      setUploadError('Failed to process download via worker.');
+      const ee: any = e || {};
+      const isRateLimited = ee?.status === 429 && (ee?.code === 'rate_limited' || /rate limit/i.test(String(ee?.message || '')));
+      const msg = isRateLimited ? String(ee?.message || 'Rate limit exceeded. Please try again soon.') : 'Something went wrong. Please try again.';
+      setUploadError(msg);
       return;
     }
 

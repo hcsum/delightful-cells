@@ -63,11 +63,24 @@ export async function processRows(
     }
     const dt = (nowMs() - t0).toFixed(0);
     if (!res.ok) {
-      let text = '';
-      try { text = await res.text(); } catch {}
+      let errText = '';
+      let errJson: any = null;
+      try {
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          errJson = await res.json();
+        } else {
+          errText = await res.text();
+        }
+      } catch {}
+      const msg = (errJson && (errJson.message || errJson.error)) || snippet(errText) || `Worker error ${res.status}`;
       // eslint-disable-next-line no-console
-      console.warn('[processRows] non-OK', { rid, action, status: res.status, dt, body: snippet(text) });
-      throw new Error(`Worker error ${res.status}`);
+      console.warn('[processRows] non-OK', { rid, action, status: res.status, dt, msg });
+      const e = new Error(String(msg));
+      (e as any).status = res.status;
+      (e as any).code = errJson?.error;
+      (e as any).retryAfterSeconds = Number(res.headers.get('Retry-After') || errJson?.retryAfterSeconds || 0) || undefined;
+      throw e;
     }
     let json: ProcessResponse | null = null;
     try {

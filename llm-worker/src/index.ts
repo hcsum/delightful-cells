@@ -22,27 +22,65 @@ export default {
     const action = request.headers.get('x-action') || 'preview';
     const t0 = Date.now();
     const log = (...args: any[]) => { try { console.log('[cf-worker]', rid, action, ...args); } catch {} };
+    const origin = request.headers.get('Origin') || '';
     // CORS preflight first
     if (request.method === 'OPTIONS') {
       log('preflight');
-      return new Response(null, { status: 204, headers: corsHeaders() });
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
     // Health check endpoint: allow GET to return a simple status
     if (request.method === 'GET') {
-      return json({ status: 'ok', ts: new Date().toISOString(), note: 'llm-worker' }, 200);
+      return json({ status: 'ok', ts: new Date().toISOString(), note: 'llm-worker' }, 200, origin);
     }
     if (request.method !== 'POST') {
       log('method-not-allowed', request.method);
-      return new Response('Method Not Allowed', { status: 405, headers: corsHeaders() });
+      return new Response('Method Not Allowed', { status: 405, headers: corsHeaders(origin) });
+    }
+
+    // Rate limit using Cloudflare Rate Limiting binding configured in wrangler (MY_RATE_LIMITER).
+    // See https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+    try {
+      const limiter: any = (env as any).MY_RATE_LIMITER;
+      if (limiter && typeof limiter.limit === 'function') {
+        // Use client IP, falling back to pathname as key if missing.
+        const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('x-real-ip') || '';
+        const { pathname } = new URL(request.url);
+        const key = ip || pathname || 'anonymous';
+        const res = await limiter.limit({ key });
+        log('rl', { key, ...(res || {}) });
+        if (!res?.success) {
+          const extra: Record<string, string> = {};
+          if (res.limit != null) extra['X-RateLimit-Limit'] = String(res.limit);
+          if (res.remaining != null) extra['X-RateLimit-Remaining'] = String(res.remaining);
+          if (res.reset != null) extra['X-RateLimit-Reset'] = String(res.reset);
+          // Compute a Retry-After seconds hint for clients
+          const nowSec = Math.floor(Date.now() / 1000);
+          const retryAfterSec = res?.reset ? Math.max(1, Number(res.reset) - nowSec) : 60;
+          extra['Retry-After'] = String(retryAfterSec);
+          // Return a friendly, display-ready message along with a machine-readable code
+          return json(
+            {
+              error: 'rate_limited',
+              message: `Rate limit exceeded: max 20 requests per minute per IP. Try again in ${retryAfterSec}s.`,
+              retryAfterSeconds: retryAfterSec,
+            },
+            429,
+            origin,
+            extra,
+          );
+        }
+      }
+    } catch (e) {
+      log('rl-error', String(e));
     }
 
     let payload: ProcessRequest;
     try { payload = await request.json(); }
-    catch (e) { log('bad-json', String(e)); return json({ error: 'Invalid JSON' }, 400); }
+    catch (e) { log('bad-json', String(e)); return json({ error: 'Invalid JSON' }, 400, origin); }
 
     const rows = Array.isArray(payload.rows) ? payload.rows.map(String) : [];
     const promptTemplate = String(payload.promptTemplate || '').trim();
-    if (!rows.length || !promptTemplate) { log('bad-input', { rows: rows.length, promptTemplateLen: promptTemplate.length }); return json({ error: 'rows and promptTemplate are required' }, 400); }
+    if (!rows.length || !promptTemplate) { log('bad-input', { rows: rows.length, promptTemplateLen: promptTemplate.length }); return json({ error: 'rows and promptTemplate are required' }, 400, origin); }
 
     // Build messages for LLM
     const system = 'You extract structured values from text. Reply strictly as JSON. Preferred format: [{"input":"...","output":"...|null"}, ...] with one item per input row, preserving order. Alternate acceptable format: an object with numeric string keys ("1", "2", ...) mapping to outputs (string or null). No extra text.';
@@ -63,12 +101,12 @@ export default {
       const parsed = tryParseFlexible(result?.response, rows.length);
       if (parsed) {
         log('ok', { ms: Date.now() - t0, attempt, out: parsed.length });
-        return json({ results: alignResults(rows, parsed) }, 200);
+        return json({ results: alignResults(rows, parsed) }, 200, origin);
       }
       log('retry', { attempt, ms: Date.now() - t0, modelRespLen: (result?.response||'').length });
     }
     log('invalid-json', { ms: Date.now() - t0, resp: (result?.response||'').slice(0,256) });
-    return json({ error: 'LLM returned invalid JSON' }, 502);
+    return json({ error: 'LLM returned invalid JSON' }, 502, origin);
   },
 } satisfies ExportedHandler<Env>;
 
@@ -126,17 +164,23 @@ function alignResults(rows: string[], items: ProcessResultItem[]): ProcessResult
   return out;
 }
 
-function json(body: any, status = 200): Response {
+function json(body: any, status = 200, origin = '', extraHeaders?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders() },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...corsHeaders(origin), ...(extraHeaders || {}) },
   });
 }
 
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
+function corsHeaders(origin: string) {
+  const allowed = new Set<string>([
+    'https://extract-excel-app-llm-worker.sumtsui.workers.dev',
+    'https://extractfromexcel.com',
+  ]);
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-request-id, x-action, x-app',
-  } as Record<string, string>;
+    'Vary': 'Origin',
+  };
+  if (origin && allowed.has(origin)) headers['Access-Control-Allow-Origin'] = origin;
+  return headers;
 }
