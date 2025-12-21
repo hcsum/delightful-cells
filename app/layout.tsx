@@ -7,11 +7,11 @@ import ThemeToggle from '@/components/ThemeToggle'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Extract Data From CSV Columns (Excel)',
-    template: '%s',
+    default: 'Extract Data from Excel & CSV Columns with AI',
+    template: '%s | Extract from Excel & CSV',
   },
   description:
-    'Upload a CSV or paste rows and extract structured data from a specific column using predefined prompts. Preview results on the first 10 rows, then download up to 1,000 rows.',
+    'Extract structured data from Excel or CSV columns using AI. Define what to extract, preview results on the first 10 rows, then process and download up to 1,000 rows instantly.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
