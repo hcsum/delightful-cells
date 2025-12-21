@@ -1,14 +1,12 @@
 // Generic client for calling the Cloudflare Worker to process extractions.
 // The Worker is expected to implement POST {CF_URL}
-// with payload: { rows: string[], promptType: 'predefined'|'custom', promptTemplate: string }
+// with payload: { rows: string[], toBeExtracted: string, extractFrom: string }
 // and response: { results: { input: string, output: string|null }[] }
-
-export type PromptType = 'predefined' | 'custom';
 
 export type ProcessRequest = {
   rows: string[];
-  promptType: PromptType;
-  promptTemplate: string;
+  toBeExtracted: string;
+  extractFrom: string;
 };
 
 export type ProcessResultItem = { input: string; output: string | null };
@@ -19,8 +17,8 @@ export type ProcessResponse = {
 
 export async function processRows(
   rows: string[],
-  promptType: PromptType,
-  promptTemplate: string,
+  toBeExtracted: string,
+  extractFrom: string,
   batchSize = 10,
   signal?: AbortSignal,
   meta?: { action?: 'preview' | 'download' }
@@ -39,7 +37,7 @@ export async function processRows(
   for (let i = 0; i < rows.length; i += batchSize) {
     const t0 = nowMs();
     const chunk = rows.slice(i, i + batchSize);
-    const payload: ProcessRequest = { rows: chunk, promptType, promptTemplate };
+    const payload: ProcessRequest = { rows: chunk, toBeExtracted, extractFrom };
     let res: Response | null = null;
     try {
       res = await fetch(base, {

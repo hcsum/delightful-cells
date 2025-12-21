@@ -152,3 +152,28 @@ export const PROMPTS = {
   domainFromEmail: `From the following email address, extract the domain.\nIf not found, return null.`,
   usernameFromEmail: `From the following email address, extract the username (local-part before @).\nIf not found, return null.`,
 };
+
+export type PredefinedToolKind =
+  | "state"
+  | "city"
+  | "numbers"
+  | "text"
+  | "zip"
+  | "firstName"
+  | "lastName"
+  | "titleFromName"
+  | "domainFromEmail"
+  | "usernameFromEmail";
+
+export const PREDEFINED_EXTRACTION_MAP: Record<PredefinedToolKind, { toBeExtracted: string; extractFrom: string }> = {
+  state: { toBeExtracted: 'US state as a two-letter abbreviation', extractFrom: 'address' },
+  city: { toBeExtracted: 'city name', extractFrom: 'address' },
+  numbers: { toBeExtracted: 'all numbers', extractFrom: 'text' },
+  text: { toBeExtracted: 'text value of the cell if any meaningful text exists', extractFrom: 'cell' },
+  zip: { toBeExtracted: 'ZIP or postal code', extractFrom: 'address' },
+  firstName: { toBeExtracted: 'first name', extractFrom: 'full name' },
+  lastName: { toBeExtracted: 'last name (surname)', extractFrom: 'full name' },
+  titleFromName: { toBeExtracted: 'honorific or title (e.g., Mr, Ms, Dr, Prof)', extractFrom: 'name' },
+  domainFromEmail: { toBeExtracted: 'domain', extractFrom: 'email address' },
+  usernameFromEmail: { toBeExtracted: 'username (local-part before @)', extractFrom: 'email address' },
+};

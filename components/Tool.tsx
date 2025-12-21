@@ -10,6 +10,8 @@ export type ToolProps = {
   title?: string; // for display on the widget
   mode: "predefined" | "custom";
   promptTemplate: string; // display only (system prompt preview)
+  toBeExtracted: string; // what to extract (passed to worker)
+  extractFrom: string; // what to extract from (passed to worker)
   extractor: Extractor; // local preview extractor (placeholder for AI)
   outputLabel?: string; // base name for the appended column in downloads, e.g. "State"
   validatePrompt?: (ctx?: { headers?: string[]; action: 'preview' | 'download' }) => boolean; // optional validation for placeholders and header match
@@ -27,7 +29,7 @@ const HARD_LIMITS = {
 
 const PASTE_MAX_ROWS = 4; // including header
 
-export default function Tool({ title, mode, promptTemplate, extractor, outputLabel, validatePrompt, sourceHeader }: ToolProps) {
+export default function Tool({ title, mode, promptTemplate, toBeExtracted, extractFrom, extractor, outputLabel, validatePrompt, sourceHeader }: ToolProps) {
   // Paste flow state
   const [pasted, setPasted] = useState<string>("");
   const [pasteRows, setPasteRows] = useState<Row[]>([]);
@@ -174,7 +176,7 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
     }
     setPreviewLoading(true);
     setPreviewError(null);
-    processRows(inputs, mode, promptTemplate, 10, undefined, { action: 'preview' })
+    processRows(inputs, toBeExtracted, extractFrom, 10, undefined, { action: 'preview' })
       .then((res) => {
         setPreviewResults(res);
         setPreviewFailed(false);
@@ -221,7 +223,7 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
     // Use API response only; do not fallback to client extraction on failure
     let results: { input: string; output: string | null }[];
     try {
-      results = await processRows(inputs, mode, promptTemplate, 10, undefined, { action: 'download' });
+      results = await processRows(inputs, toBeExtracted, extractFrom, 10, undefined, { action: 'download' });
     } catch (e) {
       setDownloading(false);
       setDownloadFailed(true);

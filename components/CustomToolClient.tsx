@@ -75,6 +75,8 @@ export default function CustomToolClient() {
       <Tool
         mode="custom"
         promptTemplate={promptTemplate}
+        toBeExtracted={target || ''}
+        extractFrom={source || ''}
         extractor={extractor}
         outputLabel={target || 'Extracted'}
         validatePrompt={validatePrompt}

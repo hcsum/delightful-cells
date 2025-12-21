@@ -12,6 +12,7 @@ import {
   extractTitleFromName,
   extractDomainFromEmail,
   extractUsernameFromEmail,
+  PREDEFINED_EXTRACTION_MAP,
 } from "@/lib/extractors";
 import { useMemo } from "react";
 
@@ -88,5 +89,7 @@ export default function PredefinedToolClient({
     }
   }, [kind]);
 
-  return <Tool mode="predefined" promptTemplate={promptTemplate} extractor={extractor} outputLabel={outputLabel} />;
+  const extractionParams = PREDEFINED_EXTRACTION_MAP[kind];
+  
+  return <Tool mode="predefined" promptTemplate={promptTemplate} toBeExtracted={extractionParams.toBeExtracted} extractFrom={extractionParams.extractFrom} extractor={extractor} outputLabel={outputLabel} />;
 }

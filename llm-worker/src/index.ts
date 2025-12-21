@@ -10,8 +10,8 @@ export interface Env {
 
 type ProcessRequest = {
   rows: string[];
-  promptType: 'predefined' | 'custom';
-  promptTemplate: string;
+  toBeExtracted: string;
+  extractFrom: string;
 };
 
 type ProcessResultItem = { input: string; output: string | null };
@@ -79,8 +79,12 @@ export default {
     catch (e) { log('bad-json', String(e)); return json({ error: 'Invalid JSON' }, 400, origin); }
 
     const rows = Array.isArray(payload.rows) ? payload.rows.map(String) : [];
-    const promptTemplate = String(payload.promptTemplate || '').trim();
-    if (!rows.length || !promptTemplate) { log('bad-input', { rows: rows.length, promptTemplateLen: promptTemplate.length }); return json({ error: 'rows and promptTemplate are required' }, 400, origin); }
+    const toBeExtracted = String(payload.toBeExtracted || '').trim();
+    const extractFrom = String(payload.extractFrom || '').trim();
+    if (!rows.length || !toBeExtracted || !extractFrom) { log('bad-input', { rows: rows.length, toBeExtracted, extractFrom }); return json({ error: 'rows, toBeExtracted, and extractFrom are required' }, 400, origin); }
+
+    // Build promptTemplate from toBeExtracted and extractFrom
+    const promptTemplate = `From the following ${extractFrom} text, extract ${toBeExtracted}.\nIf not found, return null.`;
 
     // Build messages for LLM
     const system = 'You extract structured values from text. Reply strictly as JSON. Preferred format: [{"input":"...","output":"...|null"}, ...] with one item per input row, preserving order. Alternate acceptable format: an object with numeric string keys ("1", "2", ...) mapping to outputs (string or null). No extra text.';
