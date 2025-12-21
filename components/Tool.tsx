@@ -85,6 +85,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
 
   const handleFile = useCallback((file: File) => {
     setUploadError(null);
+    setDownloadFailed(false);
     const nameOK = file.name.toLowerCase().endsWith(".csv");
     const typeOK = !file.type || file.type.includes("csv");
     if (!(nameOK || typeOK)) {
@@ -106,15 +107,28 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
           .slice(0, HARD_LIMITS.maxRows)
           .map((r) => (Array.isArray(r) ? r.slice(0, HARD_LIMITS.maxCols) : []));
         const maxCols = sanitized.reduce((m, r) => Math.max(m, r.length), 0);
+        
+        // Validate headers - check if required column exists
+        if (sanitized.length > 0) {
+          const header = sanitized[0] || [];
+          const columnName = mode === 'custom' ? (sourceHeader || '') : extractFrom;
+          const idx = findColumnIndex(header, columnName);
+          if (idx < 0) {
+            setUploadError(`Column "${columnName}" not found in CSV headers. Available columns: ${header.join(', ') || '(none)'}`);
+            setUploadRows([]);
+            setUploadColumns(0);
+            return;
+          }
+        }
+        
         setUploadRows(sanitized);
         setUploadColumns(maxCols);
-        // Default source column is derived from header match in custom mode; otherwise first column.
       },
       error: (err) => {
         setUploadError(`Failed to parse CSV: ${err.message || String(err)}`);
       },
     });
-  }, []);
+  }, [mode, sourceHeader, extractFrom]);
 
   const loadPaste = useCallback(() => {
     setPasteError(null);
@@ -166,8 +180,15 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     const header = used[0] || [];
     const dataRows = used.slice(1);
     const sample = dataRows.slice(0, HARD_LIMITS.previewRows);
-    const idx = mode === 'custom' ? findColumnIndex(header, sourceHeader || '') : 0;
-    const inputs = idx < 0 ? [] : sample.map((r) => (r?.[idx] ?? "").toString());
+    const columnName = mode === 'custom' ? (sourceHeader || '') : extractFrom;
+    const idx = findColumnIndex(header, columnName);
+    if (idx < 0) {
+      setPasteError(`Column "${columnName}" not found in CSV headers. Available columns: ${header.join(', ') || '(none)'}`);
+      setPreviewResults([]);
+      setPreviewInputsSnap([]);
+      return;
+    }
+    const inputs = sample.map((r) => (r?.[idx] ?? "").toString());
     setPreviewInputsSnap(inputs);
     // Only run the worker when user clicks button; this handler is the click.
     if (inputs.length === 0) {
@@ -195,7 +216,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       .finally(() => {
         setPreviewLoading(false);
       });
-  }, [pasted, mode, sourceHeader, promptTemplate, validatePrompt]);
+  }, [pasted, mode, sourceHeader, extractFrom, promptTemplate, validatePrompt]);
 
   // Column selectors removed; keep counts for internal layout if needed.
 
@@ -217,8 +238,13 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     outRows.push([...header, finalLabel]);
 
     // Build inputs and call generic CF Worker function
-    const idx = mode === 'custom' ? findColumnIndex(header, sourceHeader || '') : 0;
-    if (idx < 0) { setDownloading(false); return; }
+    const columnName = mode === 'custom' ? (sourceHeader || '') : extractFrom;
+    const idx = findColumnIndex(header, columnName);
+    if (idx < 0) {
+      setDownloading(false);
+      setUploadError(`Column "${columnName}" not found in CSV headers. Available columns: ${header.join(', ') || '(none)'}`);
+      return;
+    }
     const inputs = uploadRows.slice(1).map((r) => (r?.[idx] ?? '').toString());
     // Use API response only; do not fallback to client extraction on failure
     let results: { input: string; output: string | null }[];
@@ -255,7 +281,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     }, 0);
     setDownloading(false);
     setDownloadFailed(false);
-  }, [uploadRows, extractor, outputLabel, promptTemplate, uploadedFileName, mode, validatePrompt, sourceHeader]);
+  }, [uploadRows, extractor, outputLabel, promptTemplate, uploadedFileName, mode, validatePrompt, sourceHeader, extractFrom]);
 
 function findColumnIndex(header: string[], name: string): number {
   if (!name) return -1;
@@ -356,7 +382,7 @@ function findColumnIndex(header: string[], name: string): number {
         <section className="space-y-3">
           <div className="flex items-center gap-3 pt-2">
             <button className="px-3 py-1 rounded bg-white/10 text-sm disabled:opacity-60" onClick={onDownload} disabled={downloading}>
-              {downloading ? 'Downloading…' : 'Download CSV'}
+              {downloading ? 'Processing…' : 'Process CSV'}
             </button>
             <span className="text-xs text-white/60">Download includes all original columns plus a new extracted column.</span>
           </div>

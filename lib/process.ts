@@ -1,7 +1,7 @@
-// Generic client for calling the Cloudflare Worker to process extractions.
-// The Worker is expected to implement POST {CF_URL}
-// with payload: { rows: string[], toBeExtracted: string, extractFrom: string }
-// and response: { results: { input: string, output: string|null }[] }
+// Generic client for calling the Next.js API route to process extractions.
+// The API route (/api/process) proxies requests to the Cloudflare Worker.
+// Expected payload: { rows: string[], toBeExtracted: string, extractFrom: string }
+// Expected response: { results: { input: string, output: string|null }[] }
 
 export type ProcessRequest = {
   rows: string[];
@@ -23,11 +23,8 @@ export async function processRows(
   signal?: AbortSignal,
   meta?: { action?: 'preview' | 'download' }
 ): Promise<ProcessResultItem[]> {
-  // Call LLM worker directly from the browser. Requires NEXT_PUBLIC_ URL at build time.
-  // Fallback to the server proxy if configured.
-  const base =
-    process.env.NEXT_PUBLIC_CF_WORKER_URL ||
-    '/api/process';
+  // Call Next.js API route which proxies to the Cloudflare Worker.
+  const base = '/api/process';
   const out: ProcessResultItem[] = [];
   const rid = genRequestId();
   const action = meta?.action ?? 'preview';
@@ -68,7 +65,7 @@ export async function processRows(
           errText = await res.text();
         }
       } catch {}
-      const msg = (errJson && (errJson.message || errJson.error)) || snippet(errText) || `Worker error ${res.status}`;
+      const msg = (errJson && (errJson.message || errJson.error)) || snippet(errText) || `API error ${res.status}`;
       // eslint-disable-next-line no-console
       console.warn('[processRows] non-OK', { rid, action, status: res.status, dt, msg });
       const e = new Error(String(msg));
@@ -88,7 +85,7 @@ export async function processRows(
     if (!json || !Array.isArray(json.results)) {
       // eslint-disable-next-line no-console
       console.error('[processRows] invalid response shape', { rid, action, json });
-      throw new Error('Invalid worker response');
+      throw new Error('Invalid API response');
     }
     // Preserve input order within each chunk
     out.push(...json.results.map((r) => ({ input: String(r.input ?? ''), output: r.output ?? null })));

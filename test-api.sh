@@ -15,12 +15,12 @@ curl -X POST "${BASE_URL}/api/process" \
   -H "x-app: excel-extract-column-app" \
   -d '{
     "rows": [
-      "John Doe",
-      "Jane Smith",
-      "Bob Johnson"
+      "123 Main St, New York, NY 10001",
+      "456 Oak Ave, Los Angeles, CA 90001",
+      "789 Pine Rd, Chicago, IL 60601"
     ],
-    "promptType": "custom",
-    "promptTemplate": "Extract the first name from each full name"
+    "toBeExtracted": "city name",
+    "extractFrom": "address"
   }' \
   -w "\n\nHTTP Status: %{http_code}\n" \
   -v
