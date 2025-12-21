@@ -50,7 +50,6 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [downloadFailed, setDownloadFailed] = useState(false);
   const [pasteInfo, setPasteInfo] = useState<string | null>(null);
 
   // Log the prompt in console (no UI display per requirement)
@@ -90,7 +89,6 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     setUploadRows([]);
     setUploadColumns(0);
     setUploadError(null);
-    setDownloadFailed(false);
     setUploadedFileName(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
@@ -253,7 +251,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     }
     if (!uploadRows.length) return;
     setDownloading(true);
-    setDownloadFailed(false);
+    setUploadError(null);
     // Assume first row is header for download construction.
     const header = uploadRows[0] ?? [];
     const desiredLabel = (outputLabel || inferDefaultLabelFromPrompt(promptTemplate)).trim() || 'Extracted';
@@ -277,7 +275,6 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       results = await processRows(inputs, toBeExtracted, extractFrom, 10, undefined, { action: 'download' });
     } catch (e) {
       setDownloading(false);
-      setDownloadFailed(true);
       const ee: any = e || {};
       const isRateLimited = ee?.status === 429 && (ee?.code === 'rate_limited' || /rate limit/i.test(String(ee?.message || '')));
       const msg = isRateLimited ? String(ee?.message || 'Rate limit exceeded. Please try again soon.') : 'Something went wrong. Please try again.';
@@ -305,7 +302,6 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       URL.revokeObjectURL(url);
     }, 0);
     setDownloading(false);
-    setDownloadFailed(false);
   }, [uploadRows, extractor, outputLabel, promptTemplate, uploadedFileName, mode, validatePrompt, sourceHeader, extractFrom]);
 
 function findColumnIndex(header: string[], name: string): number {
@@ -401,7 +397,7 @@ function findColumnIndex(header: string[], name: string): number {
         </div>
       </section>
 
-      {uploadError ? <p className="text-sm text-red-400">{uploadError}</p> : null}
+      {uploadError && uploadRows.length === 0 ? <p className="text-sm text-red-400">{uploadError}</p> : null}
 
       {(uploadRows.length > 0) && (
         <section className="space-y-3">
@@ -411,8 +407,8 @@ function findColumnIndex(header: string[], name: string): number {
             </button>
             <span className="text-xs text-white/60">Download includes all original columns plus a new extracted column.</span>
           </div>
-          {downloadFailed && (
-            <div className="text-sm text-red-400">Failed to process download via worker.</div>
+          {uploadError && uploadRows.length > 0 && (
+            <div className="text-sm text-red-400">{uploadError}</div>
           )}
       </section>
     )}
