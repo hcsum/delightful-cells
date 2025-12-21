@@ -7,8 +7,12 @@ compatibility_flags = ["nodejs_compat"]
 binding = "ASSETS"
 directory = ".open-next/assets"
 
+[observability]
+enabled = true
+
 [env.prod]
 workers_dev = true
   
 [env.prod.vars]
 NEXT_PUBLIC_CF_WORKER_URL = "https://extract-excel-app-llm-worker.sumtsui.workers.dev"
+

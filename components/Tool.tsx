@@ -1,7 +1,7 @@
 "use client";
 
 import Papa from "papaparse";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { processRows } from "@/lib/process";
 
 type Extractor = (input: string) => string | null;
@@ -46,8 +46,9 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
   const [previewInputsSnap, setPreviewInputsSnap] = useState<string[]>([]); // snapshot of inputs used for last preview run
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const previewAbortRef = useRef<AbortController | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadFailed, setDownloadFailed] = useState(false);
   const [pasteInfo, setPasteInfo] = useState<string | null>(null);
 
   // Log the prompt in console (no UI display per requirement)
@@ -66,10 +67,8 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
     setPasteInfo(null);
     setPreviewResults([]);
     setPreviewInputsSnap([]);
-    // Abort any in-flight preview request
-    try { previewAbortRef.current?.abort(); } catch {}
-    previewAbortRef.current = null;
     setPreviewError(null);
+    setPreviewFailed(false);
     setPreviewLoading(false);
   }, []);
 
@@ -77,6 +76,7 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
     setUploadRows([]);
     setUploadColumns(0);
     setUploadError(null);
+    setDownloadFailed(false);
     setUploadedFileName(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
@@ -119,6 +119,7 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
     // Clear previous preview immediately when user initiates a new run
     setPreviewResults([]);
     setPreviewError(null);
+    setPreviewFailed(false);
     // Trigger prompt validation even before parsing, so empty fields show errors below inputs.
     if (validatePrompt) {
       const ok0 = validatePrompt({ action: 'preview' });
@@ -171,31 +172,23 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
       setPreviewResults([]);
       return;
     }
-    // Abort a prior run and start a new one for this click
-    try { previewAbortRef.current?.abort(); } catch {}
-    const ctrl = new AbortController();
-    previewAbortRef.current = ctrl;
     setPreviewLoading(true);
     setPreviewError(null);
-    processRows(inputs, mode, promptTemplate, 10, ctrl.signal)
+    processRows(inputs, mode, promptTemplate, 10, undefined, { action: 'preview' })
       .then((res) => {
-        if (previewAbortRef.current === ctrl) {
-          setPreviewResults(res);
-        }
+        setPreviewResults(res);
+        setPreviewFailed(false);
       })
       .catch((e) => {
-        if (previewAbortRef.current === ctrl) {
-          if ((e as any)?.name === 'AbortError') {
-            // ignore
-          } else {
-            setPreviewError('Failed to process preview via worker.');
-          }
+        if ((e as any)?.name === 'AbortError') {
+          // ignore
+        } else {
+          setPreviewError('Failed to process preview via worker.');
+          setPreviewFailed(true);
         }
       })
       .finally(() => {
-        if (previewAbortRef.current === ctrl) {
-          setPreviewLoading(false);
-        }
+        setPreviewLoading(false);
       });
   }, [pasted, mode, sourceHeader, promptTemplate, validatePrompt]);
 
@@ -209,6 +202,7 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
     }
     if (!uploadRows.length) return;
     setDownloading(true);
+    setDownloadFailed(false);
     // Assume first row is header for download construction.
     const header = uploadRows[0] ?? [];
     const desiredLabel = (outputLabel || inferDefaultLabelFromPrompt(promptTemplate)).trim() || 'Extracted';
@@ -221,13 +215,15 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
     const idx = mode === 'custom' ? findColumnIndex(header, sourceHeader || '') : 0;
     if (idx < 0) { setDownloading(false); return; }
     const inputs = uploadRows.slice(1).map((r) => (r?.[idx] ?? '').toString());
-    let results: { input: string; output: string | null }[] = [];
+    // Use API response only; do not fallback to client extraction on failure
+    let results: { input: string; output: string | null }[];
     try {
-      // Use generic process function; predefined vs custom driven by prop
-      results = await processRows(inputs, mode, promptTemplate);
+      results = await processRows(inputs, mode, promptTemplate, 10, undefined, { action: 'download' });
     } catch (e) {
-      // Fallback to client extractor if worker fails
-      results = inputs.map((v) => ({ input: v, output: safeExtract(extractor, v) }));
+      setDownloading(false);
+      setDownloadFailed(true);
+      setUploadError('Failed to process download via worker.');
+      return;
     }
 
     for (let i = 0; i < results.length; i++) {
@@ -250,6 +246,7 @@ export default function Tool({ title, mode, promptTemplate, extractor, outputLab
       URL.revokeObjectURL(url);
     }, 0);
     setDownloading(false);
+    setDownloadFailed(false);
   }, [uploadRows, extractor, outputLabel, promptTemplate, uploadedFileName, mode, validatePrompt, sourceHeader]);
 
 function findColumnIndex(header: string[], name: string): number {
@@ -290,7 +287,7 @@ function findColumnIndex(header: string[], name: string): number {
               disabled={previewLoading}
             >
               {previewLoading ? <SpinnerIcon className="h-4 w-4" /> : null}
-              <span>Preview</span>
+              <span>{previewLoading ? '' : (previewFailed ? 'Retry' : 'Preview')}</span>
             </button>
             <button className="px-3 py-1 rounded bg-white/10" onClick={clearPaste}>Clear</button>
           </div>
@@ -355,6 +352,9 @@ function findColumnIndex(header: string[], name: string): number {
             </button>
             <span className="text-xs text-white/60">Download includes all original columns plus a new extracted column.</span>
           </div>
+          {downloadFailed && (
+            <div className="text-sm text-red-400">Failed to process download via worker.</div>
+          )}
       </section>
     )}
   </div>
