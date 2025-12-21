@@ -61,6 +61,18 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     }
   }, [promptTemplate, mode]);
 
+  // Clear error when fields become valid in custom mode
+  useEffect(() => {
+    if (mode === 'custom') {
+      const extractFromTrimmed = (extractFrom || '').trim();
+      const toBeExtractedTrimmed = (toBeExtracted || '').trim();
+      // If both fields are now filled and there's an error about missing fields, clear it
+      if (extractFromTrimmed && toBeExtractedTrimmed && uploadError?.includes("Please fill in both")) {
+        setUploadError(null);
+      }
+    }
+  }, [mode, extractFrom, toBeExtracted, uploadError]);
+
   const clearPaste = useCallback(() => {
     setPasteRows([]);
     setPasteColumns(0);
@@ -86,6 +98,19 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
   const handleFile = useCallback((file: File) => {
     setUploadError(null);
     setDownloadFailed(false);
+    
+    // In custom mode, require both extractFrom and toBeExtracted to be set
+    if (mode === 'custom') {
+      const extractFromTrimmed = (extractFrom || '').trim();
+      const toBeExtractedTrimmed = (toBeExtracted || '').trim();
+      if (!extractFromTrimmed || !toBeExtractedTrimmed) {
+        setUploadError("Please fill in both 'Extract' and 'from' fields before selecting a CSV file.");
+        // Clear file input so the same file can be selected again after filling fields
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+    }
+    
     const nameOK = file.name.toLowerCase().endsWith(".csv");
     const typeOK = !file.type || file.type.includes("csv");
     if (!(nameOK || typeOK)) {
@@ -128,7 +153,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
         setUploadError(`Failed to parse CSV: ${err.message || String(err)}`);
       },
     });
-  }, [mode, sourceHeader, extractFrom]);
+  }, [mode, sourceHeader, extractFrom, toBeExtracted]);
 
   const loadPaste = useCallback(() => {
     setPasteError(null);
