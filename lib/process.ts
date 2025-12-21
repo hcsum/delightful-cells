@@ -29,9 +29,6 @@ export async function processRows(
   // Fallback to the server proxy if configured.
   const base =
     process.env.NEXT_PUBLIC_CF_WORKER_URL ||
-    // optional alias if used
-    (process as any).env?.NEXT_PUBLIC_LLM_WORKER_URL ||
-    (process as any).env?.CF_LLM_WORKER_URL ||
     '/api/process';
   const out: ProcessResultItem[] = [];
   const rid = genRequestId();
