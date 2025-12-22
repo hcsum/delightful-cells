@@ -14,7 +14,6 @@ type ProcessRequest = {
   extractFrom: string;
 };
 
-type ProcessResultItem = { input: string; output: string | null };
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -83,90 +82,58 @@ export default {
     const extractFrom = String(payload.extractFrom || '').trim();
     if (!rows.length || !toBeExtracted || !extractFrom) { log('bad-input', { rows: rows.length, toBeExtracted, extractFrom }); return json({ error: 'rows, toBeExtracted, and extractFrom are required' }, 400, origin); }
 
-    // Build promptTemplate from toBeExtracted and extractFrom
-    const promptTemplate = `From the following ${extractFrom} text, extract ${toBeExtracted}.\nIf not found, return null.`;
+    // Construct prompts
 
-    // Build messages for LLM
-    const system = 'You extract structured values from text. Reply strictly as JSON. Preferred format: [{"input":"...","output":"...|null"}, ...] with one item per input row, preserving order. Alternate acceptable format: an object with numeric string keys ("1", "2", ...) mapping to outputs (string or null). No extra text.';
-    const user = buildUserPrompt(rows, promptTemplate);
-
-    // Call Workers AI with minimal retries for JSON validity
-    let result: any;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      // Use a small, fast model for extraction tasks
-      result = await env.AI.run('@cf/meta/llama-3.2-1b-instruct', {
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        max_tokens: 512,
-        temperature: 0.2,
-      });
-      const parsed = tryParseFlexible(result?.response, rows.length);
-      if (parsed) {
-        log('ok', { ms: Date.now() - t0, attempt, out: parsed.length });
-        return json({ results: alignResults(rows, parsed) }, 200, origin);
-      }
-      log('retry', { attempt, ms: Date.now() - t0, modelRespLen: (result?.response||'').length });
+    // Build messages for LLM using TOON format for both input and output.
+    // We use tab (\t) as delimiter to avoid quoting issues with commas.
+    const system = [
+      'You extract structured values from text. You will be given input data encoded in TOON (Token-Oriented Object Notation).',
+      'Respond ONLY with a single fenced code block labeled "toon" that contains valid TOON.',
+      'Output requirements:',
+      '- Header must be: results[N\t]{id\toutput}: where N equals the number of inputs.',
+      '- Use a tab (\\t) as delimiter and 2-space indentation for each row.',
+      '- Emit exactly one row per input id:  "  <id>\t<extracted-value>" or "  <id>\tnull" if not found.',
+      '- Do NOT echo the inputs block. No commentary before or after the code block.',
+    ].join(' ');
+    // Require caller-provided TOON input; do not fallback to building it here.
+    const toonInput = typeof (payload as any).toon === 'string' ? (payload as any).toon : '';
+    if (!toonInput.trim()) {
+      log('missing-toon', { rows: rows.length });
+      return json({ error: 'toon_required', message: 'TOON input is required in request body as "toon"' }, 400, origin);
     }
-    log('invalid-json', { ms: Date.now() - t0, resp: (result?.response||'').slice(0,256) });
-    return json({ error: 'LLM returned invalid JSON' }, 502, origin);
+    const user = [
+      'Data is in TOON format (tab-separated).',
+      '```toon',
+      toonInput,
+      '```',
+      `Task: For each input, extract ${toBeExtracted} from the ${extractFrom}.`,
+      'Return ONLY a single TOON code block. Use header: results[N\t]{id\toutput}: where N matches the input count. Emit exactly one row per id in ascending order. Set output to null when not found. Do NOT echo the inputs block.',
+      'Example output:',
+      '```toon',
+      'results[2\t]{id\toutput}:',
+      '  1\tSpringfield',
+      '  2\tnull',
+      '```',
+    ].join('\n');
+    // @cf/mistral/mistral-7b-instruct-v0.1
+    // @cf/meta/llama-3.2-3b-instruct
+    // @cf/meta/llama-3.1-8b-instruct-fp8-fast
+    const result = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      max_tokens: 512,
+      temperature: 0,
+    });
+    const text = String(result?.response || '');
+    log('ok', { ms: Date.now() - t0, bytes: text.length });
+    return new Response(text, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...corsHeaders(origin) },
+    });
   },
 } satisfies ExportedHandler<Env>;
-
-function buildUserPrompt(rows: string[], promptTemplate: string): string {
-  // Provide explicit JSON response format instructions and echo inputs by index.
-  const instructions = `Task: ${promptTemplate}\n\nRespond ONLY with JSON. Preferred: an array like [{"input":"original","output":"value or null"}] (one per input, in order). Alternate: an object like {"1":"value or null", "2":"value or null", ...}.`;
-  const lines = rows.map((r, i) => `#${i+1}: ${r}`);
-  return `${instructions}\n\nInputs by line:\n${lines.join('\n')}`;
-}
-
-function tryParseFlexible(raw: any, expected: number): ProcessResultItem[] | null {
-  if (!raw || typeof raw !== 'string') return null;
-  const tryJSON = (s: string): any | null => { try { return JSON.parse(s); } catch { return null; } };
-  let data = tryJSON(raw);
-  if (data == null) {
-    // attempt to extract a JSON-looking substring
-    const m = raw.match(/[\[{][\s\S]*[\]}]/);
-    if (m) data = tryJSON(m[0]);
-  }
-  if (data == null) return null;
-
-  // Case 1: preferred array shape
-  if (Array.isArray(data)) {
-    if (data.length === 0) return [];
-    // Elements may be objects with {input, output}, or strings/nulls
-    return data.map((x: any) => {
-      if (x && typeof x === 'object' && ('output' in x || 'input' in x)) {
-        return { input: String(x?.input ?? ''), output: (x?.output ?? null) } as ProcessResultItem;
-      }
-      // string or primitive -> treat as the output
-      return { input: '', output: x == null ? null : String(x) } as ProcessResultItem;
-    });
-  }
-
-  // Case 2: object mapping numeric keys to value
-  if (data && typeof data === 'object') {
-    const out: ProcessResultItem[] = [];
-    for (let i = 1; i <= expected; i++) {
-      const k = String(i);
-      const v = (data as any)[k];
-      out.push({ input: '', output: v == null ? null : String(v) });
-    }
-    return out;
-  }
-
-  return null;
-}
-
-function alignResults(rows: string[], items: ProcessResultItem[]): ProcessResultItem[] {
-  if (items.length === rows.length) return items;
-  const out: ProcessResultItem[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    out.push({ input: rows[i], output: items[i]?.output ?? null });
-  }
-  return out;
-}
 
 function json(body: any, status = 200, origin = '', extraHeaders?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {

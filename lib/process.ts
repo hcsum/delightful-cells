@@ -19,7 +19,7 @@ export async function processRows(
   rows: string[],
   toBeExtracted: string,
   extractFrom: string,
-  batchSize = 100,
+  batchSize: number,
   signal?: AbortSignal,
   meta?: { action?: 'preview' | 'download' }
 ): Promise<ProcessResultItem[]> {
@@ -36,6 +36,19 @@ export async function processRows(
     const chunk = rows.slice(i, i + batchSize);
     const payload: ProcessRequest = { rows: chunk, toBeExtracted, extractFrom };
     let res: Response | null = null;
+    // Log request body for debugging (truncated)
+    try {
+      const bodyStr = JSON.stringify(payload);
+      // eslint-disable-next-line no-console
+      console.debug('[processRows] request', {
+        rid,
+        action,
+        idx: i,
+        count: chunk.length,
+        bodyBytes: bodyStr.length,
+        bodyPreview: snippet(bodyStr, 1024),
+      });
+    } catch {}
     try {
       res = await fetch(base, {
         method: 'POST',
@@ -54,6 +67,21 @@ export async function processRows(
       throw e;
     }
     const dt = (nowMs() - t0).toFixed(0);
+    // Log response info and a truncated preview of the body
+    try {
+      const ct = res.headers.get('content-type') || '';
+      const respText = await res.clone().text();
+      // eslint-disable-next-line no-console
+      console.debug('[processRows] response', {
+        rid,
+        action,
+        idx: i,
+        status: res.status,
+        dt,
+        ct,
+        respPreview: snippet(respText, 1024),
+      });
+    } catch {}
     if (!res.ok) {
       let errText = '';
       let errJson: any = null;
@@ -67,7 +95,7 @@ export async function processRows(
       } catch {}
       const msg = (errJson && (errJson.message || errJson.error)) || snippet(errText) || `API error ${res.status}`;
       // eslint-disable-next-line no-console
-      console.warn('[processRows] non-OK', { rid, action, status: res.status, dt, msg });
+      console.warn('[processRows] non-OK', { rid, action, status: res.status, dt, msg, errJson, errText: snippet(errText, 1024) });
       const e = new Error(String(msg));
       (e as any).status = res.status;
       (e as any).code = errJson?.error;
