@@ -43,6 +43,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
   const uploadErrorRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [processError, setProcessError] = useState<string | null>(null);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -146,12 +147,14 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     setUploadRows([]);
     setUploadColumns(0);
     setUploadError(null);
+    setProcessError(null);
     setUploadedFileName(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
   const handleFile = useCallback((file: File) => {
     setUploadError(null);
+    setProcessError(null);
     
     // In custom mode, require both extractFrom and toBeExtracted to be set
     if (mode === 'custom') {
@@ -314,6 +317,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     if (!uploadRows.length) return;
     setDownloading(true);
     setUploadError(null);
+    setProcessError(null);
     // Assume first row is header for download construction.
     const header = uploadRows[0] ?? [];
     const desiredLabel = (outputLabel || inferDefaultLabelFromPrompt(promptTemplate)).trim() || 'Extracted';
@@ -340,7 +344,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       const ee: any = e || {};
       const isRateLimited = ee?.status === 429 && (ee?.code === 'rate_limited' || /rate limit/i.test(String(ee?.message || '')));
       const msg = isRateLimited ? String(ee?.message || 'Rate limit exceeded. Please try again soon.') : 'Something went wrong. Please try again.';
-      setUploadError(msg);
+      setProcessError(msg);
       return;
     }
 
@@ -466,11 +470,16 @@ function findColumnIndex(header: string[], name: string): number {
           {uploadError ? (
             <div className="text-sm text-red-400">{uploadError}</div>
           ) : canProcess ? (
-            <div className="flex items-center gap-3 pt-2">
-              <button className="px-3 py-1 rounded bg-white/10 text-sm disabled:opacity-60" onClick={onDownload} disabled={downloading}>
-                {downloading ? 'Processing…' : 'Process CSV'}
-              </button>
-              <span className="text-xs text-white/60">Download includes all original columns plus a new extracted column.</span>
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex items-center gap-3">
+                <button className="px-3 py-1 rounded bg-white/10 text-sm disabled:opacity-60" onClick={onDownload} disabled={downloading}>
+                  {downloading ? 'Processing…' : 'Process CSV'}
+                </button>
+                <span className="text-xs text-white/60">Download includes all original columns plus a new extracted column.</span>
+              </div>
+              {processError && (
+                <div className="text-sm text-red-400">{processError}</div>
+              )}
             </div>
           ) : null}
       </section>

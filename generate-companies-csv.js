@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const OUTPUT_FILE = path.join(__dirname, 'companies_1000.csv');
+const NUM_ROWS = 100;
+
+const OUTPUT_FILE = path.join(__dirname, 'test-data', `companies_${NUM_ROWS}.csv`);
 
 // 20 predefined (company, address) pairs
 const PREDEFINED_ROWS = [
@@ -35,7 +37,7 @@ function toCsvField(value) {
   return str;
 }
 
-function generateCsv(numRows = 1000, outputFile = OUTPUT_FILE) {
+function generateCsv(numRows = NUM_ROWS, outputFile = OUTPUT_FILE) {
   const header = ['company name', 'address'];
   const lines = [header.map(toCsvField).join(',')];
 
