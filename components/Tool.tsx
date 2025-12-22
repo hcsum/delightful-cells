@@ -211,6 +211,8 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
             return prevError;
           });
         }
+        // Allow re-selecting the same file name to trigger onChange again
+        if (fileInputRef.current) fileInputRef.current.value = "";
       },
       error: (err) => {
         setUploadError(`Failed to parse CSV: ${err.message || String(err)}`);
@@ -454,6 +456,7 @@ function findColumnIndex(header: string[], name: string): number {
             ref={fileInputRef}
             type="file"
             accept=".csv,text/csv"
+            onClick={(e) => { (e.currentTarget as HTMLInputElement).value = ""; }}
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) handleFile(f);
