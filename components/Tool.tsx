@@ -282,7 +282,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     }
     setPreviewLoading(true);
     setPreviewError(null);
-    processRows(inputs, toBeExtracted, extractFrom, 10, undefined, { action: 'preview' })
+    processRows(inputs, toBeExtracted, extractFrom, 100, undefined, { action: 'preview' })
       .then((res) => {
         setPreviewResults(res);
         setPreviewFailed(false);
@@ -334,7 +334,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     // Use API response only; do not fallback to client extraction on failure
     let results: { input: string; output: string | null }[];
     try {
-      results = await processRows(inputs, toBeExtracted, extractFrom, 10, undefined, { action: 'download' });
+      results = await processRows(inputs, toBeExtracted, extractFrom, 100, undefined, { action: 'download' });
     } catch (e) {
       setDownloading(false);
       const ee: any = e || {};

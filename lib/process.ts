@@ -19,7 +19,7 @@ export async function processRows(
   rows: string[],
   toBeExtracted: string,
   extractFrom: string,
-  batchSize = 10,
+  batchSize = 100,
   signal?: AbortSignal,
   meta?: { action?: 'preview' | 'download' }
 ): Promise<ProcessResultItem[]> {
