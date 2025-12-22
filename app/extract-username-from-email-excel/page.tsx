@@ -11,7 +11,7 @@ export default function Page() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Extract Username from Email</h1>
-      <p className="text-white/80 max-w-2xl text-muted">Extract the username (local-part before @) of email addresses from a column in your CSV. Preview a few sample rows to check the result, or skip preview and process the full file right away.</p>
+      <p className="text-white/80 max-w-2xl text-muted">Extract the username (local-part before @) of email addresses from a column in your Excel file. Preview a few sample rows to check the result, or skip preview and process the full file right away.</p>
       <PredefinedToolClient kind="usernameFromEmail" promptTemplate={PROMPTS.usernameFromEmail} />
     </div>
   )

@@ -1,24 +1,17 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Extract Data From CSV Columns (Excel)',
+  title: 'Extract Text from Cell (Excel)',
   description:
-    'Upload a CSV or paste rows to extract states, cities, numbers, or custom text from a selected column.',
+    'Use AI to extract text from a selected column in your Excel file. Preview sample rows before processing the full file, and get a downloadable result instantly. Extract specific data from one column, pull out states, cities, numbers, or other text you need.',
 };
 
 export default function HomePage() {
   return (
     <div className="space-y-8">
-      <section className="space-y-3">
-        <h1 className="text-2xl font-semibold">Extract Data From CSV Columns</h1>
-        <p className="text-white/80 max-w-2xl text-muted">
-          Extract specific data from one column in your CSV. Pull out states, cities, numbers, or other text you need.
-        </p>
-      </section>
-
       <section className="space-y-2">
-        <h2 className="text-xl font-semibold">Extract Text from Cell</h2>
-        <p className="text-white/80 text-muted">Use AI to extract text from a selected column in your Excel or CSV file. Preview sample rows before processing the full file, and get a downloadable result instantly.</p>
+        <h1 className="text-2xl font-semibold">Extract Text from Cell</h1>
+        <p className="text-white/80 text-muted">Use AI to extract text from a selected column in your Excel file. Preview sample rows before processing the full file, and get a downloadable result instantly. Extract specific data from one column, pull out states, cities, numbers, or other text you need.</p>
         <Link href="/extract-text-from-cell-excel" className="inline-block px-4 py-2 rounded bg-white/10 hover:bg-white/20">Open Tool</Link>
       </section>
 
