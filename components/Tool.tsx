@@ -22,8 +22,8 @@ type Row = string[];
 
 const HARD_LIMITS = {
   maxFileBytes: 2 * 1024 * 1024, // 2MB
-  maxRows: 1000,
-  maxCols: 20,
+  // Allow up to 100 data rows plus 1 header = 101 total
+  maxRows: 101,
   previewRows: 10,
 };
 
@@ -185,9 +185,10 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       dynamicTyping: false,
       complete: (res) => {
         const raw = (res.data as unknown as string[][]) || [];
+        // Limit total rows to 101 (100 data rows + 1 header). Do not limit columns.
         const sanitized = raw
           .slice(0, HARD_LIMITS.maxRows)
-          .map((r) => (Array.isArray(r) ? r.slice(0, HARD_LIMITS.maxCols) : []));
+          .map((r) => (Array.isArray(r) ? r : []));
         const maxCols = sanitized.reduce((m, r) => Math.max(m, r.length), 0);
         
         // Always set uploadRows so re-validation can run when column name changes
@@ -249,7 +250,8 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       setPasteError("No rows detected. Include a header row.");
       return;
     }
-    const sanitized = data.map((r) => (Array.isArray(r) ? r.slice(0, HARD_LIMITS.maxCols) : []));
+    // Do not limit columns when pasting; keep all cells in each row.
+    const sanitized = data.map((r) => (Array.isArray(r) ? r : []));
     const truncated = sanitized.length > PASTE_MAX_ROWS;
     const used = truncated ? sanitized.slice(0, PASTE_MAX_ROWS) : sanitized;
     const maxCols = used.reduce((m, r) => Math.max(m, r.length), 0);
@@ -462,7 +464,7 @@ function findColumnIndex(header: string[], name: string): number {
               if (f) handleFile(f);
             }}
           />
-          <p className="text-xs text-white/60">CSV only. Max size 2 MB. Up to 1,000 rows and 20 columns.</p>
+          <p className="text-xs text-white/60">CSV only. Max size 2 MB. Up to 100 data rows (+ 1 header).</p>
         </div>
       </section>
 
