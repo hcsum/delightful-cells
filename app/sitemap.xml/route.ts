@@ -13,6 +13,11 @@ export async function GET() {
       changefreq: 'weekly',
     },
     {
+      path: '/tutorial',
+      priority: '0.7',
+      changefreq: 'monthly',
+    },
+    {
       path: '/extract-text-from-cell-excel',
       priority: '0.9',
       changefreq: 'monthly',
@@ -91,4 +96,3 @@ ${routes
     },
   })
 }
-

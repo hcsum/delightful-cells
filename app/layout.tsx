@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   },
   description:
     'Extract structured data from Excel or CSV columns using AI. Define what to extract, preview results on the first 10 rows, then process and download up to 1,000 rows instantly.',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,8 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="border-b border-white/10">
           <div className="container flex items-center justify-between">
             <Link href="/" className="font-semibold text-muted">Excel CSV AI Extractor</Link>
-            <div className="flex items-center gap-4 text-sm text-white/70 text-muted">
+            <div className="flex items-center gap-4 md:gap-8 lg:gap-10 text-sm text-white/70 text-muted">
               <Link href="/extract-text-from-cell-excel" className="hover:underline">Extract Text from Cell</Link>
+              <Link href="/tutorial" className="hover:underline">Tutorial</Link>
               <ThemeToggle />
             </div>
           </div>
@@ -30,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="container pb-24">{children}</main>
         <footer className="container text-xs text-white/60 py-8 border-t border-white/10">
           <div className="flex flex-wrap items-center justify-end gap-4">
+            <Link href="/tutorial" className="underline hover:no-underline">Tutorial</Link>
             <Link href="/terms" className="underline hover:no-underline">Terms of Service</Link>
           </div>
         </footer>
