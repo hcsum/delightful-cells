@@ -5,11 +5,11 @@ import type { SVGProps } from 'react'
 export const metadata = {
   title: 'Extract Text from Excel Cell or Column',
   description:
-    'Extract specific text from a single Excel or CSV column using AI. Define what to extract, preview the first 3 rows, then download structured results. Ideal for pulling states, cities, names, numbers, or other fields from messy cells.',
+    'Extract specific text from a single Excel or CSV column using AI. Define what to extract, preview the first 3 rows, then download structured results. Ideal for pulling states, cities, names, numbers, or summarizing and classifying text from messy cells.',
   openGraph: {
     title: 'Extract Text from Excel Cell or Column',
     description:
-      'Extract specific text from a single Excel or CSV column using AI. Define what to extract, preview the first 3 rows, then download structured results.',
+      'Extract, classify, or summarize text from a single Excel or CSV column using AI. Preview results before downloading.',
     type: 'website',
     images: [
       {
@@ -24,7 +24,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Extract Text from Excel Cell or Column',
     description:
-      'Extract specific text from a single Excel or CSV column using AI. Preview results before downloading.',
+      'Extract, classify, or summarize text from a single Excel or CSV column using AI.',
     images: ['/hero-image.png'],
   },
   alternates: { canonical: '/' },
@@ -43,9 +43,10 @@ export default function HomePage() {
             </h1>
 
             <p className="text-white/80 max-w-xl">
-              Use AI to extract specific information from a single column in your Excel or CSV file.
-              Define what you want to extract, preview the first 3 rows, then download clean,
-              structured results in seconds.
+              Use AI to extract, classify, or summarize specific information from
+              a single column in your Excel or CSV file. Define what you want to
+              extract, preview the first 3 rows, then download clean, structured
+              results in seconds.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -76,6 +77,14 @@ export default function HomePage() {
                 <CheckIcon className="h-4 w-4" />
                 States, cities, numbers, emails, and more
               </li>
+              <li className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4" />
+                Classify text by meaning or category
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4" />
+                Summarize messy cells into short results
+              </li>
             </ul>
           </div>
 
@@ -101,6 +110,12 @@ export default function HomePage() {
         <h2 className="text-xl font-semibold">
           Popular Excel Text Extraction Use Cases
         </h2>
+
+        <p className="text-white/70 max-w-2xl">
+          In addition to extracting specific values, you can also classify text
+          into categories or summarize long, unstructured cells into concise,
+          meaningful outputs — all from a single Excel column.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card href="/extract-state-from-address-excel" title="Extract State from Address Column" />
