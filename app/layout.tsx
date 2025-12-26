@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import ThemeToggle from '@/components/ThemeToggle'
+import HeaderAuth from '@/components/HeaderAuth'
 
 // Use default runtime; OpenNext will generate the Worker wrapper
 
@@ -25,9 +26,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="container flex items-center justify-between">
             <Link href="/" className="font-semibold text-muted">Excel CSV AI Extractor</Link>
             <div className="flex items-center gap-4 md:gap-8 lg:gap-10 text-sm text-white/70 text-muted">
-              <Link href="/extract-text-from-cell-excel" className="hover:underline">Extract Text from Cell</Link>
+              <Link href="/extract-text-from-cell-excel" className="hidden md:inline hover:underline">Extract Text from Cell</Link>
               <Link href="/tutorial" className="hover:underline">Tutorial</Link>
               <ThemeToggle />
+              <HeaderAuth />
             </div>
           </div>
         </header>
