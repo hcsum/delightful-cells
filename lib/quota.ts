@@ -72,3 +72,48 @@ export async function checkAndConsumeQuota(userKey: string): Promise<boolean> {
   if (edge != null) return edge
   return checkAndConsumeQuotaMemory(userKey)
 }
+
+// Ensure we only count a single increment per logical request id (rid).
+// This makes counting robust even if the client batches the download into multiple API calls.
+export async function ensureSingleIncrement(userKey: string, rid: string): Promise<boolean> {
+  // 1) KV strategy
+  try {
+    const mod = await import('@opennextjs/cloudflare')
+    const ctx: any = mod.getCloudflareContext?.()
+    const kv: any = ctx?.env?.UPLOAD_QUOTA
+    if (kv && typeof kv.get === 'function' && typeof kv.put === 'function') {
+      const ridKey = `rid:${rid}`
+      const exists = await kv.get(ridKey)
+      if (exists) return true // already counted for this rid
+      const ok = await checkAndConsumeQuota(userKey)
+      if (!ok) return false
+      // Short TTL; enough to cover the in-flight batch window
+      await kv.put(ridKey, '1', { expirationTtl: 60 * 30 }) // 30 minutes
+      return true
+    }
+  } catch {}
+
+  // 2) Edge cache fallback
+  try {
+    const cachesAny: any = (globalThis as any).caches
+    const cache: any = cachesAny?.default
+    if (cache && typeof cache.match === 'function' && typeof cache.put === 'function') {
+      const req = new Request('https://quota.example/rid/' + encodeURIComponent(rid))
+      const hit = await cache.match(req)
+      if (hit) return true
+      const ok = await checkAndConsumeQuota(userKey)
+      if (!ok) return false
+      await cache.put(req, new Response('1', { headers: { 'Cache-Control': 'max-age=1800' } }))
+      return true
+    }
+  } catch {}
+
+  // 3) Memory fallback (dev only)
+  const g: any = globalThis as any
+  g.__quota_rid ||= new Set<string>()
+  if (g.__quota_rid.has(rid)) return true
+  const ok = await checkAndConsumeQuota(userKey)
+  if (!ok) return false
+  g.__quota_rid.add(rid)
+  return true
+}

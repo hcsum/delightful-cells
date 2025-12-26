@@ -52,7 +52,6 @@ export async function processRows(
     try {
       const extraHeaders: Record<string, string> = {};
       if (action === 'download' && i === 0) {
-        extraHeaders['x-quota-increment'] = '1';
         if (meta?.userKey) extraHeaders['x-user-key'] = String(meta.userKey).toLowerCase();
       }
       res = await fetch(base, {

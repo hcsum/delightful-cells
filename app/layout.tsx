@@ -6,7 +6,10 @@ import HeaderAuth from '@/components/HeaderAuth'
 
 // Use default runtime; OpenNext will generate the Worker wrapper
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+// Set absolute site URL based on NODE_ENV (no env var needed)
+const appUrl = process.env.NODE_ENV === 'production'
+  ? 'https://extractfromexcel.com'
+  : 'http://localhost:3000'
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),

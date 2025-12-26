@@ -1,5 +1,5 @@
 import { decode, encode } from '@toon-format/toon'
-import { DAILY_LIMIT, checkAndConsumeQuota } from '@/lib/quota'
+import { DAILY_LIMIT, ensureSingleIncrement } from '@/lib/quota'
 import { getLoggedInUserKeyFromRequest } from '@/lib/auth/session'
 
 export async function OPTIONS() {
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     // Get request headers to forward
     const requestId = request.headers.get('x-request-id') || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const action = request.headers.get('x-action') || 'preview';
-    const quotaInc = request.headers.get('x-quota-increment') === '1';
+    const rid = request.headers.get('x-request-id') || '';
     const userKeyHdr = request.headers.get('x-user-key');
     const app = request.headers.get('x-app') || 'excel-extract-column-app';
     const origin = request.headers.get('Origin') || request.headers.get('origin') || '';
@@ -87,13 +87,14 @@ export async function POST(request: Request) {
     } catch {}
 
     // If this is a download action and we got a quota increment header, enforce per-user daily quota.
-    if (quotaInc) {
+    if (action === 'download') {
       const userKey = (userKeyHdr && userKeyHdr.trim()) || await getLoggedInUserKeyFromRequest(request);
       if (!userKey) {
         console.error('[api/process] auth required', { rid: requestId, action });
         return new Response(JSON.stringify({ error: 'auth_required', message: 'Sign in required' }), { status: 401, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
       }
-      const ok = await checkAndConsumeQuota(userKey);
+      // Always increment by 1 per logical request; ensure it happens once per rid
+      const ok = await ensureSingleIncrement(userKey, requestId);
       if (!ok) {
         return new Response(JSON.stringify({ error: 'quota_exceeded', message: `Daily upload limit reached (${DAILY_LIMIT} per day)` }), { status: 429, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
       }
