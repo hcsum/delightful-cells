@@ -212,8 +212,10 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
             return prevError;
           });
         }
-        // Allow re-selecting the same file name to trigger onChange again
-        if (fileInputRef.current) fileInputRef.current.value = "";
+        // Do not clear the native file input here, so browsers keep showing the
+        // selected filename instead of reverting to "No file chosen". Re-selecting
+        // the same file is still supported via the onClick handler below which
+        // clears the input value right before opening the file dialog.
       },
       error: (err) => {
         setUploadError(`Failed to parse CSV: ${err.message || String(err)}`);
