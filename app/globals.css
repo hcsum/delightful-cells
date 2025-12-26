@@ -12,6 +12,8 @@
   --fg-80: rgba(229,231,235,0.8);
   --fg-60: rgba(229,231,235,0.6);
   --surface: rgba(255,255,255,0.06);
+  /* solid panel for dialogs/sheets in dark */
+  --panel-bg: #111214;
 }
 
 /* System preference when no explicit theme is set */
@@ -34,6 +36,8 @@
   --fg-80: rgba(17,24,39,0.8);
   --fg-60: rgba(17,24,39,0.6);
   --surface: rgba(0,0,0,0.05);
+  /* solid panel for dialogs/sheets in light */
+  --panel-bg: #ffffff;
 }
 
 :root[data-theme="dark"] {
@@ -43,6 +47,7 @@
   --fg-80: rgba(229,231,235,0.8);
   --fg-60: rgba(229,231,235,0.6);
   --surface: rgba(255,255,255,0.06);
+  --panel-bg: #111214;
 }
 
 html, body, #__next {

@@ -3,6 +3,8 @@
 import Papa from "papaparse";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { processRows } from "@/lib/process";
+import { useAuth } from "@/lib/auth/useAuth";
+import LoginPromptDialog from "@/components/LoginPromptDialog";
 
 type Extractor = (input: string) => string | null;
 
@@ -30,6 +32,8 @@ const HARD_LIMITS = {
 const PASTE_MAX_ROWS = 4; // including header
 
 export default function Tool({ title, mode, promptTemplate, toBeExtracted, extractFrom, extractor, outputLabel, validatePrompt, sourceHeader }: ToolProps) {
+  const { isAuthenticated, isLoading, signInWithGoogle } = useAuth();
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   // Paste flow state
   const [pasted, setPasted] = useState<string>("");
   const [pasteRows, setPasteRows] = useState<Row[]>([]);
@@ -153,6 +157,12 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
   }, []);
 
   const handleFile = useCallback((file: File) => {
+    // Gate upload behind auth; preview remains open
+    if (!isAuthenticated) {
+      setShowLoginPrompt(true);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setUploadError(null);
     setProcessError(null);
     
@@ -221,7 +231,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
         setUploadError(`Failed to parse CSV: ${err.message || String(err)}`);
       },
     });
-  }, [mode, sourceHeader, extractFrom, toBeExtracted]);
+  }, [mode, sourceHeader, extractFrom, toBeExtracted, isAuthenticated]);
 
   const loadPaste = useCallback(() => {
     setPasteError(null);
@@ -387,6 +397,7 @@ function findColumnIndex(header: string[], name: string): number {
 }
 
   return (
+    <>
     <div className="space-y-6">
       {/* Title prop intentionally removed from UI per request */}
 
@@ -467,6 +478,11 @@ function findColumnIndex(header: string[], name: string): number {
             }}
           />
           <p className="text-xs text-white/60">CSV only. Max size 2 MB. Up to 100 data rows (+ 1 header).</p>
+          {!isAuthenticated && (
+            <div className="text-xs text-white/70">
+              Tip: You can use the preview above without signing in. Upload requires sign in.
+            </div>
+          )}
         </div>
       </section>
 
@@ -492,6 +508,20 @@ function findColumnIndex(header: string[], name: string): number {
       </section>
     )}
   </div>
+  <LoginPromptDialog
+    open={showLoginPrompt}
+    onClose={() => setShowLoginPrompt(false)}
+    disabled={isLoading}
+    onSignIn={() => {
+      let cb = '/'
+      if (typeof window !== 'undefined') {
+        const { pathname, search } = window.location || { pathname: '/', search: '' }
+        cb = `${pathname || '/'}${search || ''}`
+      }
+      signInWithGoogle(cb)
+    }}
+  />
+  </>
   );
 }
 
