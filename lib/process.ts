@@ -21,7 +21,7 @@ export async function processRows(
   extractFrom: string,
   batchSize: number,
   signal?: AbortSignal,
-  meta?: { action?: 'preview' | 'download' }
+  meta?: { action?: 'preview' | 'download'; userKey?: string }
 ): Promise<ProcessResultItem[]> {
   // Call Next.js API route which proxies to the Cloudflare Worker.
   const base = '/api/process';
@@ -50,6 +50,11 @@ export async function processRows(
       });
     } catch {}
     try {
+      const extraHeaders: Record<string, string> = {};
+      if (action === 'download' && i === 0) {
+        extraHeaders['x-quota-increment'] = '1';
+        if (meta?.userKey) extraHeaders['x-user-key'] = String(meta.userKey).toLowerCase();
+      }
       res = await fetch(base, {
         method: 'POST',
         headers: {
@@ -57,6 +62,7 @@ export async function processRows(
           'x-request-id': rid,
           'x-action': action,
           'x-app': 'excel-extract-column-app',
+          ...extraHeaders,
         },
         body: JSON.stringify(payload),
         signal,

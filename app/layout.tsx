@@ -6,7 +6,10 @@ import HeaderAuth from '@/components/HeaderAuth'
 
 // Use default runtime; OpenNext will generate the Worker wrapper
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: {
     default: 'Extract Data from Excel & CSV Columns with AI',
     template: '%s | Extract from Excel & CSV',

@@ -22,6 +22,10 @@ function getAuthOptions(): BetterAuthOptions {
     secret,
     emailAndPassword: { enabled: false },
     socialProviders,
+    session: {
+      // Enable cookie cache so server routes can read user/session without DB calls
+      cookieCache: { enabled: true, maxAge: 60 * 5 }, // 5 minutes
+    },
     // Keep logs quiet by default
     logger: { disabled: true },
   } as BetterAuthOptions;

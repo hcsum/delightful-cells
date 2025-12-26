@@ -32,7 +32,7 @@ const HARD_LIMITS = {
 const PASTE_MAX_ROWS = 4; // including header
 
 export default function Tool({ title, mode, promptTemplate, toBeExtracted, extractFrom, extractor, outputLabel, validatePrompt, sourceHeader }: ToolProps) {
-  const { isAuthenticated, isLoading, signInWithGoogle } = useAuth();
+  const { isAuthenticated, isLoading, signInWithGoogle, user } = useAuth();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   // Paste flow state
   const [pasted, setPasted] = useState<string>("");
@@ -307,15 +307,10 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
         setPreviewFailed(false);
       })
       .catch((e) => {
-        if ((e as any)?.name === 'AbortError') {
-          // ignore
-        } else {
-          const ee: any = e || {};
-          const isRateLimited = ee?.status === 429 && (ee?.code === 'rate_limited' || /rate limit/i.test(String(ee?.message || '')));
-          const msg = isRateLimited ? String(ee?.message || 'Rate limit exceeded. Please try again soon.') : 'Something went wrong. Please try again.';
-          setPreviewError(msg);
-          setPreviewFailed(true);
-        }
+        if ((e as any)?.name === 'AbortError') return; // ignore cancels
+        const msg = String((e as any)?.message || 'Request failed');
+        setPreviewError(msg);
+        setPreviewFailed(true);
       })
       .finally(() => {
         setPreviewLoading(false);
@@ -354,12 +349,10 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     // Use API response only; do not fallback to client extraction on failure
     let results: { input: string; output: string | null }[];
     try {
-      results = await processRows(inputs, toBeExtracted, extractFrom, 50, undefined, { action: 'download' });
+      results = await processRows(inputs, toBeExtracted, extractFrom, 50, undefined, { action: 'download', userKey: user?.email || undefined });
     } catch (e) {
       setDownloading(false);
-      const ee: any = e || {};
-      const isRateLimited = ee?.status === 429 && (ee?.code === 'rate_limited' || /rate limit/i.test(String(ee?.message || '')));
-      const msg = isRateLimited ? String(ee?.message || 'Rate limit exceeded. Please try again soon.') : 'Something went wrong. Please try again.';
+      const msg = String((e as any)?.message || 'Request failed');
       setProcessError(msg);
       return;
     }

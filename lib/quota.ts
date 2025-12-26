@@ -1,0 +1,74 @@
+// Soft per-user daily quota using Cloudflare KV when available (no DB).
+// Falls back to edge cache or in-memory for local dev.
+
+import { secondsUntilNextUtcDay } from '@/lib/date'
+
+export const DAILY_LIMIT = 3
+
+// Try Cloudflare KV first
+async function checkAndConsumeQuotaKV(userKey: string): Promise<boolean | null> {
+  try {
+    // Access KV binding via OpenNext Cloudflare context if available
+    // Use dynamic import to avoid require() ESM issues in node scripts
+    const mod = await import('@opennextjs/cloudflare')
+    const ctx: any = mod.getCloudflareContext?.()
+    const kv: any = ctx?.env?.UPLOAD_QUOTA
+    if (!kv || typeof kv.get !== 'function' || typeof kv.put !== 'function') return null
+
+    const day = new Date().toISOString().slice(0, 10)
+    const key = `quota:${day}:${userKey}`
+
+    const curStr = await kv.get(key)
+    const cur = Number(curStr || '0') || 0
+    if (cur >= DAILY_LIMIT) return false
+    const next = String(cur + 1)
+    const ttl = secondsUntilNextUtcDay()
+    await kv.put(key, next, { expirationTtl: ttl })
+    return true
+  } catch {
+    return null
+  }
+}
+
+// Edge cache fallback (best effort)
+async function checkAndConsumeQuotaEdgeCache(userKey: string): Promise<boolean | null> {
+  try {
+    const cachesAny: any = (globalThis as any).caches
+    const cache: any = cachesAny?.default
+    if (!cache || typeof cache.match !== 'function' || typeof cache.put !== 'function') return null
+    const day = new Date().toISOString().slice(0, 10)
+    const key = `quota:${day}:${userKey}`
+    const req = new Request('https://quota.example/' + key)
+    const hit = await cache.match(req)
+    const cur = hit ? (Number(await hit.text()) || 0) : 0
+    if (cur >= DAILY_LIMIT) return false
+    await cache.put(req, new Response(String(cur + 1), { headers: { 'Cache-Control': `max-age=${secondsUntilNextUtcDay()}` } }))
+    return true
+  } catch {
+    return null
+  }
+}
+
+// In-memory last resort (dev only, per-process)
+function checkAndConsumeQuotaMemory(userKey: string): boolean {
+  const g: any = globalThis as any
+  g.__quota ||= new Map<string, { day: string; count: number }>()
+  const day = new Date().toISOString().slice(0, 10)
+  const rec = g.__quota.get(userKey)
+  if (!rec || rec.day !== day) {
+    g.__quota.set(userKey, { day, count: 1 })
+    return true
+  }
+  if (rec.count >= DAILY_LIMIT) return false
+  rec.count += 1
+  g.__quota.set(userKey, rec)
+  return true
+}
+
+export async function checkAndConsumeQuota(userKey: string): Promise<boolean> {
+  const kv = await checkAndConsumeQuotaKV(userKey)
+  if (kv != null) return kv
+  const edge = await checkAndConsumeQuotaEdgeCache(userKey)
+  if (edge != null) return edge
+  return checkAndConsumeQuotaMemory(userKey)
+}
