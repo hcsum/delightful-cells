@@ -1,7 +1,7 @@
 name = "extract-excel-app"
 main = ".open-next/worker.js"
 compatibility_date = "2025-03-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = [ "nodejs_compat" ]
 
 [assets]
 binding = "ASSETS"
@@ -12,8 +12,14 @@ enabled = true
 
 [env.prod]
 workers_dev = true
-  
-[env.prod.vars]
-LLM_WORKER_URL = "https://extract-excel-app-llm-worker.sumtsui.workers.dev"
-GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleusercontent.com"
 
+  [env.prod.vars]
+  LLM_WORKER_URL = "https://extract-excel-app-llm-worker.sumtsui.workers.dev"
+  GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleusercontent.com"
+
+  [[env.prod.kv_namespaces]]
+  binding = "UPLOAD_QUOTA"
+
+[[kv_namespaces]]
+binding = "UPLOAD_QUOTA"
+id = "ad6ac48ce9c241f191223837847d3b8a"
