@@ -13,12 +13,12 @@ enabled = true
 [env.prod]
 workers_dev = true
 
-  [env.prod.vars]
-  LLM_WORKER_URL = "https://extract-excel-app-llm-worker.sumtsui.workers.dev"
-  GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleusercontent.com"
+[env.prod.vars]
+LLM_WORKER_URL = "https://extract-excel-app-llm-worker.sumtsui.workers.dev"
+GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleusercontent.com"
 
-  [[env.prod.kv_namespaces]]
-  binding = "UPLOAD_QUOTA"
+[[env.prod.kv_namespaces]]
+binding = "UPLOAD_QUOTA"
 
 [[kv_namespaces]]
 binding = "UPLOAD_QUOTA"

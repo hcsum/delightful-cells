@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env prod",
+    "cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env prod",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview --env prod"
   },
   "dependencies": {

@@ -12,3 +12,6 @@ enabled = true
 name = "MY_RATE_LIMITER"
 namespace_id = "1001"
 simple = { limit = 10, period = 60 }
+
+[vars]
+# Shared secret to authorize requests from Next.js API.

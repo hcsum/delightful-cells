@@ -6,6 +6,7 @@ type ExportedHandler<TEnv = any> = {
 
 export interface Env {
   AI: Ai;
+  LLM_API_KEY?: string;
 }
 
 type ProcessRequest = {
@@ -71,6 +72,14 @@ export default {
       }
     } catch (e) {
       log('rl-error', String(e));
+    }
+
+    // Verify shared API key
+    const key = request.headers.get('x-api-key') || '';
+    const expected = (env as any).LLM_API_KEY || '';
+    if (!expected || key !== expected) {
+      // Return 401 with no body (unauthorized with no message)
+      return new Response('', { status: 401, headers: corsHeaders(origin) });
     }
 
     let payload: ProcessRequest;

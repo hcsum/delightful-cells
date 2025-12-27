@@ -27,8 +27,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  // Get worker URL from environment variable
+  // Get worker URL and shared API key from environment variables
   const workerUrl = process.env.LLM_WORKER_URL;
+  const apiKey = process.env.LLM_API_KEY || '';
   
   if (!workerUrl) {
     return new Response(
@@ -112,6 +113,7 @@ export async function POST(request: Request) {
         'x-request-id': requestId,
         'x-action': action,
         'x-app': app,
+        ...(apiKey ? { 'x-api-key': apiKey } : {}),
         ...(origin ? { 'Origin': origin } : {}),
       },
       body: JSON.stringify({ ...body, ...(toonForWorker ? { toon: toonForWorker } : {}) }),

@@ -6,6 +6,8 @@ node_modules
 
 .pnpm-store
 
-tsconfig.tsbuildinfo
-
 test-data/
+
+# TypeScript incremental build info (cache)
+tsconfig.tsbuildinfo
+*.tsbuildinfo
