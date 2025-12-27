@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { Route } from 'next'
 import Image from 'next/image'
 import type { SVGProps } from 'react'
 
@@ -138,7 +139,7 @@ function Card({
   href,
   title,
 }: {
-  href: string
+  href: Route
   title: string
 }) {
   return (
