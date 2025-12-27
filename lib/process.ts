@@ -51,9 +51,6 @@ export async function processRows(
     } catch {}
     try {
       const extraHeaders: Record<string, string> = {};
-      if (action === 'download' && i === 0) {
-        if (meta?.userKey) extraHeaders['x-user-key'] = String(meta.userKey).toLowerCase();
-      }
       res = await fetch(base, {
         method: 'POST',
         headers: {

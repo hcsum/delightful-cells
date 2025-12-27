@@ -14,7 +14,6 @@ export type ToolProps = {
   promptTemplate: string; // display only (system prompt preview)
   toBeExtracted: string; // what to extract (passed to worker)
   extractFrom: string; // what to extract from (passed to worker)
-  extractor: Extractor; // local preview extractor (placeholder for AI)
   outputLabel?: string; // base name for the appended column in downloads, e.g. "State"
   validatePrompt?: (ctx?: { headers?: string[]; action: 'preview' | 'download' }) => boolean; // optional validation for placeholders and header match
   sourceHeader?: string; // desired source column header from the "from" field
@@ -24,14 +23,13 @@ type Row = string[];
 
 const HARD_LIMITS = {
   maxFileBytes: 2 * 1024 * 1024, // 2MB
-  // Allow up to 100 data rows plus 1 header = 101 total
-  maxRows: 101,
+  // Keep preview small for responsiveness; no per-file row cap for uploads.
   previewRows: 10,
 };
 
 const PASTE_MAX_ROWS = 4; // including header
 
-export default function Tool({ title, mode, promptTemplate, toBeExtracted, extractFrom, extractor, outputLabel, validatePrompt, sourceHeader }: ToolProps) {
+export default function Tool({ title, mode, promptTemplate, toBeExtracted, extractFrom, outputLabel, validatePrompt, sourceHeader }: ToolProps) {
   const { isAuthenticated, isLoading, signInWithGoogle, user } = useAuth();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   // Paste flow state
@@ -86,6 +84,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [pasteInfo, setPasteInfo] = useState<string | null>(null);
 
   // Log the prompt in console (no UI display per requirement)
@@ -195,10 +194,8 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       dynamicTyping: false,
       complete: (res) => {
         const raw = (res.data as unknown as string[][]) || [];
-        // Limit total rows to 101 (100 data rows + 1 header). Do not limit columns.
-        const sanitized = raw
-          .slice(0, HARD_LIMITS.maxRows)
-          .map((r) => (Array.isArray(r) ? r : []));
+        // Do not limit rows on upload; server enforces daily row quota.
+        const sanitized = raw.map((r) => (Array.isArray(r) ? r : []));
         const maxCols = sanitized.reduce((m, r) => Math.max(m, r.length), 0);
         
         // Always set uploadRows so re-validation can run when column name changes
@@ -239,6 +236,11 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     setPreviewResults([]);
     setPreviewError(null);
     setPreviewFailed(false);
+    // Require sign-in for preview as well
+    if (!isAuthenticated) {
+      setShowLoginPrompt(true);
+      return;
+    }
     // Trigger prompt validation even before parsing, so empty fields show errors below inputs.
     if (validatePrompt) {
       const ok0 = validatePrompt({ action: 'preview' });
@@ -301,7 +303,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     }
     setPreviewLoading(true);
     setPreviewError(null);
-    processRows(inputs, toBeExtracted, extractFrom, 5, undefined, { action: 'preview' })
+    processRows(inputs, toBeExtracted, extractFrom, 5, undefined, { action: 'preview', userKey: user?.email || undefined })
       .then((res) => {
         setPreviewResults(res);
         setPreviewFailed(false);
@@ -327,6 +329,13 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     }
     if (!uploadRows.length) return;
     setDownloading(true);
+    try {
+      const header0 = uploadRows[0] ?? [];
+      const columnName0 = mode === 'custom' ? (sourceHeader || '') : extractFrom;
+      const idx0 = findColumnIndex(header0, columnName0);
+      const total = Math.max(0, uploadRows.length - 1);
+      if (idx0 >= 0 && total > 0) setPendingCount(total);
+    } catch { setPendingCount(null); }
     setUploadError(null);
     setProcessError(null);
     // Assume first row is header for download construction.
@@ -352,6 +361,7 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       results = await processRows(inputs, toBeExtracted, extractFrom, 50, undefined, { action: 'download', userKey: user?.email || undefined });
     } catch (e) {
       setDownloading(false);
+      setPendingCount(null);
       const msg = String((e as any)?.message || 'Request failed');
       setProcessError(msg);
       return;
@@ -377,7 +387,8 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       URL.revokeObjectURL(url);
     }, 0);
     setDownloading(false);
-  }, [uploadRows, extractor, outputLabel, promptTemplate, uploadedFileName, mode, validatePrompt, sourceHeader, extractFrom]);
+    setPendingCount(null);
+  }, [uploadRows, outputLabel, promptTemplate, uploadedFileName, mode, validatePrompt, sourceHeader, extractFrom]);
 
 function findColumnIndex(header: string[], name: string): number {
   if (!name) return -1;
@@ -470,12 +481,7 @@ function findColumnIndex(header: string[], name: string): number {
               if (f) handleFile(f);
             }}
           />
-          <p className="text-xs text-white/60">CSV only. Max size 2 MB. Up to 100 data rows (+ 1 header).</p>
-          {!isAuthenticated && (
-            <div className="text-xs text-white/70">
-              Tip: You can use the preview above without signing in. Upload requires sign in.
-            </div>
-          )}
+          <p className="text-xs text-white/60">CSV only. Max size 2 MB.</p>
         </div>
       </section>
 
@@ -488,11 +494,24 @@ function findColumnIndex(header: string[], name: string): number {
           ) : canProcess ? (
             <div className="flex flex-col gap-2 pt-2">
               <div className="flex items-center gap-3">
-                <button className="px-3 py-1 rounded bg-white/10 text-sm disabled:opacity-60" onClick={onDownload} disabled={downloading}>
-                  {downloading ? 'Processing…' : 'Process CSV'}
+                <button
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-white text-black font-semibold shadow-md hover:bg-white/90 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+                  onClick={onDownload}
+                  disabled={downloading}
+                >
+                  {downloading ? <SpinnerIcon className="h-4 w-4" /> : null}
+                  <span>{downloading ? 'Processing…' : 'Process CSV'}</span>
                 </button>
                 <span className="text-xs text-white/60">Download includes all original columns plus a new extracted column.</span>
               </div>
+              {downloading ? (
+                <div className="w-full space-y-1">
+                  <div className="h-1 w-full rounded bg-white/10 overflow-hidden">
+                    <div className="h-full w-full bg-gradient-to-r from-white/10 via-white/70 to-white/10 animate-pulse" />
+                  </div>
+                  <div className="text-xs text-white/60">{pendingCount != null ? `Processing ${pendingCount} rows…` : 'Processing…'}</div>
+                </div>
+              ) : null}
               {processError && (
                 <div className="text-sm text-red-400">{processError}</div>
               )}

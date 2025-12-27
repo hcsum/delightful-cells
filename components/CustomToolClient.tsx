@@ -1,7 +1,7 @@
 "use client";
 
 import Tool from "@/components/Tool";
-import { buildCustomExtractor } from "@/lib/extractors";
+import { useAuth } from "@/lib/auth/useAuth";
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 
@@ -10,9 +10,10 @@ type FormValues = {
   source: string;
 };
 
-export default function CustomToolClient() {
+export default function CustomToolClient({ initialTarget = "", initialSource = "" }: { initialTarget?: string; initialSource?: string }) {
+  const { isAuthenticated } = useAuth();
   const form = useForm<FormValues>({
-    defaultValues: { target: "", source: "" },
+    defaultValues: { target: initialTarget, source: initialSource },
     mode: 'onSubmit',
     reValidateMode: 'onSubmit',
   });
@@ -22,11 +23,9 @@ export default function CustomToolClient() {
   const source = watch('source');
 
   const promptTemplate = useMemo(() => {
-    if (!target || !source) return "";
+    if (!target || !source) return '';
     return `From the following ${source} text, extract ${target}.\nIf not found, return null.`;
   }, [target, source]);
-
-  const extractor = useMemo(() => buildCustomExtractor(target, source), [target, source]);
 
   const validatePrompt = (ctx?: { headers?: string[]; action: 'preview'|'download' }) => {
     const { target: tgtRaw, source: srcRaw } = getValues();
@@ -52,32 +51,33 @@ export default function CustomToolClient() {
 
   return (
     <>
-      <section className="space-y-2">
-        <div className="flex flex-wrap gap-3 items-center">
-          <label className="text-sm">Extract</label>
-          <input
-            {...register('target')}
-            className="bg-transparent border border-white/10 rounded p-1 text-sm"
-            placeholder="TARGET (e.g., state, SKU, email)"
-          />
-          <label className="text-sm">From</label>
-          <input
-            {...register('source')}
-            className="bg-transparent border border-white/10 rounded p-1 text-sm"
-            placeholder="SOURCE (e.g., address, text, description)"
-          />
-        </div>
-        {errors.target?.message || errors.source?.message ? (
-          <p className="text-sm text-red-400">{errors.source?.message || errors.target?.message}</p>
-        ) : null}
-      </section>
+      {isAuthenticated && (
+        <section className="space-y-2">
+          <div className="flex flex-wrap gap-3 items-center">
+            <label className="text-sm">Extract</label>
+            <input
+              {...register('target')}
+              className="bg-transparent border border-white/10 rounded p-1 text-sm"
+              placeholder="TARGET (e.g., state, SKU, email)"
+            />
+            <label className="text-sm">From</label>
+            <input
+              {...register('source')}
+              className="bg-transparent border border-white/10 rounded p-1 text-sm"
+              placeholder="SOURCE (e.g., address, text, description)"
+            />
+          </div>
+          {errors.target?.message || errors.source?.message ? (
+            <p className="text-sm text-red-400">{errors.source?.message || errors.target?.message}</p>
+          ) : null}
+        </section>
+      )}
 
       <Tool
         mode="custom"
         promptTemplate={promptTemplate}
         toBeExtracted={target || ''}
         extractFrom={source || ''}
-        extractor={extractor}
         outputLabel={target || 'Extracted'}
         validatePrompt={validatePrompt}
         sourceHeader={source}

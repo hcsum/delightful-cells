@@ -1,5 +1,6 @@
 import { decode, encode } from '@toon-format/toon'
-import { DAILY_LIMIT, ensureSingleIncrement } from '@/lib/quota'
+import { addRowsToDailyQuota, getRowsUsedToday } from '@/lib/quota'
+import { DAILY_ROWS_LIMIT } from '@/lib/limits'
 import { getLoggedInUserKeyFromRequest } from '@/lib/auth/session'
 
 export async function OPTIONS() {
@@ -50,7 +51,6 @@ export async function POST(request: Request) {
     const requestId = request.headers.get('x-request-id') || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const action = request.headers.get('x-action') || 'preview';
     const rid = request.headers.get('x-request-id') || '';
-    const userKeyHdr = request.headers.get('x-user-key');
     const app = request.headers.get('x-app') || 'excel-extract-column-app';
     const origin = request.headers.get('Origin') || request.headers.get('origin') || '';
     const t0 = Date.now();
@@ -86,18 +86,22 @@ export async function POST(request: Request) {
       if (rowsArr.length) toonForWorker = encode({ inputs: rowsArr }, { delimiter: '\t' });
     } catch {}
 
-    // If this is a download action and we got a quota increment header, enforce per-user daily quota.
-    if (action === 'download') {
-      const userKey = (userKeyHdr && userKeyHdr.trim()) || await getLoggedInUserKeyFromRequest(request);
-      if (!userKey) {
-        console.error('[api/process] auth required', { rid: requestId, action });
-        return new Response(JSON.stringify({ error: 'auth_required', message: 'Sign in required' }), { status: 401, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
-      }
-      // Always increment by 1 per logical request; ensure it happens once per rid
-      const ok = await ensureSingleIncrement(userKey, requestId);
-      if (!ok) {
-        return new Response(JSON.stringify({ error: 'quota_exceeded', message: `Daily upload limit reached (${DAILY_LIMIT} per day)` }), { status: 429, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
-      }
+    // Enforce per-user daily quota measured in rows for ALL actions.
+    // Require sign-in and count the actual rows we are about to process.
+    const rowsCount = Array.isArray((body as any)?.rows) ? (body as any).rows.length : 0;
+    const userKey = await getLoggedInUserKeyFromRequest(request);
+    if (!userKey) {
+      console.error('[api/process] auth required', { rid: requestId, action });
+      return new Response(JSON.stringify({ error: 'auth_required', message: 'Sign in required' }), { status: 401, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+    }
+    // Pre-check remaining quota before contacting the worker (optimistic; do not mutate state yet)
+    if (rowsCount > 0) {
+      try {
+        const used = await getRowsUsedToday(userKey);
+        if (used + rowsCount > DAILY_ROWS_LIMIT) {
+          return new Response(JSON.stringify({ error: 'quota_exceeded', message: `Daily row limit reached (${DAILY_ROWS_LIMIT} rows per day)` }), { status: 429, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+        }
+      } catch {}
     }
 
     // Forward request to LLM worker (include pre-encoded TOON)
@@ -129,8 +133,14 @@ export async function POST(request: Request) {
         respPreview: responseBody.slice(0, 1024),
       });
     } catch {}
-    // If worker responded OK, extract the results TOON block (if the model echoed inputs) and decode (strict)
+    // If worker responded OK, now charge quota and then extract results
     if (workerResponse.ok) {
+      if (rowsCount > 0) {
+        const ok2 = await addRowsToDailyQuota(userKey, rowsCount);
+        if (!ok2) {
+          return new Response(JSON.stringify({ error: 'quota_exceeded', message: `Daily row limit reached (${DAILY_ROWS_LIMIT} rows per day)` }), { status: 429, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+        }
+      }
       const expected = Array.isArray(body?.rows) ? body.rows.length : 0;
       let decoded: any = null;
       try {

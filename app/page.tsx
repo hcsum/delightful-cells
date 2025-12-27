@@ -126,6 +126,8 @@ export default function HomePage() {
           <Card href="/extract-title-from-name-excel" title="Extract Title (Mr, Ms, Dr) from Name" />
           <Card href="/extract-domain-from-email-excel" title="Extract Domain from Email Address" />
           <Card href="/extract-username-from-email-excel" title="Extract Username from Email Address" />
+          <Card href="/excel-extract-number-from-string" title="Excel: Extract Number from String" />
+          <Card href="/excel-extract-year-from-date" title="Excel: Extract Year from Date" />
         </div>
       </section>
     </div>
@@ -136,15 +138,7 @@ function Card({
   href,
   title,
 }: {
-  href:
-    | '/extract-state-from-address-excel'
-    | '/extract-city-from-address-excel'
-    | '/extract-zip-from-address-excel'
-    | '/extract-first-name-from-full-name-excel'
-    | '/extract-last-name-from-full-name-excel'
-    | '/extract-title-from-name-excel'
-    | '/extract-domain-from-email-excel'
-    | '/extract-username-from-email-excel'
+  href: string
   title: string
 }) {
   return (

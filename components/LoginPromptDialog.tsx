@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { DAILY_ROWS_LIMIT } from '@/lib/limits'
 
 export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }: { open: boolean; onClose: () => void; onSignIn: () => void; disabled?: boolean }) {
 
@@ -24,12 +25,12 @@ export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }:
             <h3 className="text-base font-semibold">Sign in Required</h3>
         </div>
         <div className="p-4 space-y-2 text-sm text-white/80">
-          <p>Uploading and processing full CSV files requires a quick sign in.</p>
-          <p className="text-white/60">You can still use the preview above without signing in.</p>
+          <p>Preview and upload require a quick sign in.</p>
+          <p className="text-white/60">Your usage counts toward your daily {DAILY_ROWS_LIMIT}-row quota.</p>
         </div>
         <div className="p-4 border-t border-white/10 flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-1 rounded border border-white/10 hover:bg-white/10 text-xs">Cancel</button>
-          <button type="button" onClick={onSignInClick} disabled={disabled} className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white/90 text-black hover:bg-white disabled:opacity-60">
+          <button type="button" onClick={onSignInClick} disabled={disabled} className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white/90 text-black hover:bg-white border border-black/30 dark:border-white/20 disabled:opacity-60">
             <GoogleIcon />
             <span className="text-xs font-medium">Sign in with Google</span>
           </button>

@@ -162,7 +162,11 @@ bob@company.co.uk
 
         {/* Example C */}
         <article className="space-y-3">
-          <h3 className="text-lg font-medium">Example C - Extract numbers from a messy text column</h3>
+          <h3 className="text-lg font-medium">Example C - Excel extract number from string</h3>
+          <p className="text-white/80 max-w-3xl">
+            This example mirrors the excel extract number from string task: given mixed text, pull all digits and decimals from a single column.
+            For a focused walkthrough, see our dedicated page: <Link href="/excel-extract-number-from-string" className="underline hover:no-underline">excel extract number from string</Link>.
+          </p>
           <div>
             <div className="text-sm text-white/70">CSV input</div>
             <pre className="mt-1 rounded border border-white/10 bg-white/5 p-3 overflow-auto text-sm"><code>{`text
