@@ -409,9 +409,16 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
     // Use API response only; do not fallback to client extraction on failure
     let results: { input: string; output: string | null }[];
     try {
-      // Use a single request when possible to minimize race windows. Batch size = inputs.length.
-      const batchSize = Math.max(1, inputs.length);
-      results = await processRows(inputs, toBeExtracted, extractFrom, batchSize, undefined, { action: 'download', userKey: user?.email || undefined });
+      // Chunk download requests to avoid LLM token limits per invocation.
+      // 50 is a safe default across models; increase carefully if your model supports larger outputs.
+      const batchSize = 50;
+      results = await processRows(inputs, toBeExtracted, extractFrom, batchSize, undefined, {
+        action: 'download',
+        userKey: user?.email || undefined,
+        onProgress: (completed, total) => {
+          setPendingCount(total - completed);
+        },
+      });
     } catch (e) {
       setDownloading(false);
       setPendingCount(null);

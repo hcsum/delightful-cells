@@ -15,13 +15,15 @@ export type ProcessResponse = {
   results: ProcessResultItem[];
 };
 
+type ProcessMeta = { action?: 'preview' | 'download'; userKey?: string; onProgress?: (completed: number, total: number) => void };
+
 export async function processRows(
   rows: string[],
   toBeExtracted: string,
   extractFrom: string,
   batchSize: number,
   signal?: AbortSignal,
-  meta?: { action?: 'preview' | 'download'; userKey?: string }
+  meta?: ProcessMeta
 ): Promise<ProcessResultItem[]> {
   // Call Next.js API route which proxies to the Cloudflare Worker.
   const base = '/api/process';
@@ -119,6 +121,7 @@ export async function processRows(
     }
     // Preserve input order within each chunk
     out.push(...json.results.map((r) => ({ input: String(r.input ?? ''), output: r.output ?? null })));
+    try { meta?.onProgress?.(out.length, rows.length); } catch {}
     // eslint-disable-next-line no-console
     console.debug('[processRows] batch ok', { rid, action, idx: i, count: chunk.length, dt });
   }

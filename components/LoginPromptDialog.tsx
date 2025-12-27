@@ -25,7 +25,7 @@ export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }:
             <h3 className="text-base font-semibold">Please Sign In</h3>
         </div>
         <div className="p-4">
-          <button type="button" onClick={onSignInClick} disabled={disabled} className="inline-flex items-center gap-2 px-3 py-1 rounded border-[1px] border-neutral-600">
+          <button type="button" onClick={onSignInClick} disabled={disabled} className="inline-flex items-center gap-2 px-3 py-1 rounded border-[1px] border-neutral-600/50">
             <GoogleIcon />
             <span className="text-xs font-medium">Sign in with Google</span>
           </button>

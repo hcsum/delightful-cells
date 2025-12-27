@@ -132,7 +132,7 @@ export default {
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
-      max_tokens: 512,
+      max_tokens: 2048,
       temperature: 0,
     });
     const text = String(result?.response || '');
