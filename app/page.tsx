@@ -53,7 +53,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
                 href="/extract-text-from-cell-excel"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded hover:bg-white/20 border border-white/10"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded font-medium bg-white text-black hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-black/10 border border-transparent"
               >
                 <span>Open Tool</span>
                 <ArrowIcon className="h-4 w-4" />

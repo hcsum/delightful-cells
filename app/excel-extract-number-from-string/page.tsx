@@ -1,6 +1,7 @@
 import CustomToolClient from '@/components/CustomToolClient'
 import SignInButton from '@/components/SignInButton'
 import { DAILY_ROWS_LIMIT } from '@/lib/limits'
+import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -30,10 +31,14 @@ export default function Page() {
       <p className="text-white/80 max-w-2xl text-muted">
         Pull numeric values from a text column in your Excel or CSV file — great for prices, IDs, SKUs, postal codes, or any digits embedded in strings. Paste a few rows to preview, then upload and process the full file.
       </p>
-      <p className="text-white/60 max-w-2xl text-sm">Note: Daily usage is temporarily limited to {DAILY_ROWS_LIMIT} rows per account.</p>
-      <SignInButton />
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <SignInButton />
+          <QuotaBanner />
+        </div>
+        <p className="text-white/60 max-w-2xl text-sm">Note: Daily usage is temporarily limited to {DAILY_ROWS_LIMIT} rows per account.</p>
+      </div>
       <CustomToolClient />
     </div>
   )
 }
-

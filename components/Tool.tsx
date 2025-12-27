@@ -334,7 +334,53 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       const columnName0 = mode === 'custom' ? (sourceHeader || '') : extractFrom;
       const idx0 = findColumnIndex(header0, columnName0);
       const total = Math.max(0, uploadRows.length - 1);
-      if (idx0 >= 0 && total > 0) setPendingCount(total);
+
+      // Pre-check user quota and decide how many rows we can process in this run.
+      // Use a local variable to avoid relying on async state updates.
+      let allowedRows = total;
+      try {
+        const qRes = await fetch('/api/quota', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requested: total }),
+        });
+        if (qRes.status === 401) {
+          // Session missing/expired
+          setShowLoginPrompt(true);
+          setDownloading(false);
+          setPendingCount(null);
+          return;
+        }
+        if (qRes.ok) {
+          const q = await qRes.json().catch(() => null as any);
+          const remaining = Number(q?.remaining ?? 0) || 0;
+          const requested = Number(q?.requested ?? total) || total;
+          const calcAllowed = Math.max(0, Math.min(remaining, requested));
+          if (Number.isFinite(calcAllowed)) allowedRows = calcAllowed;
+          if (allowedRows === 0) {
+            setProcessError(`Daily row limit reached. Try again tomorrow.`);
+            setDownloading(false);
+            setPendingCount(null);
+            return;
+          }
+          if (allowedRows < total) {
+            const ok = window.confirm(`You have ${remaining} rows remaining today, but this file has ${total} rows. Process the first ${allowedRows} rows now?`);
+            if (!ok) {
+              setDownloading(false);
+              setPendingCount(null);
+              return;
+            }
+          }
+        }
+      } catch {
+        // If quota check fails, continue; server will enforce
+      }
+
+      if (idx0 >= 0 && total > 0) setPendingCount(allowedRows);
+
+      // Stash allowedRows on a ref-like local by reassigning total in this scope for later use
+      // by the inputs slicing below through closure capture.
+      (window as any).__allowedRowsTmp = allowedRows; // not used elsewhere; just for clarity during debugging
     } catch { setPendingCount(null); }
     setUploadError(null);
     setProcessError(null);
@@ -354,11 +400,18 @@ export default function Tool({ title, mode, promptTemplate, toBeExtracted, extra
       setUploadError(`Column "${columnName}" not found in CSV headers. Available columns: ${header.join(', ') || '(none)'}`);
       return;
     }
-    const inputs = uploadRows.slice(1).map((r) => (r?.[idx] ?? '').toString());
+    const inputsAll = uploadRows.slice(1).map((r) => (r?.[idx] ?? '').toString());
+    // Only process as many rows as allowed by quota pre-check. Do not rely on pendingCount (async state).
+    // Recompute allowed synchronously using a safe bound: pendingCount if set, else total length.
+    let allowedNow = typeof (window as any).__allowedRowsTmp === 'number' ? Number((window as any).__allowedRowsTmp) : undefined;
+    if (!Number.isFinite(allowedNow)) allowedNow = Number(pendingCount ?? inputsAll.length);
+    const inputs = Array.isArray(inputsAll) ? inputsAll.slice(0, Math.max(0, Math.min(inputsAll.length, Number(allowedNow)))) : [];
     // Use API response only; do not fallback to client extraction on failure
     let results: { input: string; output: string | null }[];
     try {
-      results = await processRows(inputs, toBeExtracted, extractFrom, 50, undefined, { action: 'download', userKey: user?.email || undefined });
+      // Use a single request when possible to minimize race windows. Batch size = inputs.length.
+      const batchSize = Math.max(1, inputs.length);
+      results = await processRows(inputs, toBeExtracted, extractFrom, batchSize, undefined, { action: 'download', userKey: user?.email || undefined });
     } catch (e) {
       setDownloading(false);
       setPendingCount(null);

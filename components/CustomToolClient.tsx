@@ -52,18 +52,18 @@ export default function CustomToolClient({ initialTarget = "", initialSource = "
   return (
     <>
       {isAuthenticated && (
-        <section className="space-y-2">
-          <div className="flex flex-wrap gap-3 items-center">
-            <label className="text-sm">Extract</label>
+        <section className="space-y-2 mt-4 md:mt-6">
+          <div className="flex flex-wrap gap-3 md:gap-4 items-center">
+            <label className="text-base md:text-lg font-medium">Extract</label>
             <input
               {...register('target')}
-              className="bg-transparent border border-white/10 rounded p-1 text-sm"
+              className="bg-transparent border border-white/10 rounded px-3 py-2 text-base md:text-lg"
               placeholder="TARGET (e.g., state, SKU, email)"
             />
-            <label className="text-sm">From</label>
+            <label className="text-base md:text-lg font-medium">From</label>
             <input
               {...register('source')}
-              className="bg-transparent border border-white/10 rounded p-1 text-sm"
+              className="bg-transparent border border-white/10 rounded px-3 py-2 text-base md:text-lg"
               placeholder="SOURCE (e.g., address, text, description)"
             />
           </div>
