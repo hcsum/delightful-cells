@@ -8,6 +8,8 @@ node_modules
 
 test-data/
 
+.DS_Store
+
 # TypeScript incremental build info (cache)
 tsconfig.tsbuildinfo
 *.tsbuildinfo

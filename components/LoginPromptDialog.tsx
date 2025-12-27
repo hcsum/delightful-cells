@@ -22,18 +22,16 @@ export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }:
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-lg border border-white/10 shadow-xl" style={{ background: 'var(--panel-bg)', color: 'var(--fg)' }}>
         <div className="p-4 border-b border-white/10">
-            <h3 className="text-base font-semibold">Sign in Required</h3>
+            <h3 className="text-base font-semibold">Please Sign In</h3>
         </div>
-        <div className="p-4 space-y-2 text-sm text-white/80">
-          <p>Preview and upload require a quick sign in.</p>
-          <p className="text-white/60">Your usage counts toward your daily {DAILY_ROWS_LIMIT}-row quota.</p>
-        </div>
-        <div className="p-4 border-t border-white/10 flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-3 py-1 rounded border border-white/10 hover:bg-white/10 text-xs">Cancel</button>
-          <button type="button" onClick={onSignInClick} disabled={disabled} className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white/90 text-black hover:bg-white border border-black/30 dark:border-white/20 disabled:opacity-60">
+        <div className="p-4">
+          <button type="button" onClick={onSignInClick} disabled={disabled} className="inline-flex items-center gap-2 px-3 py-1 rounded border-[1px] border-neutral-600">
             <GoogleIcon />
             <span className="text-xs font-medium">Sign in with Google</span>
           </button>
+        </div>
+        <div className="p-4 border-t border-white/10 flex items-center justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-3 py-1 rounded border border-white/10 hover:bg-white/10 text-xs">Cancel</button>
         </div>
       </div>
     </div>

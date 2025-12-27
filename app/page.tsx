@@ -119,14 +119,14 @@ export default function HomePage() {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card href="/extract-state-from-address-excel" title="Extract State from Address Column" />
-          <Card href="/extract-city-from-address-excel" title="Extract City from Address Column" />
-          <Card href="/extract-zip-from-address-excel" title="Extract ZIP / Postal Code from Address" />
-          <Card href="/extract-first-name-from-full-name-excel" title="Extract First Name from Full Name" />
-          <Card href="/extract-last-name-from-full-name-excel" title="Extract Last Name from Full Name" />
-          <Card href="/extract-title-from-name-excel" title="Extract Title (Mr, Ms, Dr) from Name" />
-          <Card href="/extract-domain-from-email-excel" title="Extract Domain from Email Address" />
-          <Card href="/extract-username-from-email-excel" title="Extract Username from Email Address" />
+          <Card href="/extract-state-from-address-excel" title="Excel: Extract State from Address" />
+          <Card href="/extract-city-from-address-excel" title="Excel: Extract City from Address" />
+          <Card href="/extract-zip-from-address-excel" title="Excel: Extract ZIP / Postal Code from Address" />
+          <Card href="/extract-first-name-from-full-name-excel" title="Excel: Extract First Name from Full Name" />
+          <Card href="/extract-last-name-from-full-name-excel" title="Excel: Extract Last Name from Full Name" />
+          <Card href="/extract-title-from-name-excel" title="Excel: Extract Title from Name (Mr, Ms, Dr)" />
+          <Card href="/extract-domain-from-email-excel" title="Excel: Extract Domain from Email Address" />
+          <Card href="/extract-username-from-email-excel" title="Excel: Extract Username from Email Address" />
           <Card href="/excel-extract-number-from-string" title="Excel: Extract Number from String" />
           <Card href="/excel-extract-year-from-date" title="Excel: Extract Year from Date" />
         </div>
