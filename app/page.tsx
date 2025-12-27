@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Route } from 'next'
+import { USE_CASES } from '@/lib/routes'
 import Image from 'next/image'
 import type { SVGProps } from 'react'
 
@@ -119,16 +120,9 @@ export default function HomePage() {
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card href="/extract-state-from-address-excel" title="Excel: Extract State from Address" />
-          <Card href="/extract-city-from-address-excel" title="Excel: Extract City from Address" />
-          <Card href="/extract-zip-from-address-excel" title="Excel: Extract ZIP / Postal Code from Address" />
-          <Card href="/extract-first-name-from-full-name-excel" title="Excel: Extract First Name from Full Name" />
-          <Card href="/extract-last-name-from-full-name-excel" title="Excel: Extract Last Name from Full Name" />
-          <Card href="/extract-title-from-name-excel" title="Excel: Extract Title from Name (Mr, Ms, Dr)" />
-          <Card href="/extract-domain-from-email-excel" title="Excel: Extract Domain from Email Address" />
-          <Card href="/extract-username-from-email-excel" title="Excel: Extract Username from Email Address" />
-          <Card href="/excel-extract-number-from-string" title="Excel: Extract Number from String" />
-          <Card href="/excel-extract-year-from-date" title="Excel: Extract Year from Date" />
+          {USE_CASES.map((c) => (
+            <Card key={c.href} href={c.href} title={c.title} />
+          ))}
         </div>
       </section>
     </div>
