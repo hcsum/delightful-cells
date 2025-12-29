@@ -5,11 +5,11 @@ import Image from 'next/image'
 import type { SVGProps } from 'react'
 
 export const metadata = {
-  title: 'Extract Text from Excel Cell or Column',
+  title: 'Extract Data from Excel & CSV Columns',
   description:
     'Extract specific text from a single Excel or CSV column using AI. Define what to extract, preview the first 3 rows, then download structured results. Ideal for pulling states, cities, names, numbers, or summarizing and classifying text from messy cells.',
   openGraph: {
-    title: 'Extract Text from Excel Cell or Column',
+    title: 'Extract Data from Excel & CSV Columns',
     description:
       'Extract, classify, or summarize text from a single Excel or CSV column using AI. Preview results before downloading.',
     type: 'website',
@@ -24,7 +24,7 @@ export const metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Extract Text from Excel Cell or Column',
+    title: 'Extract Data from Excel & CSV Columns',
     description:
       'Extract, classify, or summarize text from a single Excel or CSV column using AI.',
     images: ['/hero-image.png'],
