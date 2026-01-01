@@ -2,8 +2,10 @@ import { DAILY_ROWS_LIMIT } from '@/lib/limits'
 import { getRowsUsedToday } from '@/lib/quota'
 import { getLoggedInUserKeyFromRequest } from '@/lib/auth/session'
 
+const BYPASS_AUTH = (process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true') || (process.env.BYPASS_AUTH === 'true');
+
 export async function GET(request: Request) {
-  const userKey = await getLoggedInUserKeyFromRequest(request)
+  const userKey = BYPASS_AUTH ? 'dev-local' : await getLoggedInUserKeyFromRequest(request)
   if (!userKey) {
     return new Response(JSON.stringify({ error: 'auth_required' }), {
       status: 401,
@@ -19,7 +21,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userKey = await getLoggedInUserKeyFromRequest(request)
+  const userKey = BYPASS_AUTH ? 'dev-local' : await getLoggedInUserKeyFromRequest(request)
   if (!userKey) {
     return new Response(JSON.stringify({ error: 'auth_required' }), {
       status: 401,
@@ -40,4 +42,3 @@ export async function POST(request: Request) {
     { status: 200, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } }
   )
 }
-

@@ -13,3 +13,5 @@ test-data/
 # TypeScript incremental build info (cache)
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+.wrangler

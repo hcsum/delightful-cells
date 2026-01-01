@@ -3,6 +3,10 @@ import { addRowsToDailyQuota, getRowsUsedToday } from '@/lib/quota'
 import { DAILY_ROWS_LIMIT } from '@/lib/limits'
 import { getLoggedInUserKeyFromRequest } from '@/lib/auth/session'
 
+// Allow local/dev usage without sign-in when explicitly enabled via env.
+// Use either NEXT_PUBLIC_BYPASS_AUTH (for simplicity) or BYPASS_AUTH (server-only).
+const BYPASS_AUTH = (process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true') || (process.env.BYPASS_AUTH === 'true');
+
 export async function OPTIONS() {
   return new Response(null, {
     status: 204,
@@ -90,7 +94,7 @@ export async function POST(request: Request) {
     // Enforce per-user daily quota measured in rows for ALL actions.
     // Require sign-in and count the actual rows we are about to process.
     const rowsCount = Array.isArray((body as any)?.rows) ? (body as any).rows.length : 0;
-    const userKey = await getLoggedInUserKeyFromRequest(request);
+    const userKey = BYPASS_AUTH ? 'dev-local' : await getLoggedInUserKeyFromRequest(request);
     if (!userKey) {
       console.error('[api/process] auth required', { rid: requestId, action });
       return new Response(JSON.stringify({ error: 'auth_required', message: 'Sign in required' }), { status: 401, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });

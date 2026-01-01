@@ -13,7 +13,7 @@ export default function Page() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Extract Numbers from Text</h1>
-      <p className="text-white/80 max-w-2xl text-muted">Extract numbers from a text column in your Excel file. Preview a few sample rows to check the result, or skip preview and process the full file right away.</p>
+      <p className="text-white/80 max-w-2xl text-muted">Extract numbers from a text column in your Excel file. Preview a few sample rows to check the result, or process the full file right away.</p>
       <div className="space-y-1">
         <div className="flex items-center gap-3">
           <SignInButton />
