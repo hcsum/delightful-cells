@@ -24,6 +24,6 @@ export const STATIC_ROUTES: Route[] = [
   '/tutorial',
   '/extract-text-from-cell-excel',
   '/extract-numbers-from-text-excel',
+  '/compare-two-columns-in-excel',
   '/terms',
 ]
-

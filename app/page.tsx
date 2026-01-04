@@ -1,37 +1,37 @@
-import Link from 'next/link'
-import type { Route } from 'next'
-import { USE_CASES } from '@/lib/routes'
-import Image from 'next/image'
-import type { SVGProps } from 'react'
+import Link from "next/link";
+import type { Route } from "next";
+import { USE_CASES } from "@/lib/routes";
+import Image from "next/image";
+import type { SVGProps } from "react";
 
 export const metadata = {
-  title: 'Extract Data from Excel & CSV Columns',
+  title: "Extract Data from Excel & CSV Columns",
   description:
-    'Extract specific text from a single Excel or CSV column using AI. Define what to extract, preview the first 3 rows, then download structured results. Ideal for pulling states, cities, names, numbers, or summarizing and classifying text from messy cells.',
+    "Extract specific text from a single Excel or CSV column using AI. Define what to extract, preview the first 3 rows, then download structured results. Ideal for pulling states, cities, names, numbers, or summarizing and classifying text from messy cells.",
   openGraph: {
-    title: 'Extract Data from Excel & CSV Columns',
+    title: "Extract Data from Excel & CSV Columns",
     description:
-      'Extract, classify, or summarize text from a single Excel or CSV column using AI. Preview results before downloading.',
-    type: 'website',
+      "Extract, classify, or summarize text from a single Excel or CSV column using AI. Preview results before downloading.",
+    type: "website",
     images: [
       {
-        url: '/hero-image.png',
+        url: "/hero-image.png",
         width: 1200,
         height: 900,
-        alt: 'AI extracting structured text from a single Excel or CSV column',
+        alt: "AI extracting structured text from a single Excel or CSV column",
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'Extract Data from Excel & CSV Columns',
+    card: "summary_large_image",
+    title: "Extract Data from Excel & CSV Columns",
     description:
-      'Extract, classify, or summarize text from a single Excel or CSV column using AI.',
-    images: ['/hero-image.png'],
+      "Extract, classify, or summarize text from a single Excel or CSV column using AI.",
+    images: ["/hero-image.png"],
   },
-  alternates: { canonical: '/' },
+  alternates: { canonical: "/" },
   robots: { index: true, follow: true },
-}
+};
 
 export default function HomePage() {
   return (
@@ -45,10 +45,10 @@ export default function HomePage() {
             </h1>
 
             <p className="text-white/80 max-w-xl">
-              Use AI to extract, classify, or summarize specific information from
-              a single column in your Excel or CSV file. Define what you want to
-              extract, preview the first 3 rows, then download clean, structured
-              results in seconds.
+              Use AI to extract, classify, or summarize specific information
+              from a single column in your Excel or CSV file. Define what you
+              want to extract, preview the first 3 rows, then download clean,
+              structured results in seconds.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -125,17 +125,26 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Compare columns */}
+      <section id="compare-columns" className="space-y-3">
+        <h2 className="text-xl font-semibold">Compare Excel Columns</h2>
+        <p className="text-white/70 max-w-2xl">
+          Upload a CSV and compare two columns to find duplicates, same-row
+          matches, or missing items
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card
+            href={"/compare-two-columns-in-excel" as Route}
+            title="Compare Two Columns in Excel"
+          />
+        </div>
+      </section>
     </div>
-  )
+  );
 }
 
-function Card({
-  href,
-  title,
-}: {
-  href: Route
-  title: string
-}) {
+function Card({ href, title }: { href: Route; title: string }) {
   return (
     <Link
       href={href}
@@ -146,7 +155,7 @@ function Card({
         <ArrowIcon className="h-4 w-4 text-white/60 group-hover:text-white/80" />
       </div>
     </Link>
-  )
+  );
 }
 
 /* Icons */
@@ -166,7 +175,7 @@ function ArrowIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M5 12h14" />
       <path d="M12 5l7 7-7 7" />
     </svg>
-  )
+  );
 }
 
 function CheckIcon(props: SVGProps<SVGSVGElement>) {
@@ -183,5 +192,5 @@ function CheckIcon(props: SVGProps<SVGSVGElement>) {
     >
       <path d="M20 6L9 17l-5-5" />
     </svg>
-  )
+  );
 }

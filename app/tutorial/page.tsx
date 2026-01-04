@@ -214,6 +214,37 @@ bob@company.co.uk
         </article>
       </section>
 
+      {/* New: Compare two columns feature */}
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Compare Two Columns (Duplicates / Matches / Missing)</h2>
+        <p className="text-white/80 text-muted max-w-3xl">
+          Need to compare values across two columns instead of extracting from one? Use the{' '}
+          <Link href="/compare-two-columns-in-excel" className="underline hover:no-underline">Compare Two Columns in Excel</Link>{' '}
+          page to mark rows as <em>duplicates</em>, <em>matches</em>, or <em>missing items</em> — all processed entirely in your browser.
+        </p>
+        <div>
+          <div className="text-sm text-white/70">CSV input</div>
+          <pre className="mt-1 rounded border border-white/10 bg-white/5 p-3 overflow-auto text-sm"><code>{`order_id,sku_entered,sku_master
+1001,SKU-001,SKU-001
+1002,SKU-002,SKU-002
+1003,SKU-003,SKU-004
+1004,SKU-004,SKU-004
+1005,SKU-005,
+1006,SKU-006,SKU-006
+1007,SKU-007,SKU-008`}</code></pre>
+        </div>
+        <ul className="text-white/80 text-sm space-y-1">
+          <li><strong>Compare:</strong> sku_entered → sku_master</li>
+          <li><strong>duplicates:</strong> True if the value in <code className="px-1 rounded bg-white/10">sku_entered</code> exists anywhere in <code className="px-1 rounded bg-white/10">sku_master</code> (trimmed; blanks ignored)</li>
+          <li><strong>matches:</strong> True if <code className="px-1 rounded bg-white/10">sku_entered</code> equals <code className="px-1 rounded bg-white/10">sku_master</code> in the same row</li>
+          <li><strong>missing items:</strong> True if the value in <code className="px-1 rounded bg-white/10">sku_entered</code> does not appear in <code className="px-1 rounded bg-white/10">sku_master</code></li>
+        </ul>
+        <p className="text-white/70 text-sm">
+          The download preserves original columns and order, and adds one new column named based on the mode, e.g.,
+          <code className="mx-1 px-1 rounded bg-white/10">duplicates_sku_entered_sku_master</code>.
+        </p>
+      </section>
+
       {/* 6) Conclusion */}
       <section className="space-y-2">
         <h2 className="text-xl font-semibold">Conclusion</h2>
