@@ -14,12 +14,41 @@ const appUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
+
   title: {
-    default: "Extract Data from Excel & CSV Columns with AI",
-    template: "%s | Extract from Excel & CSV",
+    default: "Find Duplicates & Compare Columns in Excel (Fast & Simple)",
+    template: "%s | Excel Data Tools",
   },
+
   description:
-    "Extract structured data from Excel or CSV columns using AI. Define what to extract, preview results on the first 10 rows, then process and download up to 1,000 rows instantly.",
+    "Find duplicates in Excel, compare two columns for missing items, and extract or summarize data from Excel or CSV files. Built for one-off cleanup tasks — upload, preview, and download results in seconds.",
+
+  keywords: [
+    // High-volume core
+    "find duplicates in excel",
+    "compare columns in excel",
+    "compare two columns excel",
+    "excel duplicate finder",
+    "excel compare columns",
+
+    // Supporting / long-tail
+    "missing items in excel",
+    "remove duplicates excel",
+    "excel data cleanup",
+    "clean excel data",
+    "one-off excel tasks",
+
+    // CSV & extraction
+    "extract data from excel",
+    "extract text from excel",
+    "excel csv tool",
+    "csv data cleanup",
+
+    // AI as capability (not primary intent)
+    "ai excel tool",
+    "excel ai data extraction",
+  ],
+
   icons: {
     icon: "/favicon.ico",
   },
