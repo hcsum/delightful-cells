@@ -25,5 +25,6 @@ export const STATIC_ROUTES: Route[] = [
   '/extract-text-from-cell-excel',
   '/extract-numbers-from-text-excel',
   '/compare-two-columns-in-excel',
+  '/find-duplicates-in-excel',
   '/terms',
 ]
