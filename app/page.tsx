@@ -88,15 +88,7 @@ export default function HomePage() {
               </li>
               <li className="flex items-center gap-2">
                 <CheckIcon className="h-4 w-4" />
-                Works with CSV and Excel files
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4" />
                 Results added as a new column
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4" />
-                Runs entirely in your browser
               </li>
             </ul>
           </div>
@@ -154,15 +146,7 @@ export default function HomePage() {
               </li>
               <li className="flex items-center gap-2">
                 <CheckIcon className="h-4 w-4" />
-                Supports up to 3,000 rows
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4" />
-                Adds results as a new column
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4" />
-                No data upload — runs client-side
+                Supports up to 5,000 rows
               </li>
               <li className="flex items-center gap-2">
                 <CheckIcon className="h-4 w-4" />

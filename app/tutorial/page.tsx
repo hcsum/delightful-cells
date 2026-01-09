@@ -24,7 +24,7 @@ export default function TutorialPage() {
   return (
     <div className="space-y-8">
       {/* 1) Short introduction */}
-      <section className="space-y-3">
+      <section id="extract-text" className="space-y-3">
         <h1 className="text-2xl font-semibold">Tutorial: Extract Text from a Single Column</h1>
         <p className="text-white/80 text-muted max-w-3xl">
           This tutorial shows how to use the tool on the{' '}
@@ -33,6 +33,22 @@ export default function TutorialPage() {
           preview a few rows, then process the full file and download structured results.
         </p>
       </section>
+
+      {/* Outline / On this page */}
+      <nav aria-label="Tutorial outline" className="space-y-2">
+        <h2 className="text-xl font-semibold">On This Page</h2>
+        <ul className="list-disc pl-6 text-white/80">
+          <li>
+            <a href="#extract-text" className="underline hover:no-underline">Extract Text from a Single Column</a>
+          </li>
+          <li>
+            <a href="#find-duplicates" className="underline hover:no-underline">Find Duplicates in a Single Column</a>
+          </li>
+          <li>
+            <a href="#compare-columns" className="underline hover:no-underline">Compare Two Columns</a>
+          </li>
+        </ul>
+      </nav>
 
       {/* 2) Step-by-step guide */}
       <section className="space-y-3">
@@ -214,8 +230,38 @@ bob@company.co.uk
         </article>
       </section>
 
+      {/* New: Find duplicates in a single column */}
+      <section id="find-duplicates" className="space-y-3">
+        <h2 className="text-xl font-semibold">Find Duplicates in a Single Column</h2>
+        <p className="text-white/80 text-muted max-w-3xl">
+          To flag duplicates within one column, use the{' '}
+          <Link href="/find-duplicates-in-excel" className="underline hover:no-underline">Find Duplicates in Excel</Link>{' '}
+          page. Upload a CSV, enter the column name (header), and download a new file with a duplicates column added.
+        </p>
+        <div>
+          <div className="text-sm text-white/70">CSV input</div>
+          <pre className="mt-1 rounded border border-white/10 bg-white/5 p-3 overflow-auto text-sm"><code>{`email
+alice@example.com
+bob@example.com
+alice@example.com
+carol@company.co
+BOB@example.com`}</code></pre>
+        </div>
+        <ul className="text-white/80 text-sm space-y-1">
+          <li><strong>Column:</strong> email</li>
+          <li><strong>Case sensitivity:</strong> Case-insensitive by default (toggle available). Checking the toggle makes comparisons case-sensitive.</li>
+          <li><strong>Blanks:</strong> Empty values are ignored when computing duplicates.</li>
+          <li><strong>Limits:</strong> Up to 5,000 data rows (20 MB CSV).</li>
+          <li><strong>Privacy:</strong> Runs entirely in your browser; no data upload.</li>
+        </ul>
+        <p className="text-white/70 text-sm">
+          The download preserves original columns and adds <code className="mx-1 px-1 rounded bg-white/10">duplicates_email</code>,
+          marked <em>True</em> for rows whose normalized value occurs more than once.
+        </p>
+      </section>
+
       {/* New: Compare two columns feature */}
-      <section className="space-y-3">
+      <section id="compare-columns" className="space-y-3">
         <h2 className="text-xl font-semibold">Compare Two Columns (Duplicates / Matches / Missing)</h2>
         <p className="text-white/80 text-muted max-w-3xl">
           Need to compare values across two columns instead of extracting from one? Use the{' '}
