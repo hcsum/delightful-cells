@@ -21,7 +21,6 @@ export const USE_CASES: UseCase[] = [
 // Additional static pages to include in the sitemap
 export const STATIC_ROUTES: Route[] = [
   '/',
-  '/tutorial',
   '/extract-text-from-cell-excel',
   '/extract-numbers-from-text-excel',
   '/compare-two-columns-in-excel',

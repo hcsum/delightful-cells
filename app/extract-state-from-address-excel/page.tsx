@@ -22,6 +22,63 @@ export default function Page() {
         <p className="text-white/60 max-w-2xl text-sm">Note: Daily usage is temporarily limited to {DAILY_ROWS_LIMIT} rows per account.</p>
       </div>
       <CustomToolClient initialTarget="US state as a two-letter abbreviation" initialSource="address" />
+
+      {/* How to Use + Examples */}
+      <div className="space-y-8 pt-12">
+        <hr />
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">How to Use This Tool</h2>
+          <ol className="list-decimal pl-6 space-y-2 text-white/80">
+            <li>Pick the <strong>Source column</strong> with full postal addresses.</li>
+            <li>Set <strong>Target</strong> to “US state as a two-letter abbreviation”.</li>
+            <li><strong>Upload CSV</strong> and preview to verify state extraction.</li>
+            <li><strong>Process full file</strong> and download with a new state column.</li>
+          </ol>
+        </section>
+
+        {/* Examples */}
+        <h2 className="text-xl font-semibold">Examples</h2>
+      </div>
+      <section className="space-y-12">
+        <article className="space-y-3">
+          <h3 className="text-lg font-medium">Example — Extract US state from address</h3>
+          <ul className="text-white/80 text-sm space-y-1">
+            <li><strong>Target:</strong> US state abbreviation (e.g., CA, NY)</li>
+            <li><strong>Source:</strong> address</li>
+          </ul>
+          <div className="space-y-2">
+            <div>Expected output:</div>
+            <div className="overflow-auto">
+              <table className="mt-1 w-full text-sm border-collapse">
+                <thead>
+                  <tr className="text-left">
+                    <th className="border-b border-white/10 py-1 pr-4">address</th>
+                    <th className="border-b border-white/10 py-1">state</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="align-top pr-4 py-1">1600 Amphitheatre Parkway, Mountain View, CA 94043</td>
+                    <td className="align-top py-1">CA</td>
+                  </tr>
+                  <tr>
+                    <td className="align-top pr-4 py-1">350 Fifth Avenue, New York, NY 10118</td>
+                    <td className="align-top py-1">NY</td>
+                  </tr>
+                  <tr>
+                    <td className="align-top pr-4 py-1">1 Microsoft Way, Redmond, WA 98052</td>
+                    <td className="align-top py-1">WA</td>
+                  </tr>
+                  <tr>
+                    <td className="align-top pr-4 py-1">1 Infinite Loop, Cupertino, CA 95014</td>
+                    <td className="align-top py-1">CA</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </article>
+      </section>
     </div>
   )
 }

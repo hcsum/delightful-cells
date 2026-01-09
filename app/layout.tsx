@@ -86,9 +86,7 @@ export default function RootLayout({
               >
                 Find duplicates
               </Link>
-              <Link href="/tutorial" className="hover:underline">
-                Tutorial
-              </Link>
+              {/* Tutorial link removed */}
               <ThemeToggle />
               <HeaderAuth />
             </div>
@@ -97,9 +95,7 @@ export default function RootLayout({
         <main className="container pb-24">{children}</main>
         <footer className="container text-xs text-white/60 py-8 border-t border-white/10">
           <div className="flex flex-wrap items-center justify-end gap-4">
-            <Link href="/tutorial" className="underline hover:no-underline">
-              Tutorial
-            </Link>
+            {/* Tutorial link removed */}
             <Link href="/terms" className="underline hover:no-underline">
               Terms of Service
             </Link>
