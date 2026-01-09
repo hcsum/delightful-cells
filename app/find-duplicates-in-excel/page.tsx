@@ -9,14 +9,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Find Duplicates in Excel",
     description:
-      "Detect duplicate values in a chosen column of your CSV/Excel file. No uploads, processed in your browser.",
+      "Detect duplicate values in a chosen column of your CSV/Excel file.",
     type: "article",
   },
   twitter: {
     card: "summary",
     title: "Find Duplicates in Excel",
-    description:
-      "Flag duplicate values within one column of a CSV/Excel file. Client-side only.",
+    description: "Flag duplicate values within one column of a CSV/Excel file.",
   },
   robots: { index: true, follow: true },
 };
@@ -31,6 +30,92 @@ export default function Page() {
         with one extra column.
       </p>
       <DuplicateFinderClient />
+
+      {/* Usage guide, following the pattern used on the Extract page */}
+      <div className="space-y-8 pt-12">
+        <hr />
+        {/* How to Use */}
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">How to Use This Tool</h2>
+          <ol className="list-decimal pl-6 space-y-2 text-white/80">
+            <li>
+              <strong>Enter the column name:</strong> Type the header of the
+              column you want to check for duplicates.
+            </li>
+            <li>
+              <strong>Choose case sensitivity (optional):</strong> Leave off to
+              compare case-insensitively; turn on to make comparisons
+              case-sensitive.
+            </li>
+            <li>
+              <strong>Upload CSV:</strong> Select the CSV file so the tool can
+              read your headers and data.
+            </li>
+            <li>
+              <strong>Process and download:</strong> Click Process CSV to
+              download a copy with a new duplicates column appended.
+            </li>
+          </ol>
+        </section>
+
+        {/* Examples */}
+        <h2 className="text-xl font-semibold">Examples</h2>
+        <section className="space-y-12">
+          <article className="space-y-3">
+            <h3 className="text-lg font-medium">
+              Example — Find duplicate emails
+            </h3>
+            <ul className="text-white/80 text-sm space-y-1">
+              <li>
+                <strong>Target:</strong> duplicates flag (True when the
+                normalized value occurs more than once)
+              </li>
+              <li>
+                <strong>Source:</strong> email
+              </li>
+            </ul>
+            <div className="space-y-2">
+              <div>Expected output:</div>
+              <div className="overflow-auto">
+                <table className="mt-1 w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="text-left">
+                      <th className="border-b border-white/10 py-1 pr-4">
+                        email
+                      </th>
+                      <th className="border-b border-white/10 py-1">
+                        duplicates_email
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="align-top pr-4 py-1">alice@example.com</td>
+                      <td className="align-top py-1">True</td>
+                    </tr>
+                    <tr>
+                      <td className="align-top pr-4 py-1">bob@example.com</td>
+                      <td className="align-top py-1">True</td>
+                    </tr>
+                    <tr>
+                      <td className="align-top pr-4 py-1">alice@example.com</td>
+                      <td className="align-top py-1">True</td>
+                    </tr>
+                    <tr>
+                      <td className="align-top pr-4 py-1">carol@company.co</td>
+                      <td className="align-top py-1"></td>
+                    </tr>
+                    <tr>
+                      <td className="align-top pr-4 py-1">BOB@example.com</td>
+                      <td className="align-top py-1">True</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
     </div>
   );
 }
