@@ -37,6 +37,23 @@ export default function Page() {
         <p className="text-white/60 max-w-2xl text-sm">Note: Daily usage is temporarily limited to {DAILY_ROWS_LIMIT} rows per account.</p>
       </div>
       <CustomToolClient initialTarget="year" initialSource="date" />
+
+      {/* How to Use + Examples */}
+      <div className="space-y-8 pt-12">
+        <hr />
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">How to Use This Tool</h2>
+          <ol className="list-decimal pl-6 space-y-2 text-white/80">
+            <li>Choose the <strong>Source column</strong> with dates (Excel or text-formatted).</li>
+            <li>Set <strong>Target</strong> to “year”.</li>
+            <li><strong>Upload CSV</strong> and preview to verify the 4-digit year output.</li>
+            <li><strong>Process full file</strong> to download a copy with a new year column.</li>
+          </ol>
+        </section>
+
+        {/* Examples */}
+        <h2 className="text-xl font-semibold">Examples</h2>
+      </div>
     </div>
   )
 }
