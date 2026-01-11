@@ -228,6 +228,7 @@ export default function Page() {
       <div className="pt-4 pb-2">
         <a
           href="#extract-text-top"
+          title="Use the tool now"
           className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white/10 hover:bg-white/20 text-sm"
         >
           Use the tool now

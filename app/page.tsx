@@ -66,6 +66,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
                 href="/extract-text-from-cell-excel"
+                title="Open Tool"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded font-medium bg-white text-black hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-black/10 border border-transparent"
               >
                 <span>Open Tool</span>
@@ -136,6 +137,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
                 href="/find-duplicates-in-excel"
+                title="Open Tool"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded font-medium bg-white text-black hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-black/10 border border-transparent"
               >
                 <span>Open Tool</span>
@@ -198,6 +200,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
                 href="/compare-two-columns-in-excel"
+                title="Open Tool"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded font-medium bg-white text-black hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-black/10 border border-transparent"
               >
                 <span>Open Tool</span>
@@ -273,6 +276,7 @@ function Card({ href, title }: { href: Route; title: string }) {
   return (
     <Link
       href={href}
+      title={title}
       className="group block border border-white/10 rounded p-4 hover:bg-white/5 transition-colors"
     >
       <div className="flex items-center justify-between">

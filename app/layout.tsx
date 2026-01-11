@@ -13,12 +13,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
 
   title: {
-    default: "Find Duplicates & Compare Columns in Excel (Fast & Simple)",
+    default: "Extract, summerize, classify, compare columns in Excel with AI",
     template: "%s | Excel Data Tools",
   },
 
   description:
-    "Find duplicates in Excel, compare two columns for missing items, and extract or summarize data from Excel or CSV files. Built for one-off cleanup tasks — upload, preview, and download results in seconds.",
+    "Extract or summarize data from Excel or CSV files. Find duplicates, compare columns. Built for one-off cleanup tasks — upload, preview, and download results in seconds. Get jobs done without fighting Excel settings and formulas.",
 
   keywords: [
     // High-volume core
@@ -61,24 +61,31 @@ export default function RootLayout({
       <body>
         <header className="border-b border-white/10">
           <div className="container flex items-center justify-between">
-            <Link href="/" className="font-semibold text-muted">
+            <Link
+              href="/"
+              title="Excel CSV AI Extractor"
+              className="font-semibold text-muted"
+            >
               Excel CSV AI Extractor
             </Link>
             <div className="flex items-center gap-4 md:gap-8 lg:gap-10 text-sm text-white/70 text-muted">
               <Link
                 href="/extract-text-from-cell-excel"
+                title="Extract Text"
                 className="hidden md:inline hover:underline"
               >
                 Extract Text
               </Link>
               <Link
                 href="/compare-two-columns-in-excel"
+                title="Compare columns"
                 className="hidden md:inline hover:underline"
               >
                 Compare columns
               </Link>
               <Link
                 href="/find-duplicates-in-excel"
+                title="Find duplicates"
                 className="hidden md:inline hover:underline"
               >
                 Find duplicates
@@ -93,7 +100,11 @@ export default function RootLayout({
         <footer className="container text-xs text-white/60 py-8 border-t border-white/10">
           <div className="flex flex-wrap items-center justify-end gap-4">
             {/* Tutorial link removed */}
-            <Link href="/terms" className="underline hover:no-underline">
+            <Link
+              href="/terms"
+              title="Terms of Service"
+              className="underline hover:no-underline"
+            >
               Terms of Service
             </Link>
           </div>
