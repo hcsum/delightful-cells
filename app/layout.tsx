@@ -28,13 +28,6 @@ export const metadata: Metadata = {
     "excel duplicate finder",
     "excel compare columns",
 
-    // Supporting / long-tail
-    "missing items in excel",
-    "remove duplicates excel",
-    "excel data cleanup",
-    "clean excel data",
-    "one-off excel tasks",
-
     // CSV & extraction
     "extract data from excel",
     "extract text from excel",
@@ -42,6 +35,7 @@ export const metadata: Metadata = {
     "csv data cleanup",
 
     // AI as capability (not primary intent)
+    "ai for excel",
     "ai excel tool",
     "excel ai data extraction",
   ],
@@ -100,7 +94,13 @@ export default function RootLayout({
         <footer className="container text-xs text-white/60 py-8 border-t border-white/10">
           <div className="flex flex-wrap items-center justify-end gap-4">
             {/* External: MossAI Tools */}
-            <a href="https://mossai.org" title="MossAI Tools" className="underline hover:no-underline">MossAI Tools</a>
+            <a
+              href="https://mossai.org"
+              title="MossAI Tools"
+              className="underline hover:no-underline"
+            >
+              MossAI Tools
+            </a>
             {/* Tutorial link removed */}
             <Link
               href="/terms"
