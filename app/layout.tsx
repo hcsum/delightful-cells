@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
 
   description:
-    "Extract or summarize data from Excel or CSV files. Find duplicates, compare columns. Built for one-off cleanup tasks — upload, preview, and download results in seconds. Get jobs done without fighting Excel settings and formulas.",
+    "Extract, summarize, classify data from Excel or CSV files. Find duplicates, compare columns. Built for one-off cleanup tasks — upload, preview, and download results in seconds. Get jobs done without fighting Excel settings and formulas.",
 
   keywords: [
     // High-volume core
@@ -99,6 +99,8 @@ export default function RootLayout({
         <main className="container pb-24">{children}</main>
         <footer className="container text-xs text-white/60 py-8 border-t border-white/10">
           <div className="flex flex-wrap items-center justify-end gap-4">
+            {/* External: MossAI Tools */}
+            <a href="https://mossai.org" title="MossAI Tools" className="underline hover:no-underline">MossAI Tools</a>
             {/* Tutorial link removed */}
             <Link
               href="/terms"

@@ -5,20 +5,20 @@ import Image from "next/image";
 import type { SVGProps } from "react";
 
 export const metadata = {
-  title: "Extract Data from Excel & CSV Columns",
+  title: "Extract, summerize, classify, compare columns in Excel with AI",
   description:
-    "Extract specific text from a single Excel or CSV column using AI. Define what to extract, preview the first 3 rows, then download structured results. Ideal for pulling states, cities, names, numbers, or summarizing and classifying text from messy cells.",
+    "Extract or summarize data from Excel or CSV files. Find duplicates, compare columns. Built for one-off cleanup tasks — upload, preview, and download results in seconds. Get jobs done without fighting Excel settings and formulas.",
   openGraph: {
     title: "Extract Data from Excel & CSV Columns",
     description:
-      "Extract, classify, or summarize text from a single Excel or CSV column using AI. Preview results before downloading.",
+      "Extract, classify, or summarize text from a single Excel or CSV column using AI. Preview results and download in seconds.",
     type: "website",
     images: [
       {
         url: "/hero-image-3.png",
         width: 1200,
         height: 900,
-        alt: "AI extracting structured text from a single Excel or CSV column",
+        alt: "AI extracting structured text from Excel or CSV column",
       },
     ],
   },
@@ -26,7 +26,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Extract Data from Excel & CSV Columns",
     description:
-      "Extract, classify, or summarize text from a single Excel or CSV column using AI.",
+      "Extract, classify, or summarize text from xcel or CSV column using AI.",
     images: ["/hero-image-3.png"],
   },
   alternates: { canonical: "/" },
@@ -39,7 +39,8 @@ export default function HomePage() {
       {/* Global Heading */}
       <section className="space-y-3">
         <h1 className="text-3xl md:text-4xl font-semibold leading-tight">
-          Quick one-off Excel tasks, without wrestling with formulas
+          AI for Excel - Get quick one-off Excel tasks done, without wrestling
+          with formulas.
         </h1>
         <p className="text-white/80 max-w-2xl">
           Extract data, find duplicates, and compare columns from Excel or CSV
@@ -246,13 +247,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      
-
       {/* Use cases */}
       <section id="use-cases" className="space-y-3">
-        <h2 className="text-xl font-semibold">
+        <h3 className="text-xl font-semibold">
           Popular Excel Text Extraction Use Cases
-        </h2>
+        </h3>
 
         <p className="text-white/70 max-w-2xl">
           In addition to extracting specific values, you can also classify text
