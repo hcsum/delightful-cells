@@ -4,19 +4,27 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Compare Two Columns in Excel",
   description:
-    "Compare two Excel columns to find duplicates or missing items. Upload a CSV and get a clean, downloadable result in seconds.",
+    "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload a CSV and download results fast.",
   alternates: { canonical: "/compare-two-columns-in-excel" },
+  keywords: [
+    "compare 2 columns in excel",
+    "compare two columns in excel",
+    "compare columns excel",
+    "how to find duplicates or missing values between two columns",
+    "find duplicates between two columns excel",
+    "excel column comparison guide",
+  ],
   openGraph: {
     title: "Compare Two Columns in Excel",
     description:
-      "Compare two Excel columns to find duplicates or missing items. Upload a CSV and get a clean, downloadable result in seconds.",
+      "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload a CSV and download results fast.",
     type: "article",
   },
   twitter: {
     card: "summary",
     title: "Compare Two Columns in Excel",
     description:
-      "Compare two Excel columns to find duplicates or missing items. Upload a CSV and get a clean, downloadable result in seconds.",
+      "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload a CSV and download results fast.",
   },
   robots: { index: true, follow: true },
 };
@@ -26,10 +34,37 @@ export default function Page() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Compare Two Columns in Excel</h1>
       <p className="text-white/80 max-w-2xl text-muted">
-        This tool helps you compare two columns to identify duplicates or
-        missing values. Just upload a CSV, select the columns, and get a
-        processed file with a clear comparison result added.
+        Here you can compare 2 columns in Excel to find matching or missing
+        values without writing formulas. This tool acts as a column comparison
+        helper for Excel and CSV data. Compare 2 columns in Excel to identify
+        differences, duplicates, or missing values in your dataset.
       </p>
+
+      {/* SEO sub-content: brief guide + tasks/use cases to strengthen topical relevance */}
+      <section className="space-y-4">
+        {/* Removed H2 + descriptive paragraph per request; keeping tasks/use cases */}
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium">Typical Column Comparison Tasks</h3>
+            <ul className="list-disc pl-5 text-white/80">
+              <li>Row-by-row comparisons to see if Column A equals Column B</li>
+              <li>Finding missing items between columns (A not in B)</li>
+              <li>Spotting duplicates where A appears anywhere in B</li>
+              <li>Handling datasets that are not sorted and may differ in length</li>
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium">Common Use Cases</h3>
+            <ul className="list-disc pl-5 text-white/80">
+              <li>Matching product lists across suppliers or channels</li>
+              <li>Checking attendance lists against a registration master</li>
+              <li>Comparing a master file vs. an imported dataset</li>
+              <li>Validating merges, migrations, or deduplication tasks</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+      <h2 className="text-xl font-semibold pt-2">Try the tool now:</h2>
       <CompareColumnsClient />
 
       {/* Usage guide, mirroring the pattern used on Extract and Find Duplicates */}
