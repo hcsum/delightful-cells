@@ -15,3 +15,5 @@ simple = { limit = 10, period = 60 }
 
 [vars]
 # Shared secret to authorize requests from Next.js API.
+# Set with Wrangler secret instead of committing it:
+#   wrangler secret put LLM_API_KEY

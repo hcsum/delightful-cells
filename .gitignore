@@ -15,3 +15,5 @@ tsconfig.tsbuildinfo
 *.tsbuildinfo
 
 .wrangler
+.dev.vars
+.dev.vars.*

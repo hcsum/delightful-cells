@@ -16,6 +16,11 @@ workers_dev = true
 [env.prod.vars]
 LLM_WORKER_URL = "https://extract-excel-app-llm-worker.sumtsui.workers.dev"
 GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleusercontent.com"
+# Secrets are intentionally not stored in versioned TOML.
+# Set these with Wrangler secrets for the prod environment:
+#   wrangler secret put GOOGLE_CLIENT_SECRET --env prod
+#   wrangler secret put AUTH_SECRET --env prod
+#   wrangler secret put LLM_API_KEY --env prod
 
 [[env.prod.kv_namespaces]]
 binding = "UPLOAD_QUOTA"
