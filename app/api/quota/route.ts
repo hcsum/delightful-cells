@@ -1,18 +1,9 @@
 import { DAILY_ROWS_LIMIT } from "@/lib/limits";
 import { getRowsUsedToday } from "@/lib/quota";
-import { getLoggedInUserKeyFromRequest } from "@/lib/auth/session";
+import { getQuotaKeyFromRequest } from "@/lib/auth/session";
 
 export async function GET(request: Request) {
-  const userKey = await getLoggedInUserKeyFromRequest(request);
-  if (!userKey) {
-    return new Response(JSON.stringify({ error: "auth_required" }), {
-      status: 401,
-      headers: {
-        "content-type": "application/json",
-        "cache-control": "no-store",
-      },
-    });
-  }
+  const userKey = await getQuotaKeyFromRequest(request);
   const used = await getRowsUsedToday(userKey);
   const remaining = Math.max(0, DAILY_ROWS_LIMIT - used);
   return new Response(
@@ -28,16 +19,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const userKey = await getLoggedInUserKeyFromRequest(request);
-  if (!userKey) {
-    return new Response(JSON.stringify({ error: "auth_required" }), {
-      status: 401,
-      headers: {
-        "content-type": "application/json",
-        "cache-control": "no-store",
-      },
-    });
-  }
+  const userKey = await getQuotaKeyFromRequest(request);
   let requested = 0;
   try {
     const body = await request.json();

@@ -1,7 +1,7 @@
 import { decode, encode } from "@toon-format/toon";
 import { addRowsToDailyQuota, getRowsUsedToday } from "@/lib/quota";
 import { DAILY_ROWS_LIMIT } from "@/lib/limits";
-import { getLoggedInUserKeyFromRequest } from "@/lib/auth/session";
+import { getQuotaKeyFromRequest } from "@/lib/auth/session";
 
 // Allow local/dev usage without sign-in when explicitly enabled via env.
 // Use either NEXT_PUBLIC_BYPASS_AUTH (for simplicity) or BYPASS_AUTH (server-only).
@@ -109,27 +109,14 @@ export async function POST(request: Request) {
         toonForWorker = encode({ inputs: rowsArr }, { delimiter: "\t" });
     } catch {}
 
-    // Enforce per-user daily quota measured in rows for ALL actions.
-    // Require sign-in and count the actual rows we are about to process.
+    // Enforce a daily row quota for ALL actions. Sign-in is optional:
+    // logged-in users are keyed by email, anonymous users by IP.
     const rowsCount = Array.isArray((body as any)?.rows)
       ? (body as any).rows.length
       : 0;
     const userKey = BYPASS_AUTH
       ? "dev-local"
-      : await getLoggedInUserKeyFromRequest(request);
-    if (!userKey) {
-      console.error("[api/process] auth required", { rid: requestId, action });
-      return new Response(
-        JSON.stringify({ error: "auth_required", message: "Sign in required" }),
-        {
-          status: 401,
-          headers: {
-            "content-type": "application/json",
-            "cache-control": "no-store",
-          },
-        },
-      );
-    }
+      : await getQuotaKeyFromRequest(request);
     // Pre-check remaining quota before contacting the worker (optimistic; do not mutate state yet)
     if (rowsCount > 0) {
       try {

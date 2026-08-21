@@ -23,3 +23,17 @@ export async function getLoggedInUserKeyFromRequest(
     return null;
   }
 }
+
+// Quota key without requiring sign-in: logged-in email when present,
+// otherwise the client IP. Sign-in is optional across the site now; the
+// daily row quota still applies per identity.
+export async function getQuotaKeyFromRequest(req: Request): Promise<string> {
+  const userKey = await getLoggedInUserKeyFromRequest(req);
+  if (userKey) return userKey;
+  const ip =
+    req.headers.get("CF-Connecting-IP") ||
+    req.headers.get("x-real-ip") ||
+    (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+    "anon";
+  return `ip:${ip}`;
+}

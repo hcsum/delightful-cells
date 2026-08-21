@@ -15,6 +15,13 @@ type ProcessRequest = {
   extractFrom: string;
 };
 
+type ChatMessage = { role: string; content: string };
+type ChatRequest = { messages: ChatMessage[] };
+
+const CHAT_ROLES = new Set(['system', 'user', 'assistant']);
+const CHAT_MAX_MESSAGES = 30;
+const CHAT_MAX_TOTAL_CHARS = 24000;
+
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -80,6 +87,40 @@ export default {
     if (!expected || key !== expected) {
       // Return 401 with no body (unauthorized with no message)
       return new Response('', { status: 401, headers: corsHeaders(origin) });
+    }
+
+    // Chat endpoint for Delightful.cells (/cells). Rate limiting and the
+    // x-api-key check above already ran; this branch never touches TOON.
+    const { pathname } = new URL(request.url);
+    if (pathname === '/chat') {
+      let chatPayload: ChatRequest;
+      try { chatPayload = await request.json(); }
+      catch (e) { log('chat-bad-json', String(e)); return json({ error: 'invalid_json', message: 'Invalid JSON' }, 400, origin); }
+      const messages = Array.isArray(chatPayload?.messages) ? chatPayload.messages : [];
+      if (!messages.length || messages.length > CHAT_MAX_MESSAGES) {
+        return json({ error: 'bad_messages', message: `messages must contain 1-${CHAT_MAX_MESSAGES} items` }, 400, origin);
+      }
+      let totalChars = 0;
+      for (const m of messages) {
+        if (!m || !CHAT_ROLES.has(String(m.role)) || typeof m.content !== 'string') {
+          return json({ error: 'bad_messages', message: 'Each message needs a valid role and string content' }, 400, origin);
+        }
+        totalChars += m.content.length;
+      }
+      if (totalChars > CHAT_MAX_TOTAL_CHARS) {
+        return json({ error: 'too_large', message: 'Conversation too large' }, 400, origin);
+      }
+      const chatResult = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+        messages: messages.map((m) => ({ role: m.role, content: m.content })),
+        max_tokens: 1024,
+        temperature: 0,
+      });
+      // llama-4-scout may return `response` as a parsed object when its
+      // output is pure JSON; re-serialize so clients always get text.
+      const chatRaw = chatResult?.response;
+      const chatText = typeof chatRaw === 'string' ? chatRaw : chatRaw != null ? JSON.stringify(chatRaw) : '';
+      log('chat-ok', { ms: Date.now() - t0, bytes: chatText.length, messages: messages.length });
+      return json({ response: chatText }, 200, origin);
     }
 
     let payload: ProcessRequest;
@@ -155,6 +196,7 @@ function corsHeaders(origin: string) {
   const allowed = new Set<string>([
     'https://extract-excel-app-llm-worker.sumtsui.workers.dev',
     'https://extractfromexcel.com',
+    'http://localhost:3000',
   ]);
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',

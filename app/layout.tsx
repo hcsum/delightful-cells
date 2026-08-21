@@ -1,8 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import Link from "next/link";
-import ThemeToggle from "@/components/ThemeToggle";
-import HeaderAuth from "@/components/HeaderAuth";
+import AppShell from "@/components/AppShell";
 
 // Use default runtime; OpenNext will generate the Worker wrapper
 
@@ -53,64 +51,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <header className="border-b border-white/10">
-          <div className="container flex items-center justify-between">
-            <Link
-              href="/"
-              title="Excel CSV AI Extractor"
-              className="font-semibold text-muted"
-            >
-              Excel CSV AI Extractor
-            </Link>
-            <div className="flex items-center gap-4 md:gap-8 lg:gap-10 text-sm text-white/70 text-muted">
-              <Link
-                href="/extract-text-from-cell-excel"
-                title="Extract Text"
-                className="hidden md:inline hover:underline"
-              >
-                Extract Text
-              </Link>
-              <Link
-                href="/compare-two-columns-in-excel"
-                title="Compare columns"
-                className="hidden md:inline hover:underline"
-              >
-                Compare columns
-              </Link>
-              <Link
-                href="/find-duplicates-in-excel"
-                title="Find duplicates"
-                className="hidden md:inline hover:underline"
-              >
-                Find duplicates
-              </Link>
-              {/* Tutorial link removed */}
-              <ThemeToggle />
-              <HeaderAuth />
-            </div>
-          </div>
-        </header>
-        <main className="container pb-24">{children}</main>
-        <footer className="container text-xs text-white/60 py-8 border-t border-white/10">
-          <div className="flex flex-wrap items-center justify-end gap-4">
-            {/* External: MossAI Tools */}
-            <a
-              href="https://mossai.org"
-              title="MossAI Tools"
-              className="underline hover:no-underline"
-            >
-              MossAI Tools
-            </a>
-            {/* Tutorial link removed */}
-            <Link
-              href="/terms"
-              title="Terms of Service"
-              className="underline hover:no-underline"
-            >
-              Terms of Service
-            </Link>
-          </div>
-        </footer>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

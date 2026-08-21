@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/lib/auth/useAuth';
 import { DAILY_ROWS_LIMIT } from '@/lib/limits';
 
+// No sign-in required anymore: /api/quota answers for anonymous visitors too
+// (keyed by IP server-side).
 export default function QuotaBanner() {
-  const { isAuthenticated } = useAuth();
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number>(DAILY_ROWS_LIMIT);
   const [loading, setLoading] = useState<boolean>(false);
@@ -13,7 +13,6 @@ export default function QuotaBanner() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!isAuthenticated) { setRemaining(null); return; }
       setLoading(true);
       try {
         const res = await fetch('/api/quota', { method: 'GET', headers: { 'cache-control': 'no-store' } });
@@ -32,12 +31,12 @@ export default function QuotaBanner() {
     }
     load();
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, []);
 
-  if (!isAuthenticated) return null;
+  if (remaining == null && !loading) return null;
 
   return (
-    <div className="inline-flex items-center gap-2 text-xs text-white/70 border border-white/10 rounded px-2 py-1 w-fit">
+    <div className="inline-flex items-center gap-2 text-xs text-black/60 border !border-black/15 bg-white rounded-full px-3 py-1 w-fit font-semibold">
       {loading ? (
         <span>Checking remaining rows…</span>
       ) : (
