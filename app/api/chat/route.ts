@@ -4,6 +4,10 @@
 // MOCK_LLM=true answers locally with a scripted model so the whole agent loop
 // runs without a Cloudflare account.
 
+import { addRowsToDailyQuota } from "@/lib/quota";
+import { CHAT_DAILY_MESSAGES_LIMIT } from "@/lib/limits";
+import { getQuotaKeyFromRequest } from "@/lib/auth/session";
+
 type FlatMessage = { role: string; content: string };
 
 const MAX_MESSAGES = 30;
@@ -56,6 +60,23 @@ export async function POST(request: Request) {
 
   if (process.env.MOCK_LLM === "true") {
     return json({ response: mockRespond(messages) });
+  }
+
+  // Daily chat quota: one unit per model call, keyed by email or IP.
+  const quotaKey = `chat:${await getQuotaKeyFromRequest(request)}`;
+  const withinQuota = await addRowsToDailyQuota(
+    quotaKey,
+    1,
+    CHAT_DAILY_MESSAGES_LIMIT,
+  );
+  if (!withinQuota) {
+    return json(
+      {
+        error: "quota_exceeded",
+        message: `Daily chat limit reached (${CHAT_DAILY_MESSAGES_LIMIT} messages per day). Come back tomorrow!`,
+      },
+      429,
+    );
   }
 
   const workerUrl = process.env.LLM_WORKER_URL;

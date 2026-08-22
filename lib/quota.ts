@@ -8,6 +8,7 @@ import { DAILY_ROWS_LIMIT } from "@/lib/limits";
 async function checkAndConsumeRowsKV(
   userKey: string,
   amount: number,
+  limit: number,
 ): Promise<boolean | null> {
   try {
     // Access KV binding via OpenNext Cloudflare context if available
@@ -23,7 +24,7 @@ async function checkAndConsumeRowsKV(
 
     const curStr = await kv.get(key);
     const cur = Number(curStr || "0") || 0;
-    if (cur + amount > DAILY_ROWS_LIMIT) return false;
+    if (cur + amount > limit) return false;
     const next = String(cur + amount);
     const ttl = secondsUntilNextUtcDay();
     await kv.put(key, next, { expirationTtl: ttl });
@@ -37,6 +38,7 @@ async function checkAndConsumeRowsKV(
 async function checkAndConsumeRowsEdgeCache(
   userKey: string,
   amount: number,
+  limit: number,
 ): Promise<boolean | null> {
   try {
     const cachesAny: any = (globalThis as any).caches;
@@ -52,7 +54,7 @@ async function checkAndConsumeRowsEdgeCache(
     const req = new Request("https://quota.example/" + key);
     const hit = await cache.match(req);
     const cur = hit ? Number(await hit.text()) || 0 : 0;
-    if (cur + amount > DAILY_ROWS_LIMIT) return false;
+    if (cur + amount > limit) return false;
     await cache.put(
       req,
       new Response(String(cur + amount), {
@@ -66,7 +68,11 @@ async function checkAndConsumeRowsEdgeCache(
 }
 
 // In-memory last resort (dev only, per-process)
-function checkAndConsumeRowsMemory(userKey: string, amount: number): boolean {
+function checkAndConsumeRowsMemory(
+  userKey: string,
+  amount: number,
+  limit: number,
+): boolean {
   const g: any = globalThis as any;
   g.__quota ||= new Map<string, { day: string; count: number }>();
   const day = new Date().toISOString().slice(0, 10);
@@ -75,7 +81,7 @@ function checkAndConsumeRowsMemory(userKey: string, amount: number): boolean {
     g.__quota.set(userKey, { day, count: amount });
     return true;
   }
-  if (rec.count + amount > DAILY_ROWS_LIMIT) return false;
+  if (rec.count + amount > limit) return false;
   rec.count += amount;
   g.__quota.set(userKey, rec);
   return true;
@@ -84,12 +90,13 @@ function checkAndConsumeRowsMemory(userKey: string, amount: number): boolean {
 export async function addRowsToDailyQuota(
   userKey: string,
   amount: number,
+  limit: number = DAILY_ROWS_LIMIT,
 ): Promise<boolean> {
-  const kv = await checkAndConsumeRowsKV(userKey, amount);
+  const kv = await checkAndConsumeRowsKV(userKey, amount, limit);
   if (kv != null) return kv;
-  const edge = await checkAndConsumeRowsEdgeCache(userKey, amount);
+  const edge = await checkAndConsumeRowsEdgeCache(userKey, amount, limit);
   if (edge != null) return edge;
-  return checkAndConsumeRowsMemory(userKey, amount);
+  return checkAndConsumeRowsMemory(userKey, amount, limit);
 }
 
 // Read current used rows for the day without mutating state.
