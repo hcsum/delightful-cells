@@ -18,7 +18,7 @@ browser (SheetJS parse + tools run here) ── headers + 5 sample rows ──�
         ◀──────────────── one JSON tool call ──────────────────────────┘
 ```
 
-Why bulk edits are stable, not fragile:
+Why bulk edits are stable:
 
 - **Mechanical ops are code, not generation.** Replacing across 5,000 rows is
   one deterministic function — the model only picks the parameters. No
