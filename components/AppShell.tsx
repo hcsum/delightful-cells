@@ -49,6 +49,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <footer className="container text-xs text-black/50 py-8 border-t border-black/10">
         <div className="flex flex-wrap items-center justify-end gap-4">
           <a
+            href="https://github.com/hcsum/extract-excel-app"
+            title="GitHub"
+            className="underline hover:no-underline !text-black/50"
+          >
+            GitHub
+          </a>
+          <a
             href="https://mossai.org"
             title="MossAI Tools"
             className="underline hover:no-underline !text-black/50"
