@@ -55,13 +55,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             GitHub
           </a>
-          <a
-            href="https://mossai.org"
-            title="MossAI Tools"
-            className="underline hover:no-underline !text-black/50"
-          >
-            MossAI Tools
-          </a>
           <Link
             href="/terms"
             title="Terms of Service"

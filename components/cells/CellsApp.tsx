@@ -27,6 +27,7 @@ import {
 } from "@/lib/cells/agent";
 import WorkbookPanel, { type WorkbookState } from "./WorkbookPanel";
 import ChatPanel from "./ChatPanel";
+import UsageMeter from "./UsageMeter";
 
 // Rounded system font stack — no build-time font download, fork-friendly.
 const ROUNDED_FONT =
@@ -38,6 +39,7 @@ function gridFromSheet(sheet: ParsedSheet): GridState {
     rows: sheet.rows,
     highlightedRows: null,
     filterKept: null,
+    selectedRows: null,
   };
 }
 
@@ -46,6 +48,7 @@ export default function CellsApp() {
     status: "idle",
   });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [usageRefresh, setUsageRefresh] = useState(0);
   const [agent, setAgent] = useState<{
     thinking: boolean;
     step: number;
@@ -108,6 +111,35 @@ export default function CellsApp() {
     });
   }, []);
 
+  // Row selection: click a row number; Shift extends from the last click,
+  // Cmd/Ctrl toggles. The agent sees the selection in its system prompt.
+  const selectionAnchorRef = useRef<number | null>(null);
+  const handleSelectRow = useCallback(
+    (rowIdx: number, mods: { shift: boolean; meta: boolean }) => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      const cur = new Set(grid.selectedRows ?? []);
+      if (mods.shift && selectionAnchorRef.current != null) {
+        const [a, b] = [selectionAnchorRef.current, rowIdx].sort((x, y) => x - y);
+        for (let i = a; i <= b; i++) cur.add(i);
+      } else if (mods.meta) {
+        cur.has(rowIdx) ? cur.delete(rowIdx) : cur.add(rowIdx);
+        selectionAnchorRef.current = rowIdx;
+      } else {
+        const solo = cur.size === 1 && cur.has(rowIdx);
+        cur.clear();
+        if (!solo) cur.add(rowIdx);
+        selectionAnchorRef.current = rowIdx;
+      }
+      setGrid({ ...grid, selectedRows: cur.size ? cur : null });
+    },
+    [setGrid],
+  );
+
+  const handleClearSelection = useCallback(() => {
+    if (gridRef.current) setGrid({ ...gridRef.current, selectedRows: null });
+  }, [setGrid]);
+
   const handleClearHighlights = useCallback(() => {
     if (gridRef.current) setGrid({ ...gridRef.current, highlightedRows: null });
   }, [setGrid]);
@@ -115,6 +147,19 @@ export default function CellsApp() {
   const handleShowAllRows = useCallback(() => {
     if (gridRef.current) setGrid({ ...gridRef.current, filterKept: null });
   }, [setGrid]);
+
+  const handleEditCell = useCallback(
+    (rowIdx: number, colIdx: number, value: string) => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      const rows = grid.rows.slice();
+      const row = rows[rowIdx].slice();
+      row[colIdx] = value;
+      rows[rowIdx] = row;
+      setGrid({ ...grid, rows });
+    },
+    [setGrid],
+  );
 
   const handleDownload = useCallback(() => {
     const grid = gridRef.current;
@@ -170,7 +215,9 @@ export default function CellsApp() {
     ): Promise<ToolResult> => {
       const grid = gridRef.current!;
       const colIdx = findColumnIndex(grid.headers, call.column);
-      const values = grid.rows.map((r) => r[colIdx] ?? "");
+      const only = call.scope === "selection" ? grid.selectedRows : null;
+      const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
+      const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
       try {
         const results = await processRows(
@@ -187,12 +234,9 @@ export default function CellsApp() {
         );
         const current = gridRef.current!;
         const name = uniquifyHeader(current.headers, call.newColumnName);
-        const next = appendColumn(
-          current.headers,
-          current.rows,
-          name,
-          results.map((r) => r.output ?? ""),
-        );
+        const outputs = new Array<string>(current.rows.length).fill("");
+        targets.forEach((rowIdx, j) => (outputs[rowIdx] = results[j]?.output ?? ""));
+        const next = appendColumn(current.headers, current.rows, name, outputs);
         setGrid({ ...current, headers: next.headers, rows: next.rows });
         const filled = results.filter((r) => r.output != null).length;
         return {
@@ -201,6 +245,7 @@ export default function CellsApp() {
           data: {
             newColumn: name,
             rowsProcessed: results.length,
+            scope: call.scope,
             sampleOutputs: results.slice(0, 3).map((r) => r.output),
           },
         };
@@ -225,7 +270,9 @@ export default function CellsApp() {
     ): Promise<ToolResult> => {
       const grid = gridRef.current!;
       const colIdx = findColumnIndex(grid.headers, call.column);
-      const values = grid.rows.map((r) => r[colIdx] ?? "");
+      const only = call.scope === "selection" ? grid.selectedRows : null;
+      const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
+      const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
       try {
         const results = await processRows(
@@ -241,8 +288,8 @@ export default function CellsApp() {
           },
         );
         const matched: number[] = [];
-        results.forEach((r, i) => {
-          if (/^\s*yes\b/i.test(r.output ?? "")) matched.push(i);
+        results.forEach((r, j) => {
+          if (/^\s*yes\b/i.test(r.output ?? "")) matched.push(targets[j]);
         });
         const current = gridRef.current!;
         setGrid(
@@ -257,7 +304,7 @@ export default function CellsApp() {
           data: {
             rowsMatched: matched.length,
             rowsTotal: results.length,
-            outcome: `${matched.length} of ${results.length} rows matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb} in the user's table.`,
+            outcome: `${matched.length} of ${results.length} rows${only ? " (within the selection)" : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb} in the user's table.`,
           },
         };
       } catch (e) {
@@ -316,6 +363,7 @@ export default function CellsApp() {
         }
       } finally {
         if (turnIdRef.current === turnId) setAgent({ thinking: false, step: 1, progress: null });
+        setUsageRefresh((n) => n + 1);
       }
     },
     [workbookState, agent.thinking, messages, setGrid, runTransform, runAiFilter],
@@ -323,7 +371,7 @@ export default function CellsApp() {
 
   return (
     <div
-      className="flex min-h-screen flex-col bg-[#fffdf8] text-black"
+      className="flex min-h-screen flex-col bg-[#fffdf8] text-black lg:h-screen"
       style={{ fontFamily: ROUNDED_FONT }}
     >
       <header className="flex items-center justify-between px-6 pt-5">
@@ -356,6 +404,9 @@ export default function CellsApp() {
           <WorkbookPanel
             state={workbookState}
             onFile={handleFile}
+            onEditCell={handleEditCell}
+            onSelectRow={handleSelectRow}
+            onClearSelection={handleClearSelection}
             onSelectSheet={handleSelectSheet}
             onClearHighlights={handleClearHighlights}
             onShowAllRows={handleShowAllRows}
@@ -365,6 +416,7 @@ export default function CellsApp() {
           />
         </div>
         <div className="flex min-h-[50vh] flex-col lg:min-h-0">
+          <UsageMeter refreshKey={usageRefresh} />
           <ChatPanel
             messages={messages}
             thinking={agent.thinking}

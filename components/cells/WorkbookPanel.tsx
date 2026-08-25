@@ -19,6 +19,9 @@ export type WorkbookState =
 export default function WorkbookPanel({
   state,
   onFile,
+  onEditCell,
+  onSelectRow,
+  onClearSelection,
   onSelectSheet,
   onClearHighlights,
   onShowAllRows,
@@ -28,6 +31,9 @@ export default function WorkbookPanel({
 }: {
   state: WorkbookState;
   onFile: (file: File) => void;
+  onEditCell: (rowIdx: number, colIdx: number, value: string) => void;
+  onSelectRow: (rowIdx: number, mods: { shift: boolean; meta: boolean }) => void;
+  onClearSelection: () => void;
   onSelectSheet: (index: number) => void;
   onClearHighlights: () => void;
   onShowAllRows: () => void;
@@ -139,6 +145,11 @@ export default function WorkbookPanel({
           New file
         </button>
         <div className="grow" />
+        {grid.selectedRows && (
+          <button onClick={onClearSelection} className={`${pill} bg-[#dbeafe] text-black hover:bg-[#c7dcfa]`}>
+            {grid.selectedRows.size} selected · clear
+          </button>
+        )}
         {grid.highlightedRows && (
           <button onClick={onClearHighlights} className={`${pill} bg-[#fff3b0] text-black hover:bg-[#ffe89a]`}>
             Clear highlights
@@ -186,7 +197,7 @@ export default function WorkbookPanel({
       )}
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col">
-        <DataTable grid={grid} />
+        <DataTable grid={grid} onEditCell={onEditCell} onSelectRow={onSelectRow} />
       </div>
     </section>
   );

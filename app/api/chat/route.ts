@@ -7,6 +7,7 @@
 import { addRowsToDailyQuota } from "@/lib/quota";
 import { CHAT_DAILY_MESSAGES_LIMIT } from "@/lib/limits";
 import { getQuotaKeyFromRequest } from "@/lib/auth/session";
+import { isFreeTierExhausted, recordUsageFromHeaders } from "@/lib/usage";
 
 type FlatMessage = { role: string; content: string };
 
@@ -60,6 +61,16 @@ export async function POST(request: Request) {
 
   if (process.env.MOCK_LLM === "true") {
     return json({ response: mockRespond(messages) });
+  }
+
+  if (await isFreeTierExhausted()) {
+    return json(
+      {
+        error: "site_quota_exceeded",
+        message: "Today's free AI budget for the whole site is used up. It resets at midnight UTC — or fork the repo and run your own! 🍃",
+      },
+      429,
+    );
   }
 
   // Daily chat quota: one unit per model call, keyed by email or IP.
@@ -117,6 +128,7 @@ export async function POST(request: Request) {
     );
   }
 
+  await recordUsageFromHeaders(upstream.headers);
   const data = (await upstream.json()) as { response?: string };
   return json({ response: String(data?.response ?? "") });
 }
@@ -136,6 +148,10 @@ function mockRespond(messages: FlatMessage[]): string {
     .filter(Boolean);
   const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
   const lower = lastUser.toLowerCase();
+  const scope =
+    /selected rows: the user has selected/i.test(system) && /\b(these|selected|picked)\b/.test(lower)
+      ? "selection"
+      : "all";
 
   // Step 2 of the loop: a tool result came back → produce a final answer.
   if (lastUser.startsWith("TOOL_RESULT")) {
@@ -159,6 +175,7 @@ function mockRespond(messages: FlatMessage[]): string {
     return JSON.stringify({
       type: "tool_call",
       tool: "filter_rows_ai",
+      scope,
       column,
       criteria: "sounds angry",
       mode: lower.includes("filter") || lower.includes("show") ? "filter" : "highlight",
@@ -169,6 +186,7 @@ function mockRespond(messages: FlatMessage[]): string {
     return JSON.stringify({
       type: "tool_call",
       tool: "transform_column",
+      scope,
       column,
       instruction: "the main keyword",
       newColumnName: `${column} keyword`,
@@ -176,7 +194,7 @@ function mockRespond(messages: FlatMessage[]): string {
   }
 
   if (lower.includes("summar") || lower.includes("keyword")) {
-    return JSON.stringify({ type: "tool_call", tool: "summarize_column", column });
+    return JSON.stringify({ type: "tool_call", tool: "summarize_column", column, scope });
   }
 
   const replaceMatch = lastUser.match(/replace\s+"?([^"]+?)"?\s+with\s+"?([^"]+?)"?(?:\s+in\b|$)/i);
@@ -184,6 +202,7 @@ function mockRespond(messages: FlatMessage[]): string {
     return JSON.stringify({
       type: "tool_call",
       tool: "find_replace",
+      scope,
       column,
       find: replaceMatch[1].trim(),
       replace: replaceMatch[2].trim(),
@@ -196,6 +215,7 @@ function mockRespond(messages: FlatMessage[]): string {
     return JSON.stringify({
       type: "tool_call",
       tool: "filter_rows",
+      scope,
       column,
       op: containsMatch ? "contains" : "not_empty",
       value: containsMatch ? containsMatch[1] : "",

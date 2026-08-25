@@ -66,10 +66,12 @@ export function findReplace(
   find: string,
   replace: string,
   matchCase: boolean,
+  only?: Set<number> | null,
 ): { rows: string[][]; replacements: number; rowsAffected: number } {
   let replacements = 0;
   let rowsAffected = 0;
-  const next = rows.map((row) => {
+  const next = rows.map((row, rowIdx) => {
+    if (only && !only.has(rowIdx)) return row;
     const cell = row[colIdx] ?? "";
     let updated = cell;
     let count = 0;

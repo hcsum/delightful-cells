@@ -159,7 +159,18 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
       return;
     }
 
-    const validated = validateToolCall(parsed, opts.getGrid().headers);
+    const grid = opts.getGrid();
+    const validated = validateToolCall(parsed, grid.headers, !!grid.selectedRows?.size);
+    if ("error" in validated && validated.unknownTool) {
+      // The model invented a tool. Don't let it retry-and-invent again: answer
+      // deterministically so the user learns what the app can't do yet.
+      opts.emit({
+        id: nextMessageId(),
+        role: "assistant",
+        content: `I can't do that yet — there's no "${validated.unknownTool}" tool. Right now I can filter/highlight rows (by rule or by meaning), find & replace, summarize a column, or fill a new column row by row. 🐣`,
+      });
+      return;
+    }
     if ("error" in validated) {
       // Feed the validation error back so the model can self-correct.
       history.push({ id: nextMessageId(), role: "assistant", content: text });

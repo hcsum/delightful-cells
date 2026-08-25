@@ -29,8 +29,8 @@ const CORE_TOOLS: { href: Route; title: string; desc: string }[] = [
 // one click from the homepage after Delightful Cells took over the root.
 export default function ClassicTools() {
   return (
-    <section id="classic-tools" className="bg-[#fffdf8] px-6 pb-16 pt-4 text-black">
-      <div className="mx-auto max-w-5xl">
+    <section id="classic-tools" className="bg-[#fffdf8] px-4 pb-16 pt-4 text-black sm:px-6">
+      <div>
         <h2 className="text-xl font-extrabold">
           Prefer a one-job tool? 🔧
         </h2>
@@ -76,10 +76,6 @@ export default function ClassicTools() {
           <Link href="/terms" className="underline !text-black/40">
             Terms of Service
           </Link>
-          {" · "}
-          <a href="https://mossai.org" className="underline !text-black/40">
-            MossAI Tools
-          </a>
         </p>
       </div>
     </section>

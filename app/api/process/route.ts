@@ -1,6 +1,7 @@
 import { decode, encode } from "@toon-format/toon";
 import { addRowsToDailyQuota, getRowsUsedToday } from "@/lib/quota";
 import { DAILY_ROWS_LIMIT } from "@/lib/limits";
+import { isFreeTierExhausted, recordUsageFromHeaders } from "@/lib/usage";
 import { getQuotaKeyFromRequest } from "@/lib/auth/session";
 
 // Allow local/dev usage without sign-in when explicitly enabled via env.
@@ -139,6 +140,16 @@ export async function POST(request: Request) {
       } catch {}
     }
 
+    if (await isFreeTierExhausted()) {
+      return new Response(
+        JSON.stringify({
+          error: "site_quota_exceeded",
+          message: "Today's free AI budget for the whole site is used up. It resets at midnight UTC.",
+        }),
+        { status: 429, headers: { "content-type": "application/json", "cache-control": "no-store" } },
+      );
+    }
+
     // Forward request to LLM worker (include pre-encoded TOON)
     const workerResponse = await fetch(workerUrl, {
       method: "POST",
@@ -174,6 +185,7 @@ export async function POST(request: Request) {
     } catch {}
     // If worker responded OK, now charge quota and then extract results
     if (workerResponse.ok) {
+      await recordUsageFromHeaders(workerResponse.headers);
       if (rowsCount > 0) {
         const ok2 = await addRowsToDailyQuota(userKey, rowsCount);
         if (!ok2) {

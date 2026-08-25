@@ -120,7 +120,7 @@ export default {
       const chatRaw = chatResult?.response;
       const chatText = typeof chatRaw === 'string' ? chatRaw : chatRaw != null ? JSON.stringify(chatRaw) : '';
       log('chat-ok', { ms: Date.now() - t0, bytes: chatText.length, messages: messages.length });
-      return json({ response: chatText }, 200, origin);
+      return json({ response: chatText }, 200, origin, usageHeaders(chatResult));
     }
 
     let payload: ProcessRequest;
@@ -180,10 +180,18 @@ export default {
     log('ok', { ms: Date.now() - t0, bytes: text.length });
     return new Response(text, {
       status: 200,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...corsHeaders(origin) },
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...corsHeaders(origin), ...usageHeaders(result) },
     });
   },
 } satisfies ExportedHandler<Env>;
+
+// Token usage reported by Workers AI, passed to the app so it can meter itself.
+function usageHeaders(result: any): Record<string, string> {
+  const u = result?.usage || {};
+  const inTok = Number(u.prompt_tokens) || 0;
+  const outTok = Number(u.completion_tokens) || 0;
+  return inTok || outTok ? { 'x-usage-in': String(inTok), 'x-usage-out': String(outTok) } : {};
+}
 
 function json(body: any, status = 200, origin = '', extraHeaders?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
