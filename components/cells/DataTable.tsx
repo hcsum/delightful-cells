@@ -18,14 +18,13 @@ export default function DataTable({
 }) {
   // Double-click a cell to edit it inline; Enter/blur commits, Esc cancels.
   const [editing, setEditing] = useState<{ row: number; col: number } | null>(null);
-  // Pattern-Maker-style crosshair: the hovered row and column light up as bands
-  // and the cell gets an outline. Row band is plain CSS (tr:hover); the column
-  // band is driven by a data attribute on the table so hovering never re-renders
-  // the (up to 12k-cell) grid through React.
+  // Hovering a column header lights up that column; hovering a row number
+  // lights up that row (pure CSS via :has). Driven by a data attribute on the
+  // table so hovering never re-renders the (up to 12k-cell) grid through React.
   const tableRef = useRef<HTMLTableElement>(null);
   const setHoverCol = (e: React.MouseEvent) => {
-    const td = (e.target as HTMLElement).closest("td,th");
-    const idx = td ? (td as HTMLTableCellElement).cellIndex : 0;
+    const th = (e.target as HTMLElement).closest("th");
+    const idx = th ? (th as HTMLTableCellElement).cellIndex : 0;
     if (tableRef.current) tableRef.current.dataset.hc = idx > 0 ? String(idx) : "";
   };
   const clearHoverCol = () => {
@@ -184,13 +183,11 @@ function CellEditor({
 const BAND = "rgba(47,124,246,0.10)";
 function crosshairCss(cols: number): string {
   const rules: string[] = [
-    // Row band + row-number accent.
-    `.cells-grid tbody tr:hover td{background-image:linear-gradient(${BAND},${BAND})}`,
-    `.cells-grid tbody tr:hover td:first-child{color:#2f7cf6;font-weight:700}`,
-    // Hovered cell outline.
-    `.cells-grid tbody td:hover{box-shadow:inset 0 0 0 2px #2f7cf6;border-radius:6px}`,
+    // Hovering the row number highlights the whole row.
+    `.cells-grid tbody tr:has(td:first-child:hover) td{background-image:linear-gradient(${BAND},${BAND})}`,
+    `.cells-grid tbody tr:has(td:first-child:hover) td:first-child{color:#2f7cf6;font-weight:700}`,
   ];
-  // Column band + header accent for every possible column (cellIndex 1..cols).
+  // Hovering a column header highlights the whole column (cellIndex 1..cols).
   for (let i = 1; i <= cols; i++) {
     rules.push(
       `.cells-grid[data-hc="${i}"] td:nth-child(${i + 1}){background-image:linear-gradient(${BAND},${BAND})}`,
