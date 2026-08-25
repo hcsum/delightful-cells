@@ -100,7 +100,7 @@ export async function downloadWorkbookXlsx(
   fileName: string,
   sheets: ExportSheet[],
 ): Promise<void> {
-  const ExcelJS = await import("exceljs");
+  const ExcelJS = await import("exceljs/dist/exceljs.min.js");
   const wb = new ExcelJS.Workbook();
   for (const s of sheets) {
     const ws = wb.addWorksheet(s.name.slice(0, 31)); // Excel's sheet-name limit
