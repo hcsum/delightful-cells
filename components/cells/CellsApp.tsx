@@ -269,7 +269,7 @@ export default function CellsApp() {
           </p>
         </div>
         <a
-          href="https://github.com/hcsum/extract-excel-app"
+          href="https://github.com/hcsum/delightful-cells"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-full border !border-black/15 bg-white px-4 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"

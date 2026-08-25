@@ -67,7 +67,7 @@ export default function ClassicTools() {
         </ul>
         <p className="mt-8 text-xs text-black/40">
           <a
-            href="https://github.com/hcsum/extract-excel-app"
+            href="https://github.com/hcsum/delightful-cells"
             className="underline !text-black/40"
           >
             Open source on GitHub
