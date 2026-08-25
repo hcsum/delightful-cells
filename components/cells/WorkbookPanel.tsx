@@ -92,6 +92,20 @@ export default function WorkbookPanel({
             >
               Choose a file
             </button>
+            <p className="mt-3 text-sm text-black/55">
+              or{" "}
+              <button
+                onClick={async () => {
+                  const res = await fetch("/demo/delightful-demo.xlsx");
+                  const blob = await res.blob();
+                  onFile(new File([blob], "delightful-demo.xlsx", { type: blob.type }));
+                }}
+                className="font-bold underline decoration-2 underline-offset-2 hover:text-black"
+              >
+                try with demo data
+              </button>{" "}
+              ✨
+            </p>
             {state.status === "error" && (
               <p className="mt-4 rounded-2xl bg-[#ffe6ef] px-4 py-2 text-sm font-semibold text-[#b3003c]">
                 {state.message}
