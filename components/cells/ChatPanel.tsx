@@ -5,10 +5,9 @@ import type { ChatMessage } from "@/lib/cells/agent";
 import ToolCallCard from "./ToolCallCard";
 
 const SUGGESTIONS = [
-  "Summarize the 3rd column",
-  'Highlight rows containing "error"',
-  'Replace "N/A" with "" in the first column',
-  "Extract the main keyword from each row of the 3rd column into a new column",
+  "Highlight rows where the feedback sounds angry",
+  'Replace "resolved" with "closed" in the Status column',
+  "Classify each Customer Feedback as positive, neutral, or negative into a new column",
 ];
 
 export default function ChatPanel({

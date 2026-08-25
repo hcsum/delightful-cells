@@ -86,20 +86,48 @@ export async function parseWorkbookFile(file: File): Promise<ParsedWorkbook> {
 }
 
 // Write sheets back to an .xlsx and trigger a browser download.
+export type ExportSheet = {
+  name: string;
+  headers: string[];
+  rows: string[][];
+  // Row indexes (into `rows`) to paint yellow, mirroring the on-screen highlight.
+  highlightedRows?: Set<number> | null;
+};
+
+// exceljs (MIT) instead of SheetJS for writing: the community SheetJS build
+// cannot write cell fills, and keeping highlights in the file is the point.
 export async function downloadWorkbookXlsx(
   fileName: string,
-  sheets: { name: string; headers: string[]; rows: string[][] }[],
+  sheets: ExportSheet[],
 ): Promise<void> {
-  const XLSX = await import("xlsx");
-  const wb = XLSX.utils.book_new();
+  const ExcelJS = await import("exceljs");
+  const wb = new ExcelJS.Workbook();
   for (const s of sheets) {
-    XLSX.utils.book_append_sheet(
-      wb,
-      XLSX.utils.aoa_to_sheet([s.headers, ...s.rows]),
-      s.name.slice(0, 31), // Excel's sheet-name limit
-    );
+    const ws = wb.addWorksheet(s.name.slice(0, 31)); // Excel's sheet-name limit
+    ws.addRow(s.headers).font = { bold: true };
+    s.rows.forEach((r, i) => {
+      const row = ws.addRow(r);
+      if (s.highlightedRows?.has(i)) {
+        for (let c = 1; c <= s.headers.length; c++) {
+          row.getCell(c).fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFFFF3B0" },
+          };
+        }
+      }
+    });
   }
-  XLSX.writeFile(wb, fileName);
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Minimal CSV writer for the download button (quotes only when needed).

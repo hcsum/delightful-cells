@@ -4,6 +4,7 @@ import type { ToolCall, ToolResult } from "@/lib/cells/tools";
 
 const TOOL_META: Record<ToolCall["tool"], { emoji: string; label: string }> = {
   filter_rows: { emoji: "🔦", label: "Filter rows" },
+  filter_rows_ai: { emoji: "🔮", label: "AI filter rows" },
   find_replace: { emoji: "✂️", label: "Find & replace" },
   summarize_column: { emoji: "🧮", label: "Summarize column" },
   transform_column: { emoji: "🪄", label: "AI transform column" },

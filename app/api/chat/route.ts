@@ -155,6 +155,16 @@ function mockRespond(messages: FlatMessage[]): string {
     return "Sure thing! Let me think about that without any JSON at all...";
   }
 
+  if (lower.includes("sounds") || lower.includes("angry") || lower.includes("negative")) {
+    return JSON.stringify({
+      type: "tool_call",
+      tool: "filter_rows_ai",
+      column,
+      criteria: "sounds angry",
+      mode: lower.includes("filter") || lower.includes("show") ? "filter" : "highlight",
+    });
+  }
+
   if (lower.includes("each") || lower.includes("new column") || lower.includes("every row")) {
     return JSON.stringify({
       type: "tool_call",

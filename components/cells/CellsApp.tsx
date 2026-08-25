@@ -134,14 +134,27 @@ export default function CellsApp() {
   }, [workbookState]);
 
   // Export the whole workbook as .xlsx: the active sheet gets the edited grid
-  // (respecting the current filter, same as the CSV export), other sheets as uploaded.
+  // (respecting the current filter, same as the CSV export) with highlights as
+  // yellow fills, other sheets as uploaded.
   const handleDownloadXlsx = useCallback(() => {
     const grid = gridRef.current;
     if (!grid || workbookState.status !== "ready") return;
     const kept = grid.filterKept ?? grid.rows.map((_, i) => i);
     const sheets = workbookState.workbook.sheets.map((s, i) =>
       i === workbookState.activeSheet
-        ? { name: s.name, headers: grid.headers, rows: kept.map((k) => grid.rows[k]) }
+        ? {
+            name: s.name,
+            headers: grid.headers,
+            rows: kept.map((k) => grid.rows[k]),
+            // Re-index highlights against the exported (possibly filtered) rows.
+            highlightedRows: grid.highlightedRows
+              ? new Set(
+                  kept
+                    .map((k, j) => (grid.highlightedRows!.has(k) ? j : -1))
+                    .filter((j) => j !== -1),
+                )
+              : null,
+          }
         : { name: s.name, headers: s.headers, rows: s.rows },
     );
     const fileName =
@@ -204,6 +217,62 @@ export default function CellsApp() {
     [setGrid],
   );
 
+  // filter_rows_ai: ask the model YES/NO per row via the same batched pipeline,
+  // then highlight / keep the YES rows. Mechanical filters never touch the LLM.
+  const runAiFilter = useCallback(
+    async (
+      call: Extract<ToolCall, { tool: "filter_rows_ai" }>,
+    ): Promise<ToolResult> => {
+      const grid = gridRef.current!;
+      const colIdx = findColumnIndex(grid.headers, call.column);
+      const values = grid.rows.map((r) => r[colIdx] ?? "");
+      setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
+      try {
+        const results = await processRows(
+          values,
+          `Answer only YES or NO: does this text match the test "${call.criteria}"?`,
+          call.column,
+          50,
+          undefined,
+          {
+            action: "download",
+            onProgress: (done, total) =>
+              setAgent((prev) => ({ ...prev, progress: { done, total } })),
+          },
+        );
+        const matched: number[] = [];
+        results.forEach((r, i) => {
+          if (/^\s*yes\b/i.test(r.output ?? "")) matched.push(i);
+        });
+        const current = gridRef.current!;
+        setGrid(
+          call.mode === "highlight"
+            ? { ...current, highlightedRows: matched.length ? new Set(matched) : null }
+            : { ...current, filterKept: matched },
+        );
+        const verb = call.mode === "highlight" ? "highlighted" : "kept";
+        return {
+          ok: true,
+          summary: `${matched.length} of ${results.length} rows ${verb}`,
+          data: {
+            rowsMatched: matched.length,
+            rowsTotal: results.length,
+            outcome: `${matched.length} of ${results.length} rows matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb} in the user's table.`,
+          },
+        };
+      } catch (e) {
+        return {
+          ok: false,
+          summary: "AI filter failed",
+          data: { error: e instanceof Error ? e.message : String(e) },
+        };
+      } finally {
+        setAgent((prev) => ({ ...prev, progress: null }));
+      }
+    },
+    [setGrid],
+  );
+
   const handleSend = useCallback(
     async (text: string) => {
       if (workbookState.status !== "ready" || agent.thinking) return;
@@ -225,6 +294,7 @@ export default function CellsApp() {
           getGrid: () => gridRef.current!,
           applyTool: (call: ToolCall) => {
             if (call.tool === "transform_column") return runTransform(call);
+            if (call.tool === "filter_rows_ai") return runAiFilter(call);
             const { result, nextGrid } = dispatchTool(call, gridRef.current!);
             setGrid(nextGrid);
             return result;
@@ -248,7 +318,7 @@ export default function CellsApp() {
         if (turnIdRef.current === turnId) setAgent({ thinking: false, step: 1, progress: null });
       }
     },
-    [workbookState, agent.thinking, messages, setGrid, runTransform],
+    [workbookState, agent.thinking, messages, setGrid, runTransform, runAiFilter],
   );
 
   return (

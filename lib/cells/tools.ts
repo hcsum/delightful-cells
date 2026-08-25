@@ -34,6 +34,12 @@ export type ToolCall =
     }
   | { tool: "summarize_column"; column: string }
   | {
+      tool: "filter_rows_ai";
+      column: string;
+      criteria: string;
+      mode: "filter" | "highlight";
+    }
+  | {
       tool: "transform_column";
       column: string;
       instruction: string;
@@ -97,6 +103,12 @@ export function validateToolCall(
   if (tool === "summarize_column") {
     return { call: { tool: "summarize_column", column } };
   }
+  if (tool === "filter_rows_ai") {
+    const criteria = String(raw.criteria ?? "").trim();
+    if (!criteria) return { error: '"criteria" must be a non-empty string.' };
+    const mode = raw.mode === "filter" ? "filter" : "highlight";
+    return { call: { tool: "filter_rows_ai", column, criteria, mode } };
+  }
   if (tool === "transform_column") {
     const instruction = String(raw.instruction ?? "").trim();
     if (!instruction) return { error: '"instruction" must be a non-empty string.' };
@@ -107,18 +119,18 @@ export function validateToolCall(
     };
   }
   return {
-    error: `Unknown tool "${tool}". Use filter_rows, find_replace, summarize_column, or transform_column.`,
+    error: `Unknown tool "${tool}". Use filter_rows, filter_rows_ai, find_replace, summarize_column, or transform_column.`,
   };
 }
 
-// Handles the three synchronous local tools. transform_column is async
-// (batched LLM calls) and is executed by the UI layer before reaching here.
+// Handles the synchronous local tools. transform_column and filter_rows_ai
+// are async (batched LLM calls) and are executed by the UI layer instead.
 export function dispatchTool(
   call: ToolCall,
   grid: GridState,
 ): { result: ToolResult; nextGrid: GridState } {
-  if (call.tool === "transform_column") {
-    throw new Error("transform_column must be handled by the async tool runner");
+  if (call.tool === "transform_column" || call.tool === "filter_rows_ai") {
+    throw new Error(`${call.tool} must be handled by the async tool runner`);
   }
   const colIdx = findColumnIndex(grid.headers, call.column);
 
@@ -193,6 +205,7 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     "Either a tool call:",
     '  {"type":"tool_call","tool":"filter_rows","column":"<exact column name>","op":"contains|equals|not_equals|gt|lt|empty|not_empty","value":"...","mode":"filter|highlight"}',
     '  {"type":"tool_call","tool":"find_replace","column":"<exact column name>","find":"...","replace":"...","matchCase":false}',
+    '  {"type":"tool_call","tool":"filter_rows_ai","column":"<exact column name>","criteria":"a semantic yes/no test for each cell, e.g. sounds angry","mode":"filter|highlight"}',
     '  {"type":"tool_call","tool":"summarize_column","column":"<exact column name>"}',
     '  {"type":"tool_call","tool":"transform_column","column":"<exact column name>","instruction":"what to produce from each cell, e.g. extract the main keyword","newColumnName":"..."}',
     "Or a final answer to the user:",
@@ -202,6 +215,10 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     "- column must be one of the exact column names listed above.",
     "- Use mode \"highlight\" to mark matching rows, \"filter\" to hide the rest.",
     "- gt/lt compare numerically.",
+    "- filter_rows is for mechanical tests (text/number match). filter_rows_ai",
+    "  is for tests that need understanding the meaning of each cell (tone,",
+    "  sentiment, topic, \"sounds angry\", \"mentions shipping\"). Never fake a",
+    "  semantic test with contains.",
     "- summarize_column gives ONE overview of the whole column in chat.",
     "- transform_column runs the instruction on EVERY row and writes the results",
     "  into a new column (use it for per-row summarize/extract/classify asks).",
