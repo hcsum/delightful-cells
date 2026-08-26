@@ -182,6 +182,17 @@ function mockRespond(messages: FlatMessage[]): string {
     });
   }
 
+  const divideMatch = lastUser.match(/(\S[^,]*?)\s+divided by\s+([^,\.]+)/i);
+  if (divideMatch) {
+    return JSON.stringify({
+      type: "tool_call",
+      tool: "compute_column",
+      scope,
+      formula: `[${divideMatch[1].trim()}] / [${divideMatch[2].trim()}]`,
+      newColumnName: "Computed",
+    });
+  }
+
   if (lower.includes("each") || lower.includes("new column") || lower.includes("every row")) {
     return JSON.stringify({
       type: "tool_call",

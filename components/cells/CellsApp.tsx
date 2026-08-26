@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   downloadWorkbookXlsx,
   parseWorkbookFile,
@@ -28,6 +28,8 @@ import {
 import WorkbookPanel, { type WorkbookState } from "./WorkbookPanel";
 import ChatPanel from "./ChatPanel";
 import UsageMeter from "./UsageMeter";
+import { LocaleContext } from "@/lib/cells/locale";
+import { t, type Locale } from "@/lib/cells/i18n";
 
 // Rounded system font stack — no build-time font download, fork-friendly.
 const ROUNDED_FONT =
@@ -44,6 +46,19 @@ function gridFromSheet(sheet: ParsedSheet): GridState {
 }
 
 export default function CellsApp() {
+  // Locale: saved choice wins, otherwise follow the browser's language.
+  const [locale, setLocale] = useState<Locale>("en");
+  useEffect(() => {
+    let saved: string | null = null;
+    try { saved = localStorage.getItem("cells-locale"); } catch {}
+    if (saved === "zh" || saved === "en") setLocale(saved);
+    else if (navigator.language?.toLowerCase().startsWith("zh")) setLocale("zh");
+  }, []);
+  const switchLocale = (next: Locale) => {
+    setLocale(next);
+    try { localStorage.setItem("cells-locale", next); } catch {}
+  };
+
   const [workbookState, setWorkbookState] = useState<WorkbookState>({
     status: "idle",
   });
@@ -58,6 +73,8 @@ export default function CellsApp() {
   // The agent loop reads/writes the grid through refs so mid-turn tool calls
   // always see the latest data, independent of React's async state updates.
   const gridRef = useRef<GridState | null>(null);
+  const localeRef = useRef<Locale>("en");
+  localeRef.current = locale;
   const turnIdRef = useRef(0);
 
   const setGrid = useCallback((grid: GridState) => {
@@ -85,7 +102,7 @@ export default function CellsApp() {
           message:
             e instanceof WorkbookError
               ? e.message
-              : "Something went wrong opening that file.",
+              : t(localeRef.current, "openError"),
         });
       }
     }, 0);
@@ -338,6 +355,7 @@ export default function CellsApp() {
         await runAgentTurn({
           history,
           sheetName,
+          locale: localeRef.current,
           getGrid: () => gridRef.current!,
           applyTool: (call: ToolCall) => {
             if (call.tool === "transform_column") return runTransform(call);
@@ -357,7 +375,7 @@ export default function CellsApp() {
             {
               id: nextMessageId(),
               role: "assistant",
-              content: `😵 ${e instanceof Error ? e.message : "Something went wrong."}`,
+              content: `😵 ${e instanceof Error ? e.message : t(locale, "genericError")}`,
             },
           ]);
         }
@@ -370,6 +388,7 @@ export default function CellsApp() {
   );
 
   return (
+    <LocaleContext.Provider value={locale}>
     <div
       className="flex min-h-screen flex-col bg-[#fffdf8] text-black lg:h-screen"
       style={{ fontFamily: ROUNDED_FONT }}
@@ -383,9 +402,16 @@ export default function CellsApp() {
             </span>
           </h1>
           <p className="text-xs font-semibold text-black/45">
-            Spreadsheets, but you just say what you want. 🪄
+            {t(locale, "subtitle")}
           </p>
         </div>
+        <div className="flex items-center gap-2">
+        <button
+          onClick={() => switchLocale(locale === "zh" ? "en" : "zh")}
+          className="inline-flex items-center rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
+        >
+          {locale === "zh" ? "EN" : "中文"}
+        </button>
         <a
           href="https://github.com/hcsum/delightful-cells"
           target="_blank"
@@ -397,6 +423,7 @@ export default function CellsApp() {
           </svg>
           GitHub
         </a>
+        </div>
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:[grid-template-rows:minmax(0,1fr)]">
@@ -428,5 +455,6 @@ export default function CellsApp() {
         </div>
       </div>
     </div>
+    </LocaleContext.Provider>
   );
 }

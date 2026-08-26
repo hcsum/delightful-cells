@@ -4,6 +4,7 @@ import { useRef } from "react";
 import type { ParsedWorkbook } from "@/lib/cells/workbook";
 import type { GridState } from "@/lib/cells/tools";
 import DataTable from "./DataTable";
+import { useT } from "@/lib/cells/locale";
 
 export type WorkbookState =
   | { status: "idle" }
@@ -42,6 +43,7 @@ export default function WorkbookPanel({
   onDownloadXlsx: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   const fileInput = (
     <input
@@ -73,19 +75,19 @@ export default function WorkbookPanel({
           <div className="text-center">
             <div className="animate-bounce text-5xl">📊</div>
             <p className="mt-4 text-sm font-semibold text-black/60">
-              Opening {state.fileName}…
+              {t("opening", { name: state.fileName })}
             </p>
           </div>
         ) : (
           <div className="text-center">
             <div className="text-6xl">🐣</div>
             <h2 className="mt-4 text-xl font-extrabold text-black">
-              Drop your spreadsheet here
+              {t("dropTitle")}
             </h2>
             <p className="mt-1 text-sm text-black/55">
-              .xlsx, .xls, or .csv — it opens instantly, right in your browser.
+              {t("dropDesc1")}
               <br />
-              Nothing is uploaded until you talk to the AI.
+              {t("dropDesc2")}
             </p>
             <button
               onClick={() => inputRef.current?.click()}
@@ -96,10 +98,10 @@ export default function WorkbookPanel({
                   "linear-gradient(#fffaf0,#fffaf0) padding-box, linear-gradient(90deg,#ff0080,#ff8c00,#ffd500,#00c853,#00b0ff,#7c4dff,#ff0080) border-box",
               }}
             >
-              Choose a file
+              {t("chooseFile")}
             </button>
             <p className="mt-3 text-sm text-black/55">
-              or{" "}
+              {t("or")}{" "}
               <button
                 onClick={async () => {
                   const res = await fetch("/demo/delightful-demo.xlsx");
@@ -108,7 +110,7 @@ export default function WorkbookPanel({
                 }}
                 className="font-bold underline decoration-2 underline-offset-2 hover:text-black"
               >
-                try with demo data
+                {t("tryDemo")}
               </button>{" "}
               ✨
             </p>
@@ -136,38 +138,38 @@ export default function WorkbookPanel({
           📄 {workbook.fileName}
         </span>
         <span className="text-xs text-black/40">
-          {grid.rows.length} rows × {grid.headers.length} cols
+          {t("rowsCols", { r: grid.rows.length, c: grid.headers.length })}
         </span>
         <button
           onClick={() => inputRef.current?.click()}
           className={`${pill} bg-black text-[#fffdf8] hover:opacity-80`}
         >
-          New file
+          {t("newFile")}
         </button>
         <div className="grow" />
         {grid.selectedRows && (
           <button onClick={onClearSelection} className={`${pill} bg-[#dbeafe] text-black hover:bg-[#c7dcfa]`}>
-            {grid.selectedRows.size} selected · clear
+            {t("selectedClear", { n: grid.selectedRows.size })}
           </button>
         )}
         {grid.highlightedRows && (
           <button onClick={onClearHighlights} className={`${pill} bg-[#fff3b0] text-black hover:bg-[#ffe89a]`}>
-            Clear highlights
+            {t("clearHighlights")}
           </button>
         )}
         {grid.filterKept && (
           <button onClick={onShowAllRows} className={`${pill} bg-[#d6f0ff] text-black hover:bg-[#c2e8ff]`}>
-            Show all rows
+            {t("showAllRows")}
           </button>
         )}
         <button onClick={onReset} className={`${pill} bg-white text-black/70 border !border-black/15 hover:bg-[#ffe6ef]`}>
-          Reset data
+          {t("resetData")}
         </button>
         <button onClick={onDownloadXlsx} className={`${pill} bg-[#e8ffe8] text-black border !border-black/15 hover:bg-[#d4f7d4]`}>
-          Download Excel
+          {t("downloadExcel")}
         </button>
         <button onClick={onDownload} className={`${pill} bg-white text-black/70 border !border-black/15 hover:bg-[#e8ffe8]`}>
-          Download CSV
+          {t("downloadCsv")}
         </button>
       </div>
 

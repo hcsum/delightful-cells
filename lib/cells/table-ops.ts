@@ -136,6 +136,8 @@ export type ColumnStats = {
   nonEmpty: number;
   distinct: number;
   sampleValues: string[];
+  // Most frequent values with counts, so "which X appears most?" is answerable.
+  topValues?: { value: string; count: number }[];
   numeric?: { min: number; max: number; mean: number };
 };
 
@@ -156,6 +158,19 @@ export function summarizeColumn(
     .slice(0, maxSamples)
     .map((v) => (v.length > 80 ? v.slice(0, 80) + "…" : v));
 
+  const freq = new Map<string, number>();
+  for (const v of values) freq.set(v, (freq.get(v) ?? 0) + 1);
+  const topValues =
+    distinctValues.length <= Math.max(values.length * 0.9, 1)
+      ? [...freq.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([value, count]) => ({
+            value: value.length > 80 ? value.slice(0, 80) + "…" : value,
+            count,
+          }))
+      : undefined; // mostly-unique columns: counts are noise
+
   const numbers = values.map(Number).filter((n) => Number.isFinite(n));
   const numeric =
     numbers.length > 0 && numbers.length >= values.length * 0.8
@@ -174,6 +189,7 @@ export function summarizeColumn(
     nonEmpty: values.length,
     distinct: distinctValues.length,
     sampleValues,
+    ...(topValues ? { topValues } : {}),
     ...(numeric ? { numeric } : {}),
   };
 }

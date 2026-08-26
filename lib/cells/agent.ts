@@ -1,6 +1,7 @@
 // The agent runtime: a small while-loop. The model plans, the browser acts.
 // One user message = one agent turn = up to MAX_STEPS model calls.
 
+import { t, type Locale } from "./i18n";
 import {
   buildSystemPrompt,
   validateToolCall,
@@ -112,6 +113,7 @@ async function postChat(messages: FlatMessage[]): Promise<string> {
 }
 
 export type AgentTurnOptions = {
+  locale?: Locale;
   history: ChatMessage[]; // history BEFORE this turn, user message included
   sheetName: string;
   getGrid: () => GridState;
@@ -167,7 +169,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
       opts.emit({
         id: nextMessageId(),
         role: "assistant",
-        content: `I can't do that yet — there's no "${validated.unknownTool}" tool. Right now I can filter/highlight rows (by rule or by meaning), find & replace, summarize a column, or fill a new column row by row. 🐣`,
+        content: t(opts.locale ?? "en", "unknownTool", { tool: validated.unknownTool }),
       });
       return;
     }

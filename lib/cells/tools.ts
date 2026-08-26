@@ -3,12 +3,15 @@
 // the returned GridState.
 
 import {
+  appendColumn,
   findColumnIndex,
   findReplace,
   matchRows,
   summarizeColumn,
+  uniquifyHeader,
   type FilterOp,
 } from "./table-ops";
+import { compileFormula, formatComputed } from "./formula";
 
 export type GridState = {
   headers: string[];
@@ -53,6 +56,12 @@ export type ToolCall =
       instruction: string;
       newColumnName: string;
       scope: ToolScope;
+    }
+  | {
+      tool: "compute_column";
+      formula: string;
+      newColumnName: string;
+      scope: ToolScope;
     };
 
 export type ToolResult = {
@@ -78,6 +87,7 @@ export const KNOWN_TOOLS: ToolCall["tool"][] = [
   "find_replace",
   "summarize_column",
   "transform_column",
+  "compute_column",
 ];
 
 export function validateToolCall(
@@ -95,6 +105,14 @@ export function validateToolCall(
   const scope: ToolScope = raw.scope === "selection" ? "selection" : "all";
   if (scope === "selection" && !hasSelection) {
     return { error: 'scope "selection" requested but the user has no rows selected. Use scope "all".' };
+  }
+  if (tool === "compute_column") {
+    const formula = String(raw.formula ?? "").trim();
+    if (!formula) return { error: '"formula" must be a non-empty string.' };
+    const compiled = compileFormula(formula, headers);
+    if (!compiled.ok) return { error: compiled.error };
+    const newColumnName = String(raw.newColumnName ?? "").trim() || "Computed";
+    return { call: { tool: "compute_column", formula, newColumnName, scope } };
   }
   const columnRaw = String(raw.column ?? "");
   const colIdx = findColumnIndex(headers, columnRaw);
@@ -161,9 +179,43 @@ export function dispatchTool(
   if (call.tool === "transform_column" || call.tool === "filter_rows_ai") {
     throw new Error(`${call.tool} must be handled by the async tool runner`);
   }
-  const colIdx = findColumnIndex(grid.headers, call.column);
   const only = call.scope === "selection" ? grid.selectedRows : null;
   const scopeNote = only ? ` within the ${only.size} selected rows` : "";
+
+  if (call.tool === "compute_column") {
+    const compiled = compileFormula(call.formula, grid.headers);
+    if (!compiled.ok) {
+      return { result: { ok: false, summary: "bad formula", data: { error: compiled.error } }, nextGrid: grid };
+    }
+    let computed = 0;
+    const outputs = grid.rows.map((row, i) => {
+      if (only && !only.has(i)) return "";
+      const n = compiled.compiled.evaluate(row);
+      if (n == null) return "";
+      computed++;
+      return formatComputed(n);
+    });
+    const name = uniquifyHeader(grid.headers, call.newColumnName);
+    const next = appendColumn(grid.headers, grid.rows, name, outputs);
+    const total = only ? only.size : grid.rows.length;
+    return {
+      result: {
+        ok: true,
+        summary: `${computed}/${total} rows → "${name}"`,
+        data: {
+          newColumn: name,
+          formula: call.formula,
+          rowsComputed: computed,
+          rowsSkipped: total - computed,
+          outcome: `Column "${name}" added: ${call.formula} computed for ${computed} of ${total} rows${scopeNote} (rows with non-numeric inputs left blank).`,
+          sampleOutputs: outputs.filter((o) => o !== "").slice(0, 3),
+        },
+      },
+      nextGrid: { ...grid, headers: next.headers, rows: next.rows },
+    };
+  }
+
+  const colIdx = findColumnIndex(grid.headers, call.column);
 
   if (call.tool === "filter_rows") {
     const matched = matchRows(grid.rows, colIdx, call.op, call.value).filter(
@@ -246,6 +298,7 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     '  {"type":"tool_call","tool":"filter_rows_ai","column":"<exact column name>","criteria":"a semantic yes/no test for each cell, e.g. sounds angry","mode":"filter|highlight"}',
     '  {"type":"tool_call","tool":"summarize_column","column":"<exact column name>"}',
     '  {"type":"tool_call","tool":"transform_column","column":"<exact column name>","instruction":"what to produce from each cell, e.g. extract the main keyword","newColumnName":"..."}',
+    '  {"type":"tool_call","tool":"compute_column","formula":"[Column A] / [Column B]","newColumnName":"..."}',
     "Or a final answer to the user:",
     '  {"type":"final","message":"..."}',
     "",
@@ -259,9 +312,16 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     "  is for tests that need understanding the meaning of each cell (tone,",
     "  sentiment, topic, \"sounds angry\", \"mentions shipping\"). Never fake a",
     "  semantic test with contains.",
-    "- summarize_column gives ONE overview of the whole column in chat.",
+    "- summarize_column gives ONE overview of the whole column in chat. Its",
+    "  TOOL_RESULT includes topValues (most frequent values with counts) — use",
+    "  it to answer \"which value appears most\" questions directly.",
     "- transform_column runs the instruction on EVERY row and writes the results",
     "  into a new column (use it for per-row summarize/extract/classify asks).",
+    "  It sees ONLY that one column's cell — it cannot use other columns.",
+    "- compute_column is for ARITHMETIC across columns (price = revenue / units,",
+    "  totals, percentages). formula supports numbers, + - * / % ( ) and [exact",
+    "  column name] references, computed exactly. ALWAYS prefer it over",
+    "  transform_column for math.",
     "- After a TOOL_RESULT, either call another tool or reply {\"type\":\"final\",...}",
     "  telling the user what happened in one or two friendly sentences.",
     "- Your final answer MUST be based on the TOOL_RESULT numbers, never on the",

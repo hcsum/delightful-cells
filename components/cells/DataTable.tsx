@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { GridState } from "@/lib/cells/tools";
+import { useT } from "@/lib/cells/locale";
 
 const MAX_RENDERED_ROWS = 200;
 
@@ -17,6 +18,7 @@ export default function DataTable({
   onSelectRow?: (rowIdx: number, mods: { shift: boolean; meta: boolean }) => void;
 }) {
   // Double-click a cell to edit it inline; Enter/blur commits, Esc cancels.
+  const t = useT();
   const [editing, setEditing] = useState<{ row: number; col: number } | null>(null);
   // Hovering a column header lights up that column; hovering a row number
   // lights up that row (pure CSS via :has). Driven by a data attribute on the
@@ -82,7 +84,7 @@ export default function DataTable({
                     className={`select-none whitespace-nowrap px-3 py-1.5 tabular-nums ${
                       selected ? "bg-[#2f7cf6] font-bold text-white" : "text-black/35"
                     } ${onSelectRow ? "cursor-pointer hover:bg-[#dbeafe]" : ""}`}
-                    title={onSelectRow ? "Click to select row (Shift: range, ⌘/Ctrl: toggle)" : undefined}
+                    title={onSelectRow ? t("rowSelectTitle") : undefined}
                     onClick={(e) =>
                       onSelectRow?.(rowIdx, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
                     }
@@ -105,7 +107,7 @@ export default function DataTable({
                       <td
                         key={ci}
                         className="max-w-[280px] cursor-text truncate whitespace-nowrap px-3 py-1.5 text-black/80"
-                        title={onEditCell ? `${cell}\n(double-click to edit)` : cell}
+                        title={onEditCell ? `${cell}\n${t("dblclickEdit")}` : cell}
                         onDoubleClick={() => onEditCell && setEditing({ row: rowIdx, col: ci })}
                       >
                         {cell}
@@ -121,7 +123,7 @@ export default function DataTable({
                   colSpan={grid.headers.length + 1}
                   className="px-3 py-8 text-center text-black/40"
                 >
-                  No rows match the current filter. 🫥
+                  {t("noMatch")}
                 </td>
               </tr>
             )}
@@ -130,22 +132,19 @@ export default function DataTable({
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-black/45">
         {visibleIndexes.length > MAX_RENDERED_ROWS && (
-          <span>
-            Showing first {MAX_RENDERED_ROWS} of {visibleIndexes.length} rows —
-            AI tools still work on all of them ✨
-          </span>
+          <span>{t("showingFirst", { n: MAX_RENDERED_ROWS, m: visibleIndexes.length })}</span>
         )}
         {hiddenByFilter > 0 && (
-          <span>{hiddenByFilter} rows hidden by the current filter.</span>
+          <span>{t("hiddenByFilter", { n: hiddenByFilter })}</span>
         )}
         {grid.highlightedRows && (
-          <span>{grid.highlightedRows.size} rows highlighted.</span>
+          <span>{t("highlightedRows", { n: grid.highlightedRows.size })}</span>
         )}
         {grid.selectedRows && (
-          <span>{grid.selectedRows.size} rows selected — say &ldquo;these rows&rdquo; in chat.</span>
+          <span>{t("selectedHint", { n: grid.selectedRows.size })}</span>
         )}
         {onEditCell && rendered.length > 0 && (
-          <span>Double-click any cell to edit it. Click a row number to select.</span>
+          <span>{t("editHint")}</span>
         )}
       </div>
     </div>

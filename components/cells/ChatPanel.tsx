@@ -3,12 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/cells/agent";
 import ToolCallCard from "./ToolCallCard";
-
-const SUGGESTIONS = [
-  "Highlight rows where the feedback sounds angry",
-  'Replace "resolved" with "closed" in the Status column',
-  "Classify each Customer Feedback as positive, neutral, or negative into a new column",
-];
+import { useLocale, useT } from "@/lib/cells/locale";
+import { SUGGESTIONS } from "@/lib/cells/i18n";
 
 export default function ChatPanel({
   messages,
@@ -25,6 +21,8 @@ export default function ChatPanel({
   ready: boolean; // a sheet is loaded
   onSend: (text: string) => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +40,7 @@ export default function ChatPanel({
   return (
     <section className="flex min-h-0 flex-col rounded-[28px] border !border-black/10 bg-[#fffaf0] p-4">
       <h2 className="px-1 text-sm font-extrabold uppercase tracking-wide text-black/50">
-        💬 Talk to your sheet
+        {t("talkToSheet")}
       </h2>
 
       <div ref={scrollRef} className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
@@ -51,10 +49,10 @@ export default function ChatPanel({
             {ready ? (
               <>
                 <p className="font-semibold text-black/70">
-                  Your sheet is in! Try one of these:
+                  {t("sheetIn")}
                 </p>
                 <div className="mt-2 flex flex-col items-start gap-1.5">
-                  {SUGGESTIONS.map((s) => (
+                  {SUGGESTIONS[locale].map((s) => (
                     <button
                       key={s}
                       onClick={() => send(s)}
@@ -66,10 +64,7 @@ export default function ChatPanel({
                 </div>
               </>
             ) : (
-              <p>
-                Upload a spreadsheet on the left, then boss it around in plain
-                English right here. ✨
-              </p>
+              <p>{t("uploadFirstPanel")}</p>
             )}
           </div>
         )}
@@ -104,8 +99,8 @@ export default function ChatPanel({
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#00b0ff] [animation-delay:240ms]" />
             </span>
             {progress
-              ? `processing rows… ${progress.done}/${progress.total}`
-              : `thinking… step ${thinkingStep}/4`}
+              ? t("processing", { d: progress.done, t: progress.total })
+              : t("thinkingStep", { s: thinkingStep })}
           </div>
         )}
       </div>
@@ -121,7 +116,7 @@ export default function ChatPanel({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           disabled={!ready || thinking}
-          placeholder={ready ? "e.g. summarize the Customer Feedback column" : "Upload a sheet first…"}
+          placeholder={ready ? t("placeholder") : t("uploadFirst")}
           className="min-w-0 flex-1 rounded-full border !border-black/15 bg-white px-4 py-2.5 text-sm text-black placeholder:text-black/35 focus:!border-black/40 focus:outline-none disabled:opacity-50"
         />
         <button
@@ -134,7 +129,7 @@ export default function ChatPanel({
               "linear-gradient(#fffdf8,#fffdf8) padding-box, linear-gradient(90deg,#ff0080,#ff8c00,#ffd500,#00c853,#00b0ff,#7c4dff,#ff0080) border-box",
           }}
         >
-          Send
+          {t("send")}
         </button>
       </form>
     </section>
