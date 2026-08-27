@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { GridState } from "@/lib/cells/tools";
 import { useT } from "@/lib/cells/locale";
 
-const MAX_RENDERED_ROWS = 200;
-
-// Truncated DOM table: renders at most 200 rows. Tools always operate on the
-// full in-memory data — only the rendering is capped.
+// Virtualized table: only the rows in (and around) the viewport are in the
+// DOM, so a 5,000-row sheet scrolls as smoothly as a 50-row one. Implemented
+// with the classic top/bottom spacer-row technique so it stays a real <table>
+// (sticky header, text selection, and the CSS crosshair all keep working).
 export default function DataTable({
   grid,
   onEditCell,
@@ -33,14 +34,25 @@ export default function DataTable({
     if (tableRef.current) tableRef.current.dataset.hc = "";
   };
   const visibleIndexes = grid.filterKept ?? grid.rows.map((_, i) => i);
-  const rendered = visibleIndexes.slice(0, MAX_RENDERED_ROWS);
   const hiddenByFilter = grid.filterKept
     ? grid.rows.length - grid.filterKept.length
     : 0;
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: visibleIndexes.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 33,
+    overscan: 12,
+  });
+  const items = virtualizer.getVirtualItems();
+  const paddingTop = items[0]?.start ?? 0;
+  const paddingBottom =
+    virtualizer.getTotalSize() - (items[items.length - 1]?.end ?? 0);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-auto rounded-2xl border !border-black/10 bg-white">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto rounded-2xl border !border-black/10 bg-white">
         <style>{crosshairCss(grid.headers.length)}</style>
         <table
           ref={tableRef}
@@ -64,12 +76,18 @@ export default function DataTable({
             </tr>
           </thead>
           <tbody>
-            {rendered.map((rowIdx) => {
+            {paddingTop > 0 && (
+              <tr aria-hidden="true" style={{ height: paddingTop }} />
+            )}
+            {items.map((item) => {
+              const rowIdx = visibleIndexes[item.index];
               const highlighted = grid.highlightedRows?.has(rowIdx) ?? false;
               const selected = grid.selectedRows?.has(rowIdx) ?? false;
               return (
                 <tr
                   key={rowIdx}
+                  data-index={item.index}
+                  ref={virtualizer.measureElement}
                   className={
                     highlighted
                       ? "bg-[#fff3b0]"
@@ -117,7 +135,10 @@ export default function DataTable({
                 </tr>
               );
             })}
-            {rendered.length === 0 && (
+            {paddingBottom > 0 && (
+              <tr aria-hidden="true" style={{ height: paddingBottom }} />
+            )}
+            {visibleIndexes.length === 0 && (
               <tr>
                 <td
                   colSpan={grid.headers.length + 1}
@@ -131,9 +152,6 @@ export default function DataTable({
         </table>
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-black/45">
-        {visibleIndexes.length > MAX_RENDERED_ROWS && (
-          <span>{t("showingFirst", { n: MAX_RENDERED_ROWS, m: visibleIndexes.length })}</span>
-        )}
         {hiddenByFilter > 0 && (
           <span>{t("hiddenByFilter", { n: hiddenByFilter })}</span>
         )}
@@ -143,7 +161,7 @@ export default function DataTable({
         {grid.selectedRows && (
           <span>{t("selectedHint", { n: grid.selectedRows.size })}</span>
         )}
-        {onEditCell && rendered.length > 0 && (
+        {onEditCell && visibleIndexes.length > 0 && (
           <span>{t("editHint")}</span>
         )}
       </div>

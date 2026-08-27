@@ -427,7 +427,7 @@ export default function CellsApp() {
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:[grid-template-rows:minmax(0,1fr)]">
-        <div className="flex min-h-[50vh] flex-col lg:min-h-0">
+        <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
           <WorkbookPanel
             state={workbookState}
             onFile={handleFile}
@@ -442,7 +442,7 @@ export default function CellsApp() {
             onDownloadXlsx={handleDownloadXlsx}
           />
         </div>
-        <div className="flex min-h-[50vh] flex-col lg:min-h-0">
+        <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
           <UsageMeter refreshKey={usageRefresh} />
           <ChatPanel
             messages={messages}
