@@ -16,14 +16,39 @@ import { compileFormula, formatComputed } from "./formula";
 export type GridState = {
   headers: string[];
   rows: string[][];
-  highlightedRows: Set<number> | null;
+  // Persistent visual marks (row → color). Output only — never a scope.
+  highlightedRows: Map<number, HighlightColor> | null;
   filterKept: number[] | null;
-  // Rows the user picked by clicking row numbers. Tools with scope "selection"
-  // operate on these only.
+  // The working set: rows the user clicked OR the model selected with
+  // filter_rows / filter_rows_ai. This is what "scope":"selection" means.
   selectedRows: Set<number> | null;
 };
 
-export type ToolScope = "all" | "selection";
+export type HighlightColor = "yellow" | "green" | "pink" | "blue";
+export const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "pink", "blue"];
+export const HIGHLIGHT_HEX: Record<HighlightColor, string> = {
+  yellow: "#fff3b0",
+  green: "#d9f7d0",
+  pink: "#ffd6e7",
+  blue: "#d6ecff",
+};
+
+// A tool's scope is a set of rows: the working selection (user clicks or the
+// model's last filter) or what survives the current filter. Highlights are
+// deliberately NOT a scope — they are a display effect, not a selection.
+export type ToolScope = "all" | "selection" | "visible";
+export const TOOL_SCOPES: ToolScope[] = ["all", "selection", "visible"];
+
+function parseHighlight(raw: unknown): HighlightColor | null {
+  if (raw === true) return "yellow";
+  return HIGHLIGHT_COLORS.includes(raw as HighlightColor) ? (raw as HighlightColor) : null;
+}
+
+export function resolveScope(grid: GridState, scope: ToolScope): Set<number> | null {
+  if (scope === "selection") return grid.selectedRows;
+  if (scope === "visible") return grid.filterKept ? new Set(grid.filterKept) : null;
+  return null;
+}
 
 export type ToolCall =
   | {
@@ -31,8 +56,11 @@ export type ToolCall =
       column: string;
       op: FilterOp;
       value: string;
-      mode: "filter" | "highlight";
+      mode: "filter" | "select";
       scope: ToolScope;
+      // Convenience: also paint the matching rows (select + highlight in one
+      // call — small models can't reliably chain the two).
+      highlight: HighlightColor | null;
     }
   | {
       tool: "find_replace";
@@ -47,8 +75,9 @@ export type ToolCall =
       tool: "filter_rows_ai";
       column: string;
       criteria: string;
-      mode: "filter" | "highlight";
+      mode: "filter" | "select";
       scope: ToolScope;
+      highlight: HighlightColor | null;
     }
   | {
       tool: "transform_column";
@@ -62,6 +91,15 @@ export type ToolCall =
       formula: string;
       newColumnName: string;
       scope: ToolScope;
+    }
+  | {
+      // Light UI tool: paint rows. Targets a scope (usually the selection) or
+      // explicit 1-based row numbers; clear:true removes marks instead.
+      tool: "highlight_rows";
+      scope: ToolScope;
+      rows: number[] | null;
+      color: HighlightColor;
+      clear: boolean;
     };
 
 export type ToolResult = {
@@ -88,12 +126,16 @@ export const KNOWN_TOOLS: ToolCall["tool"][] = [
   "summarize_column",
   "transform_column",
   "compute_column",
+  "highlight_rows",
 ];
 
 export function validateToolCall(
   raw: Record<string, unknown>,
   headers: string[],
-  hasSelection = false,
+  sets: Pick<GridState, "selectedRows" | "filterKept"> = {
+    selectedRows: null,
+    filterKept: null,
+  },
 ): { call: ToolCall } | { error: string; unknownTool?: string } {
   const tool = String(raw.tool ?? "");
   if (!KNOWN_TOOLS.includes(tool as ToolCall["tool"])) {
@@ -102,9 +144,37 @@ export function validateToolCall(
       unknownTool: tool || "(none)",
     };
   }
-  const scope: ToolScope = raw.scope === "selection" ? "selection" : "all";
-  if (scope === "selection" && !hasSelection) {
-    return { error: 'scope "selection" requested but the user has no rows selected. Use scope "all".' };
+  // Spreadsheet semantics: when rows are selected and the model doesn't say
+  // otherwise, acting tools work on the selection (like Excel does). Filters
+  // still default to the whole sheet because they *create* the selection.
+  const ACTS_ON_SELECTION = new Set(["find_replace", "transform_column", "compute_column", "summarize_column", "highlight_rows"]);
+  const scope: ToolScope = TOOL_SCOPES.includes(raw.scope as ToolScope)
+    ? (raw.scope as ToolScope)
+    : raw.scope == null && ACTS_ON_SELECTION.has(tool) && sets.selectedRows?.size
+      ? "selection"
+      : "all";
+  const available =
+    scope === "selection" ? !!sets.selectedRows?.size
+    : scope === "visible" ? !!sets.filterKept
+    : true;
+  if (!available) {
+    return { error: `scope "${scope}" requested but there are no ${scope} rows right now. Use scope "all" or create that set first.` };
+  }
+  if (tool === "highlight_rows") {
+    const rows = Array.isArray(raw.rows)
+      ? (raw.rows as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 1)
+      : null;
+    const color = HIGHLIGHT_COLORS.includes(raw.color as HighlightColor)
+      ? (raw.color as HighlightColor)
+      : "yellow";
+    const clear = raw.clear === true;
+    if (!clear && !rows?.length && scope === "all") {
+      return {
+        error:
+          'highlight_rows cannot paint the whole sheet. To highlight rows matching a condition, call filter_rows (or filter_rows_ai) with "mode":"select","highlight":"yellow" instead. For specific rows pass "rows":[3,7].',
+      };
+    }
+    return { call: { tool: "highlight_rows", scope, rows: rows?.length ? rows : null, color, clear } };
   }
   if (tool === "compute_column") {
     const formula = String(raw.formula ?? "").trim();
@@ -128,14 +198,21 @@ export function validateToolCall(
     if (!FILTER_OPS.includes(op)) {
       return { error: `Invalid op "${raw.op}". Use one of: ${FILTER_OPS.join(", ")}` };
     }
-    const mode = raw.mode === "filter" ? "filter" : "highlight";
+    const mode = raw.mode === "filter" ? "filter" : "select";
     return {
-      call: { tool: "filter_rows", column, op, value: String(raw.value ?? ""), mode, scope },
+      call: {
+        tool: "filter_rows",
+        column,
+        op,
+        value: String(raw.value ?? ""),
+        mode,
+        scope,
+        highlight: parseHighlight(raw.highlight),
+      },
     };
   }
   if (tool === "find_replace") {
     const find = String(raw.find ?? "");
-    if (find === "") return { error: '"find" must be a non-empty string.' };
     return {
       call: {
         tool: "find_replace",
@@ -153,8 +230,10 @@ export function validateToolCall(
   if (tool === "filter_rows_ai") {
     const criteria = String(raw.criteria ?? "").trim();
     if (!criteria) return { error: '"criteria" must be a non-empty string.' };
-    const mode = raw.mode === "filter" ? "filter" : "highlight";
-    return { call: { tool: "filter_rows_ai", column, criteria, mode, scope } };
+    const mode = raw.mode === "filter" ? "filter" : "select";
+    return {
+      call: { tool: "filter_rows_ai", column, criteria, mode, scope, highlight: parseHighlight(raw.highlight) },
+    };
   }
   if (tool === "transform_column") {
     const instruction = String(raw.instruction ?? "").trim();
@@ -179,8 +258,47 @@ export function dispatchTool(
   if (call.tool === "transform_column" || call.tool === "filter_rows_ai") {
     throw new Error(`${call.tool} must be handled by the async tool runner`);
   }
-  const only = call.scope === "selection" ? grid.selectedRows : null;
-  const scopeNote = only ? ` within the ${only.size} selected rows` : "";
+  const only = resolveScope(grid, call.scope);
+  const scopeNote = only ? ` within the ${only.size} ${call.scope} rows` : "";
+
+  if (call.tool === "highlight_rows") {
+    if (call.clear) {
+      const targets = call.rows
+        ? call.rows.map((n) => n - 1)
+        : only
+          ? [...only]
+          : null;
+      let next: Map<number, HighlightColor> | null = null;
+      if (targets && grid.highlightedRows) {
+        next = new Map(grid.highlightedRows);
+        for (const i of targets) next.delete(i);
+        if (!next.size) next = null;
+      }
+      const removed = (grid.highlightedRows?.size ?? 0) - (next?.size ?? 0);
+      return {
+        result: { ok: true, summary: `${removed} highlight${removed === 1 ? "" : "s"} cleared`, data: { cleared: removed } },
+        nextGrid: { ...grid, highlightedRows: next },
+      };
+    }
+    const targets = call.rows
+      ? call.rows.map((n) => n - 1).filter((i) => i >= 0 && i < grid.rows.length)
+      : only
+        ? [...only]
+        : grid.rows.map((_, i) => i);
+    const painted = paintRows(grid, targets, call.color);
+    return {
+      result: {
+        ok: true,
+        summary: `${targets.length} row${targets.length === 1 ? "" : "s"} highlighted ${call.color}`,
+        data: {
+          rowsHighlighted: targets.length,
+          color: call.color,
+          outcome: `${targets.length} rows are now highlighted ${call.color} in the user's table (display only; the selection is unchanged).`,
+        },
+      },
+      nextGrid: painted,
+    };
+  }
 
   if (call.tool === "compute_column") {
     const compiled = compileFormula(call.formula, grid.headers);
@@ -221,11 +339,12 @@ export function dispatchTool(
     const matched = matchRows(grid.rows, colIdx, call.op, call.value).filter(
       (i) => !only || only.has(i),
     );
-    const nextGrid: GridState =
-      call.mode === "highlight"
-        ? { ...grid, highlightedRows: matched.length ? new Set(matched) : null }
+    let nextGrid: GridState =
+      call.mode === "select"
+        ? { ...grid, selectedRows: matched.length ? new Set(matched) : null }
         : { ...grid, filterKept: matched };
-    const verb = call.mode === "highlight" ? "highlighted" : "kept";
+    if (call.highlight && matched.length) nextGrid = paintRows(nextGrid, matched, call.highlight);
+    const verb = call.mode === "select" ? "selected" : "kept";
     return {
       result: {
         ok: true,
@@ -233,7 +352,7 @@ export function dispatchTool(
         data: {
           rowsMatched: matched.length,
           rowsTotal: grid.rows.length,
-          outcome: `${matched.length} of ${only ? only.size : grid.rows.length} rows${scopeNote} matched (${call.column} ${call.op} ${call.value}) and are now ${verb} in the user's table.`,
+          outcome: `${matched.length} of ${only ? only.size : grid.rows.length} rows${scopeNote} matched (${call.column} ${call.op} ${call.value}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table. ${scopeHint(call.mode)}`,
         },
       },
       nextGrid,
@@ -285,29 +404,38 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     "",
     `Spreadsheet: "${sheetName}" — ${grid.rows.length} rows × ${grid.headers.length} columns.`,
     `Columns: ${grid.headers.join(" | ")}`,
-    grid.selectedRows?.size
-      ? `Selected rows: the user has selected ${grid.selectedRows.size} row(s) (row numbers ${describeSelection(grid.selectedRows)}). When they say "these", "selected", or "the rows I picked", add "scope":"selection" to the tool call so it only touches those rows.`
-      : "Selected rows: none. Do not use scope \"selection\".",
+    describeScopes(grid),
     `Sample rows (tab-separated, ONLY the first 5 of ${grid.rows.length} — a tiny preview, NOT the whole data):`,
     sampleTsv,
     "",
     "Reply with EXACTLY ONE JSON object and nothing else. No prose outside JSON.",
-    'Either a tool call (every tool also accepts optional "scope":"all"|"selection", default all):',
-    '  {"type":"tool_call","tool":"filter_rows","column":"<exact column name>","op":"contains|equals|not_equals|gt|lt|empty|not_empty","value":"...","mode":"filter|highlight"}',
+    'Either a tool call (every tool accepts optional "scope":"all"|"selection"|"visible", default all):',
+    '  {"type":"tool_call","tool":"filter_rows","column":"<exact column name>","op":"contains|equals|not_equals|gt|lt|empty|not_empty","value":"...","mode":"select|filter","highlight":"yellow|green|pink|blue (optional: also paint the matches)"}',
     '  {"type":"tool_call","tool":"find_replace","column":"<exact column name>","find":"...","replace":"...","matchCase":false}',
-    '  {"type":"tool_call","tool":"filter_rows_ai","column":"<exact column name>","criteria":"a semantic yes/no test for each cell, e.g. sounds angry","mode":"filter|highlight"}',
+    '  {"type":"tool_call","tool":"filter_rows_ai","column":"<exact column name>","criteria":"a semantic yes/no test for each cell, e.g. sounds angry","mode":"select|filter","highlight":"yellow (optional)"}',
     '  {"type":"tool_call","tool":"summarize_column","column":"<exact column name>"}',
     '  {"type":"tool_call","tool":"transform_column","column":"<exact column name>","instruction":"what to produce from each cell, e.g. extract the main keyword","newColumnName":"..."}',
     '  {"type":"tool_call","tool":"compute_column","formula":"[Column A] / [Column B]","newColumnName":"..."}',
+    '  {"type":"tool_call","tool":"highlight_rows","scope":"selection","color":"yellow|green|pink|blue"}   (or "rows":[3,7] for specific row numbers; "clear":true to remove highlights)',
     "Or a final answer to the user:",
     '  {"type":"final","message":"..."}',
     "",
     "Rules:",
     "- column must be one of the exact column names listed above.",
-    "- Use mode \"highlight\" to mark matching rows, \"filter\" to hide the rest.",
+    "- filter_rows / filter_rows_ai with mode \"select\" makes the matching rows the",
+    "  current selection (blue row numbers); \"filter\" hides the rest instead.",
+    "- To \"highlight rows where …\": call filter_rows / filter_rows_ai with",
+    '  "mode":"select" AND "highlight":"yellow" — one call selects and paints.',
+    "- highlight_rows is a pure display tool for rows you already have: the",
+    '  current selection ("scope":"selection") or explicit "rows":[3,7]. It can',
+    "  NOT take a condition and can NOT paint the whole sheet.",
+    "- When rows are selected, acting tools (find_replace, transform_column,",
+    "  compute_column, summarize_column, highlight_rows) default to the selection.",
+    '  Pass "scope":"all" explicitly if the user really means the whole sheet.',
     "- gt/lt compare numerically.",
-    "- find_replace matches literal text (no regex, no \"a|b\"). To set every",
-    "  value of a column, call find_replace once per distinct current value.",
+    "- find_replace matches literal text (no regex, no \"a|b\"). An EMPTY find",
+    "  (\"find\":\"\") overwrites the whole cell — use that to SET a column's value,",
+    "  usually together with a scope (e.g. set Status to closed for the selected rows).",
     "- filter_rows is for mechanical tests (text/number match). filter_rows_ai",
     "  is for tests that need understanding the meaning of each cell (tone,",
     "  sentiment, topic, \"sounds angry\", \"mentions shipping\"). Never fake a",
@@ -328,6 +456,12 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     "  sample rows above — the sample is only the first 5 rows of the sheet.",
     "- If the user asks something unrelated to the spreadsheet, answer with",
     '  {"type":"final","message":"..."} directly.',
+    "- CHAINING: when a request combines a condition with an action on the",
+    "  matching rows (\"summarize the negative feedback\", \"translate the angry",
+    "  ones\", \"set pending orders to closed\"), do it in two steps: first",
+    "  filter_rows / filter_rows_ai with mode \"select\", then, after its",
+    "  TOOL_RESULT, run the action with \"scope\":\"selection\". Never guess the",
+    "  answer for the subset from the 5 sample rows.",
     "- If the request needs something none of the tools above can do (e.g. sort,",
     "  add/delete rows, charts, formulas, reading a specific row), do NOT improvise",
     '  a tool call. Reply {"type":"final","message":"I can\'t do that yet — ..."} and',
@@ -342,3 +476,31 @@ function describeSelection(sel: Set<number>): string {
     : `${nums.slice(0, 10).join(", ")} … and ${nums.length - 10} more`;
 }
 
+
+function describeScopes(grid: GridState): string {
+  const parts: string[] = [`all (${grid.rows.length} rows)`];
+  if (grid.selectedRows?.size) {
+    parts.push(
+      `selection (${grid.selectedRows.size} rows currently selected: #${describeSelection(grid.selectedRows)}) — use for "these"/"those"/"the selected/matching ones"`,
+    );
+  }
+  if (grid.filterKept) {
+    parts.push(`visible (${grid.filterKept.length} rows left after the current filter)`);
+  }
+  const marks = grid.highlightedRows?.size
+    ? ` (${grid.highlightedRows.size} rows are highlighted — display only, not a scope.)`
+    : "";
+  return `Row sets you can target with "scope": ${parts.join("; ")}.${parts.length === 1 ? " No selection or filter exists yet." : ""}${marks}`;
+}
+
+export function scopeHint(mode: "filter" | "select"): string {
+  return mode === "select"
+    ? 'These rows are now the selection: another tool can target them with "scope":"selection".'
+    : 'These rows can now be targeted by another tool with "scope":"visible".';
+}
+
+export function paintRows(grid: GridState, rows: number[], color: HighlightColor): GridState {
+  const next = new Map(grid.highlightedRows ?? []);
+  for (const i of rows) next.set(i, color);
+  return { ...grid, highlightedRows: next };
+}

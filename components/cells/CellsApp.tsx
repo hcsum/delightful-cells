@@ -10,6 +10,10 @@ import {
 } from "@/lib/cells/workbook";
 import {
   dispatchTool,
+  HIGHLIGHT_HEX,
+  paintRows,
+  resolveScope,
+  scopeHint,
   type GridState,
   type ToolCall,
   type ToolResult,
@@ -210,10 +214,11 @@ export default function CellsApp() {
             rows: kept.map((k) => grid.rows[k]),
             // Re-index highlights against the exported (possibly filtered) rows.
             highlightedRows: grid.highlightedRows
-              ? new Set(
-                  kept
-                    .map((k, j) => (grid.highlightedRows!.has(k) ? j : -1))
-                    .filter((j) => j !== -1),
+              ? new Map(
+                  kept.flatMap((k, j) => {
+                    const c = grid.highlightedRows!.get(k);
+                    return c ? [[j, HIGHLIGHT_HEX[c]] as [number, string]] : [];
+                  }),
                 )
               : null,
           }
@@ -232,7 +237,7 @@ export default function CellsApp() {
     ): Promise<ToolResult> => {
       const grid = gridRef.current!;
       const colIdx = findColumnIndex(grid.headers, call.column);
-      const only = call.scope === "selection" ? grid.selectedRows : null;
+      const only = resolveScope(grid, call.scope);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
@@ -280,14 +285,14 @@ export default function CellsApp() {
   );
 
   // filter_rows_ai: ask the model YES/NO per row via the same batched pipeline,
-  // then highlight / keep the YES rows. Mechanical filters never touch the LLM.
+  // then select / keep the YES rows. Mechanical filters never touch the LLM.
   const runAiFilter = useCallback(
     async (
       call: Extract<ToolCall, { tool: "filter_rows_ai" }>,
     ): Promise<ToolResult> => {
       const grid = gridRef.current!;
       const colIdx = findColumnIndex(grid.headers, call.column);
-      const only = call.scope === "selection" ? grid.selectedRows : null;
+      const only = resolveScope(grid, call.scope);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
@@ -309,19 +314,20 @@ export default function CellsApp() {
           if (/^\s*yes\b/i.test(r.output ?? "")) matched.push(targets[j]);
         });
         const current = gridRef.current!;
-        setGrid(
-          call.mode === "highlight"
-            ? { ...current, highlightedRows: matched.length ? new Set(matched) : null }
-            : { ...current, filterKept: matched },
-        );
-        const verb = call.mode === "highlight" ? "highlighted" : "kept";
+        let next: GridState =
+          call.mode === "select"
+            ? { ...current, selectedRows: matched.length ? new Set(matched) : null }
+            : { ...current, filterKept: matched };
+        if (call.highlight && matched.length) next = paintRows(next, matched, call.highlight);
+        setGrid(next);
+        const verb = call.mode === "select" ? "selected" : "kept";
         return {
           ok: true,
           summary: `${matched.length} of ${results.length} rows ${verb}`,
           data: {
             rowsMatched: matched.length,
             rowsTotal: results.length,
-            outcome: `${matched.length} of ${results.length} rows${only ? " (within the selection)" : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb} in the user's table.`,
+            outcome: `${matched.length} of ${results.length} rows${only ? ` (within the ${call.scope} rows)` : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table. ${scopeHint(call.mode)}`,
           },
         };
       } catch (e) {

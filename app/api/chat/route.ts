@@ -155,6 +155,7 @@ function mockRespond(messages: FlatMessage[]): string {
 
   // Step 2 of the loop: a tool result came back → produce a final answer.
   if (lastUser.startsWith("TOOL_RESULT")) {
+    const firstAsk = messages.find((m) => m.role === "user")?.content.toLowerCase() || "";
     const payload = lastUser.replace(/^TOOL_RESULT [a-z_]+:\s*/i, "");
     return JSON.stringify({
       type: "final",
@@ -178,7 +179,7 @@ function mockRespond(messages: FlatMessage[]): string {
       scope,
       column,
       criteria: "sounds angry",
-      mode: lower.includes("filter") || lower.includes("show") ? "filter" : "highlight",
+      mode: lower.includes("filter") || lower.includes("show") ? "filter" : "select",
     });
   }
 
@@ -230,7 +231,8 @@ function mockRespond(messages: FlatMessage[]): string {
       column,
       op: containsMatch ? "contains" : "not_empty",
       value: containsMatch ? containsMatch[1] : "",
-      mode: lower.includes("filter") || lower.includes("show") ? "filter" : "highlight",
+      mode: lower.includes("filter") || lower.includes("show") ? "filter" : "select",
+      highlight: lower.includes("highlight") ? "yellow" : undefined,
     });
   }
 

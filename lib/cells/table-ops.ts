@@ -75,7 +75,10 @@ export function findReplace(
     const cell = row[colIdx] ?? "";
     let updated = cell;
     let count = 0;
-    if (find !== "") {
+    if (find === "") {
+      // Empty `find` = overwrite the whole cell (the "set every value" case).
+      if (cell !== replace) { updated = replace; count = 1; }
+    } else {
       if (matchCase) {
         // Literal split/join — user input is never treated as a regex.
         count = cell.split(find).length - 1;

@@ -90,8 +90,8 @@ export type ExportSheet = {
   name: string;
   headers: string[];
   rows: string[][];
-  // Row indexes (into `rows`) to paint yellow, mirroring the on-screen highlight.
-  highlightedRows?: Set<number> | null;
+  // Row index (into `rows`) → fill color hex, mirroring the on-screen highlights.
+  highlightedRows?: Map<number, string> | null;
 };
 
 // exceljs (MIT) instead of SheetJS for writing: the community SheetJS build
@@ -107,13 +107,11 @@ export async function downloadWorkbookXlsx(
     ws.addRow(s.headers).font = { bold: true };
     s.rows.forEach((r, i) => {
       const row = ws.addRow(r);
-      if (s.highlightedRows?.has(i)) {
+      const hex = s.highlightedRows?.get(i);
+      if (hex) {
+        const argb = "FF" + hex.replace("#", "").toUpperCase();
         for (let c = 1; c <= s.headers.length; c++) {
-          row.getCell(c).fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FFFFF3B0" },
-          };
+          row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb } };
         }
       }
     });

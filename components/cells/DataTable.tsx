@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { GridState } from "@/lib/cells/tools";
+import { HIGHLIGHT_HEX, type GridState } from "@/lib/cells/tools";
 import { useT } from "@/lib/cells/locale";
 
 // Virtualized table: only the rows in (and around) the viewport are in the
@@ -81,7 +81,7 @@ export default function DataTable({
             )}
             {items.map((item) => {
               const rowIdx = visibleIndexes[item.index];
-              const highlighted = grid.highlightedRows?.has(rowIdx) ?? false;
+              const mark = grid.highlightedRows?.get(rowIdx);
               const selected = grid.selectedRows?.has(rowIdx) ?? false;
               return (
                 <tr
@@ -89,14 +89,15 @@ export default function DataTable({
                   data-index={item.index}
                   ref={virtualizer.measureElement}
                   className={
-                    highlighted
-                      ? "bg-[#fff3b0]"
+                    mark
+                      ? ""
                       : selected
                         ? "bg-[#eaf3ff]"
                         : rowIdx % 2 === 1
                           ? "bg-[#fffaf0]"
                           : "bg-white"
                   }
+                  style={mark ? { backgroundColor: HIGHLIGHT_HEX[mark] } : undefined}
                 >
                   <td
                     className={`select-none whitespace-nowrap px-3 py-1.5 tabular-nums ${

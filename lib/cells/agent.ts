@@ -162,7 +162,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
     }
 
     const grid = opts.getGrid();
-    const validated = validateToolCall(parsed, grid.headers, !!grid.selectedRows?.size);
+    const validated = validateToolCall(parsed, grid.headers, grid);
     if ("error" in validated && validated.unknownTool) {
       // The model invented a tool. Don't let it retry-and-invent again: answer
       // deterministically so the user learns what the app can't do yet.

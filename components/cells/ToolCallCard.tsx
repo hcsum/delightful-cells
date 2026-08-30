@@ -10,6 +10,7 @@ const TOOL_EMOJI: Record<ToolCall["tool"], string> = {
   summarize_column: "🧮",
   transform_column: "🪄",
   compute_column: "➗",
+  highlight_rows: "🖍️",
 };
 
 // Dark inverted card (the "tool ran in your browser" moment).
