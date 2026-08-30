@@ -14,6 +14,7 @@ import {
   paintRows,
   resolveScope,
   scopeHint,
+  scopeLabel,
   type GridState,
   type ToolCall,
   type ToolResult,
@@ -33,6 +34,8 @@ import WorkbookPanel, { type WorkbookState } from "./WorkbookPanel";
 import ChatPanel from "./ChatPanel";
 import UsageMeter from "./UsageMeter";
 import { LocaleContext } from "@/lib/cells/locale";
+import { describeUserChanges, snapshotGrid, type GridSnapshot } from "@/lib/cells/state-diff";
+import { presetsFor } from "@/lib/cells/demo";
 import { t, type Locale } from "@/lib/cells/i18n";
 
 // Rounded system font stack — no build-time font download, fork-friendly.
@@ -79,6 +82,10 @@ export default function CellsApp() {
   const gridRef = useRef<GridState | null>(null);
   const localeRef = useRef<Locale>("en");
   localeRef.current = locale;
+  // What the table looked like when the last agent turn ended, plus a running
+  // count of hand edits — diffed at the start of the next turn (state-diff.ts).
+  const lastTurnSnapshotRef = useRef<GridSnapshot | null>(null);
+  const userEditsRef = useRef(0);
   const turnIdRef = useRef(0);
 
   const setGrid = useCallback((grid: GridState) => {
@@ -90,6 +97,8 @@ export default function CellsApp() {
 
   const handleFile = useCallback((file: File) => {
     turnIdRef.current++; // cancel any in-flight agent turn
+    lastTurnSnapshotRef.current = null;
+    userEditsRef.current = 0;
     setAgent({ thinking: false, step: 1, progress: null });
     setWorkbookState({ status: "parsing", fileName: file.name });
     // Let the "parsing" frame paint before the (synchronous) parse work.
@@ -114,6 +123,8 @@ export default function CellsApp() {
 
   const handleSelectSheet = useCallback((index: number) => {
     turnIdRef.current++;
+    lastTurnSnapshotRef.current = null;
+    userEditsRef.current = 0;
     setAgent({ thinking: false, step: 1, progress: null });
     setWorkbookState((prev) => {
       if (prev.status !== "ready" || !prev.workbook.sheets[index]) return prev;
@@ -177,6 +188,7 @@ export default function CellsApp() {
       const row = rows[rowIdx].slice();
       row[colIdx] = value;
       rows[rowIdx] = row;
+      userEditsRef.current++;
       setGrid({ ...grid, rows });
     },
     [setGrid],
@@ -237,7 +249,7 @@ export default function CellsApp() {
     ): Promise<ToolResult> => {
       const grid = gridRef.current!;
       const colIdx = findColumnIndex(grid.headers, call.column);
-      const only = resolveScope(grid, call.scope);
+      const only = resolveScope(grid, call);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
@@ -292,7 +304,7 @@ export default function CellsApp() {
     ): Promise<ToolResult> => {
       const grid = gridRef.current!;
       const colIdx = findColumnIndex(grid.headers, call.column);
-      const only = resolveScope(grid, call.scope);
+      const only = resolveScope(grid, call);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
@@ -327,7 +339,7 @@ export default function CellsApp() {
           data: {
             rowsMatched: matched.length,
             rowsTotal: results.length,
-            outcome: `${matched.length} of ${results.length} rows${only ? ` (within the ${call.scope} rows)` : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table. ${scopeHint(call.mode)}`,
+            outcome: `${matched.length} of ${results.length} rows${only ? ` (within the ${scopeLabel(call)} rows)` : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table. ${scopeHint(call.mode)}`,
           },
         };
       } catch (e) {
@@ -352,7 +364,17 @@ export default function CellsApp() {
         role: "user",
         content: text,
       };
-      const history = [...messages, userMessage];
+      // Anything the user did by hand since the last turn becomes a note the
+      // model reads before the new request (and a gray line in the chat).
+      const prevSnap = lastTurnSnapshotRef.current;
+      const note = prevSnap
+        ? describeUserChanges(prevSnap, snapshotGrid(gridRef.current!, userEditsRef.current))
+        : null;
+      const history: ChatMessage[] = [
+        ...messages,
+        ...(note ? [{ id: nextMessageId(), role: "note" as const, content: note }] : []),
+        userMessage,
+      ];
       setMessages(history);
       const turnId = ++turnIdRef.current;
       setAgent({ thinking: true, step: 1, progress: null });
@@ -386,7 +408,12 @@ export default function CellsApp() {
           ]);
         }
       } finally {
-        if (turnIdRef.current === turnId) setAgent({ thinking: false, step: 1, progress: null });
+        if (turnIdRef.current === turnId) {
+          setAgent({ thinking: false, step: 1, progress: null });
+          if (gridRef.current) {
+            lastTurnSnapshotRef.current = snapshotGrid(gridRef.current, userEditsRef.current);
+          }
+        }
         setUsageRefresh((n) => n + 1);
       }
     },
@@ -456,6 +483,16 @@ export default function CellsApp() {
             thinkingStep={agent.step}
             progress={agent.progress}
             ready={workbookState.status === "ready"}
+            presets={
+              workbookState.status === "ready"
+                ? presetsFor(
+                    workbookState.workbook.fileName,
+                    workbookState.workbook.sheets[workbookState.activeSheet].name,
+                    workbookState.grid.headers,
+                    locale,
+                  )
+                : []
+            }
             onSend={handleSend}
           />
         </div>

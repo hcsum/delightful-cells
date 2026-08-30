@@ -141,7 +141,7 @@ export type ColumnStats = {
   sampleValues: string[];
   // Most frequent values with counts, so "which X appears most?" is answerable.
   topValues?: { value: string; count: number }[];
-  numeric?: { min: number; max: number; mean: number };
+  numeric?: { min: number; max: number; mean: number; sum: number; count: number };
 };
 
 export function summarizeColumn(
@@ -183,6 +183,8 @@ export function summarizeColumn(
           mean: Number(
             (numbers.reduce((a, b) => a + b, 0) / numbers.length).toFixed(2),
           ),
+          sum: Number(numbers.reduce((a, b) => a + b, 0).toFixed(2)),
+          count: numbers.length,
         }
       : undefined;
 

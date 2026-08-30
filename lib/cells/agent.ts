@@ -13,7 +13,10 @@ import {
 export type ChatMessage =
   | { id: string; role: "user"; content: string }
   | { id: string; role: "assistant"; content: string }
-  | { id: string; role: "tool"; call: ToolCall; result: ToolResult };
+  | { id: string; role: "tool"; call: ToolCall; result: ToolResult }
+  // Out-of-band fact about what the user did between turns. Shown as gray
+  // text in the chat; sent to the model glued onto the next user message.
+  | { id: string; role: "note"; content: string };
 
 export const MAX_STEPS = 4;
 
@@ -28,7 +31,17 @@ type FlatMessage = { role: "system" | "user" | "assistant"; content: string };
 // become user messages carrying the TOOL_RESULT payload (llama has no tool role).
 function flatten(system: string, history: ChatMessage[]): FlatMessage[] {
   const out: FlatMessage[] = [{ role: "system", content: system }];
+  let pendingNote = "";
   for (const m of history) {
+    if (m.role === "note") {
+      pendingNote += (pendingNote ? "\n" : "") + m.content;
+      continue;
+    }
+    if (m.role === "user") {
+      out.push({ role: "user", content: pendingNote ? `${pendingNote}\n\n${m.content}` : m.content });
+      pendingNote = "";
+      continue;
+    }
     if (m.role === "tool") {
       out.push({
         role: "assistant",

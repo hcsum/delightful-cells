@@ -5,6 +5,7 @@ import type { ParsedWorkbook } from "@/lib/cells/workbook";
 import type { GridState } from "@/lib/cells/tools";
 import DataTable from "./DataTable";
 import { useT } from "@/lib/cells/locale";
+import { makeDemoFile } from "@/lib/cells/demo";
 
 export type WorkbookState =
   | { status: "idle" }
@@ -103,11 +104,7 @@ export default function WorkbookPanel({
             <p className="mt-3 text-sm text-black/55">
               {t("or")}{" "}
               <button
-                onClick={async () => {
-                  const res = await fetch("/demo/delightful-demo.xlsx");
-                  const blob = await res.blob();
-                  onFile(new File([blob], "delightful-demo.xlsx", { type: blob.type }));
-                }}
+                onClick={async () => onFile(await makeDemoFile())}
                 className="font-bold underline decoration-2 underline-offset-2 hover:text-black"
               >
                 {t("tryDemo")}

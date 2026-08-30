@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/cells/agent";
 import ToolCallCard from "./ToolCallCard";
-import { useLocale, useT } from "@/lib/cells/locale";
-import { SUGGESTIONS } from "@/lib/cells/i18n";
+import { useT } from "@/lib/cells/locale";
 
 export default function ChatPanel({
   messages,
@@ -12,6 +11,7 @@ export default function ChatPanel({
   thinkingStep,
   progress,
   ready,
+  presets,
   onSend,
 }: {
   messages: ChatMessage[];
@@ -19,10 +19,10 @@ export default function ChatPanel({
   thinkingStep: number;
   progress: { done: number; total: number } | null;
   ready: boolean; // a sheet is loaded
+  presets: string[];
   onSend: (text: string) => void;
 }) {
   const t = useT();
-  const locale = useLocale();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -51,12 +51,12 @@ export default function ChatPanel({
                 <p className="font-semibold text-black/70">
                   {t("sheetIn")}
                 </p>
-                <div className="mt-2 flex flex-col items-start gap-1.5">
-                  {SUGGESTIONS[locale].map((s) => (
+                <div className="mt-3 flex flex-col items-start gap-3">
+                  {presets.map((s) => (
                     <button
                       key={s}
                       onClick={() => send(s)}
-                      className="rounded-full bg-[#fff3d6] px-3 py-1 text-left text-xs font-semibold text-black/70 hover:bg-[#ffe6ef]"
+                      className="rounded-2xl border !border-black bg-[#fff3d6] px-3.5 py-2 text-left text-xs font-semibold leading-snug text-black/80 hover:bg-[#ffe6ef]"
                     >
                       {s}
                     </button>
@@ -76,6 +76,13 @@ export default function ChatPanel({
                 <div className="max-w-[85%] rounded-2xl rounded-br-md bg-black px-4 py-2 text-sm text-[#fffdf8]">
                   {m.content}
                 </div>
+              </div>
+            );
+          }
+          if (m.role === "note") {
+            return (
+              <div key={m.id} className="px-2 text-center text-[11px] italic text-black/40">
+                {m.content.replace(/^\[|\]$/g, "").replace(/ Trust CURRENT TABLE STATE.*$/, "")}
               </div>
             );
           }

@@ -3,18 +3,6 @@
 
 export type Locale = "en" | "zh";
 
-export const SUGGESTIONS: Record<Locale, string[]> = {
-  en: [
-    "Highlight rows where the feedback sounds angry",
-    'Replace "resolved" with "closed" in the Status column',
-    "Classify each Customer Feedback as positive, neutral, or negative into a new column",
-  ],
-  zh: [
-    "高亮 feedback 听起来很生气的行",
-    "把 Status 列里的 resolved 全部替换成 closed",
-    "把每条 Customer Feedback 分类为 positive / neutral / negative，写进新列",
-  ],
-};
 
 const STRINGS: Record<Locale, Record<string, string>> = {
   en: {
