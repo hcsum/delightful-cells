@@ -35,11 +35,17 @@ export default function ToolCallCard({
           {result.summary}
         </span>
       </div>
-      <dl className="mt-2 space-y-0.5">
+      <dl className="mt-2 space-y-1">
         {params.map(([k, v]) => (
           <div key={k} className="flex gap-2 text-xs">
-            <dt className="w-20 shrink-0 text-[#bfa9aa]">{k}</dt>
-            <dd className="break-all font-mono text-[#f0e6e6]">{String(v)}</dd>
+            {/* Labels wrap onto a second line rather than colliding with the
+                value — "New column name" is wider than any one-word key. */}
+            <dt className="w-24 shrink-0 break-words leading-snug text-[#bfa9aa]">
+              {t(`param_${k}`)}
+            </dt>
+            <dd className="min-w-0 break-words font-mono leading-snug text-[#f0e6e6]">
+              {v == null || v === "" ? "—" : String(v)}
+            </dd>
           </div>
         ))}
       </dl>
