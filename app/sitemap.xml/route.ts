@@ -10,7 +10,7 @@ function prioritize(path: string): RouteEntry {
 }
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://extractfromexcel.com')
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://delightfulcells.com')
   // Registry-driven list
   const paths: string[] = Array.from(new Set<string>([
     ...STATIC_ROUTES,

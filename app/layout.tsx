@@ -4,8 +4,7 @@ import AppShell from "@/components/AppShell";
 
 // Use default runtime; OpenNext will generate the Worker wrapper
 
-// Set absolute site URL based on NODE_ENV (no env var needed)
-const appUrl = process.env.NEXT_PUBLIC_SITE_URL!;
+const appUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://delightfulcells.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),

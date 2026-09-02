@@ -12,9 +12,17 @@ enabled = true
 
 [env.prod]
 workers_dev = true
+routes = [
+  { pattern = "delightfulcells.com/*", zone_name = "delightfulcells.com" },
+  { pattern = "www.delightfulcells.com", custom_domain = true },
+  { pattern = "extractfromexcel.com", custom_domain = true },
+  { pattern = "www.extractfromexcel.com", custom_domain = true },
+]
 
 [env.prod.vars]
 LLM_WORKER_URL = "https://extract-excel-app-llm-worker.sumtsui.workers.dev"
+NEXT_PUBLIC_SITE_URL = "https://delightfulcells.com"
+NEXT_PUBLIC_BASE_URL = "https://delightfulcells.com"
 GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleusercontent.com"
 # Secrets are intentionally not stored in versioned TOML.
 # Set these with Wrangler secrets for the prod environment:

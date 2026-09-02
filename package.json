@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env prod",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview --env prod"
+    "cf": "NEXT_PUBLIC_SITE_URL=https://delightfulcells.com NEXT_PUBLIC_BASE_URL=https://delightfulcells.com opennextjs-cloudflare build && opennextjs-cloudflare deploy --env prod",
+    "preview": "NEXT_PUBLIC_SITE_URL=https://delightfulcells.com NEXT_PUBLIC_BASE_URL=https://delightfulcells.com opennextjs-cloudflare build && opennextjs-cloudflare preview --env prod"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.10.1",

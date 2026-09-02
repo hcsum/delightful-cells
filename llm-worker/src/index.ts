@@ -203,7 +203,10 @@ function json(body: any, status = 200, origin = '', extraHeaders?: Record<string
 function corsHeaders(origin: string) {
   const allowed = new Set<string>([
     'https://extract-excel-app-llm-worker.sumtsui.workers.dev',
+    'https://delightfulcells.com',
+    'https://www.delightfulcells.com',
     'https://extractfromexcel.com',
+    'https://www.extractfromexcel.com',
     'http://localhost:3000',
   ]);
   const headers: Record<string, string> = {
