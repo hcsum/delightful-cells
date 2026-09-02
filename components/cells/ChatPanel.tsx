@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ChatMessage } from "@/lib/cells/agent";
+import { MAX_STEPS, type ChatMessage } from "@/lib/cells/agent";
 import ToolCallCard from "./ToolCallCard";
 import { useT } from "@/lib/cells/locale";
 
@@ -39,9 +39,14 @@ export default function ChatPanel({
 
   return (
     <section className="flex min-h-0 flex-col rounded-[28px] border !border-black/10 bg-[#fffaf0] p-4">
-      <h2 className="px-1 text-sm font-extrabold uppercase tracking-wide text-black/50">
-        {t("talkToSheet")}
-      </h2>
+      <div className="flex items-baseline justify-between gap-2 px-1">
+        <h2 className="text-sm font-extrabold uppercase tracking-wide text-black/50">
+          {t("talkToSheet")}
+        </h2>
+        <span className="shrink-0 text-[11px] font-semibold text-black/35">
+          {t("stepCap", { m: MAX_STEPS })}
+        </span>
+      </div>
 
       <div ref={scrollRef} className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
         {messages.length === 0 && (
@@ -107,7 +112,7 @@ export default function ChatPanel({
             </span>
             {progress
               ? t("processing", { d: progress.done, t: progress.total })
-              : t("thinkingStep", { s: thinkingStep })}
+              : t("thinkingStep", { s: thinkingStep, m: MAX_STEPS })}
           </div>
         )}
       </div>
