@@ -334,6 +334,19 @@ export function dispatchTool(
       computed++;
       return formatComputed(n);
     });
+    if (computed === 0) {
+      const total0 = only ? only.size : grid.rows.length;
+      return {
+        result: {
+          ok: false,
+          summary: `no numeric values — column not added`,
+          data: {
+            error: `The formula "${call.formula}" produced nothing: none of the ${total0} target rows had numeric values in every referenced column. Check that each column you referenced actually holds numbers (identifiers like an order ID are text, not quantities). No column was added.`,
+          },
+        },
+        nextGrid: grid,
+      };
+    }
     const name = uniquifyHeader(grid.headers, call.newColumnName);
     const next = appendColumn(grid.headers, grid.rows, name, outputs);
     const total = only ? only.size : grid.rows.length;
@@ -467,6 +480,17 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     "- summarize_column gives ONE overview of the whole column in chat. Its",
     "  TOOL_RESULT includes topValues (most frequent values with counts) — use",
     "  it to answer \"which value appears most\" questions directly.",
+    "- A \"rate\", \"share\", \"percentage\" or \"% of\" over a table is HOW MANY ROWS",
+    "  meet a condition divided by how many rows there are — a count over a",
+    "  count, never a sum over a count. Get the numerator with filter_rows and",
+    "  read rowsMatched; the result must land between 0% and 100%. If the phrase",
+    "  could mean something else (an average amount per row, say), compute the",
+    "  row rate and say in one clause which reading you used.",
+    "- Every number in your final answer must come from a TOOL_RESULT, and must",
+    "  mean what that TOOL_RESULT says it means — read its \"outcome\" sentence,",
+    "  never guess from a field name. Never assume a value you were not given",
+    "  (an average price, a denominator, a row count). If the number you need is",
+    "  missing, call another tool to get it.",
     "- transform_column runs the instruction on EVERY row and writes the results",
     "  into a new column (use it for per-row summarize/extract/classify asks).",
     "  It sees ONLY that one column's cell — it cannot use other columns.",
@@ -474,6 +498,12 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     "  totals, percentages). formula supports numbers, + - * / % ( ) and [exact",
     "  column name] references, computed exactly. ALWAYS prefer it over",
     "  transform_column for math.",
+    "- compute_column is PER-ROW only: each output cell uses that row's values.",
+    "  It can NOT sum, average or count across rows, so a whole-sheet ratio",
+    '  ("refund rate", "share of total") is NOT a compute_column. Get the parts',
+    "  with summarize_column (its TOOL_RESULT has sum/count) and do the division",
+    "  yourself in the final message. Never divide by an ID or any other",
+    "  non-numeric column just to produce a number.",
     "- After a TOOL_RESULT, either call another tool or reply {\"type\":\"final\",...}",
     "  telling the user what happened in one or two friendly sentences.",
     "- Your final answer MUST be based on the TOOL_RESULT numbers, never on the",

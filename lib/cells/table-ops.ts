@@ -142,6 +142,9 @@ export type ColumnStats = {
   // Most frequent values with counts, so "which X appears most?" is answerable.
   topValues?: { value: string; count: number }[];
   numeric?: { min: number; max: number; mean: number; sum: number; count: number };
+  // Plain-English gloss of the numbers above, so the model reads them as what
+  // they are instead of guessing from field names.
+  outcome: string;
 };
 
 export function summarizeColumn(
@@ -188,6 +191,19 @@ export function summarizeColumn(
         }
       : undefined;
 
+  const outcome = [
+    `Column "${columnName}" over ${rows.length} rows: ${values.length} non-empty cells holding ${distinctValues.length} different values`,
+    `(distinct = how many different values exist, NOT how many rows meet any condition).`,
+    numeric
+      ? `Of those, ${numeric.count} parse as numbers: they add up to ${numeric.sum}, average ${numeric.mean}, ranging ${numeric.min}–${numeric.max}. These cover every non-empty cell that is a number, including zeros.`
+      : `The values are not numeric, so there is no sum or average.`,
+    topValues
+      ? `topValues lists the most common values with how many rows hold each.`
+      : `Values are nearly all unique, so no frequency counts are given.`,
+    `sampleValues is a sample of the distinct values, not the full column.`,
+    `This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.`,
+  ].join(" ");
+
   return {
     column: columnName,
     totalRows: rows.length,
@@ -196,5 +212,6 @@ export function summarizeColumn(
     sampleValues,
     ...(topValues ? { topValues } : {}),
     ...(numeric ? { numeric } : {}),
+    outcome,
   };
 }

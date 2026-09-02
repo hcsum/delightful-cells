@@ -4,25 +4,25 @@
 
 import { secondsUntilNextUtcDay } from "@/lib/date";
 
-export type DailyUsage = { inputTokens: number; outputTokens: number; calls: number };
+export type DailyUsage = { inputTokens: number; outputTokens: number; calls: number; neurons: number };
 
-// Workers AI bills in "neurons" ($0.011 per 1k). Per-token coefficients for the
-// model llm-worker uses, derived from its list price ($0.27 / $0.85 per 1M):
-export const NEURONS_PER_INPUT_TOKEN = 0.27 / 1_000_000 / 0.011 * 1000;
-export const NEURONS_PER_OUTPUT_TOKEN = 0.85 / 1_000_000 / 0.011 * 1000;
+// Workers AI bills in "neurons" ($0.011 per 1k) and reports how many each call
+// actually cost; llm-worker forwards that as x-usage-neurons and we add it up.
+// Nothing here derives neurons from a price table — swapping the model needs no
+// change on this side.
 export const FREE_NEURONS_PER_DAY = 10_000;
 
 // Hard stop before the free tier runs out. Cloudflare bills anything above
-// 10k neurons/day, so the site refuses new AI calls once today's estimate hits it.
+// 10k neurons/day, so the site refuses new AI calls once today's total hits it.
 export async function isFreeTierExhausted(): Promise<boolean> {
   return neuronsFor(await getUsageToday()) >= FREE_NEURONS_PER_DAY;
 }
 
 export function neuronsFor(u: DailyUsage): number {
-  return u.inputTokens * NEURONS_PER_INPUT_TOKEN + u.outputTokens * NEURONS_PER_OUTPUT_TOKEN;
+  return u.neurons;
 }
 
-const ZERO: DailyUsage = { inputTokens: 0, outputTokens: 0, calls: 0 };
+const ZERO: DailyUsage = { inputTokens: 0, outputTokens: 0, calls: 0, neurons: 0 };
 const key = () => `usage:${new Date().toISOString().slice(0, 10)}`;
 
 function parse(raw: string | null | undefined): DailyUsage {
@@ -33,6 +33,7 @@ function parse(raw: string | null | undefined): DailyUsage {
           inputTokens: Number(j.inputTokens) || 0,
           outputTokens: Number(j.outputTokens) || 0,
           calls: Number(j.calls) || 0,
+          neurons: Number(j.neurons) || 0,
         }
       : { ...ZERO };
   } catch {
@@ -72,6 +73,7 @@ export async function getUsageToday(): Promise<DailyUsage> {
 export async function recordUsageFromHeaders(headers: Headers): Promise<void> {
   const inTok = Number(headers.get("x-usage-in")) || 0;
   const outTok = Number(headers.get("x-usage-out")) || 0;
+  const neurons = Number(headers.get("x-usage-neurons")) || 0;
   if (!inTok && !outTok) return;
   try {
     const cur = await getUsageToday();
@@ -79,6 +81,7 @@ export async function recordUsageFromHeaders(headers: Headers): Promise<void> {
       inputTokens: cur.inputTokens + inTok,
       outputTokens: cur.outputTokens + outTok,
       calls: cur.calls + 1,
+      neurons: cur.neurons + neurons,
     };
     const k = key();
     const body = JSON.stringify(next);

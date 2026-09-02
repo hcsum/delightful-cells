@@ -18,6 +18,24 @@ type ProcessRequest = {
 type ChatMessage = { role: string; content: string };
 type ChatRequest = { messages: ChatMessage[] };
 
+// Workers AI answers in two shapes: the older models return { response },
+// the OpenAI-schema ones (glm, gpt-oss, …) return { choices: [{ message }] }.
+// Reasoning models also put their thinking in reasoning_content, or inline it
+// in a <think> block — neither belongs in the answer we hand back.
+function extractText(result: any): string {
+  const raw =
+    result?.response ??
+    result?.choices?.[0]?.message?.content ??
+    result?.choices?.[0]?.text ??
+    '';
+  const text = typeof raw === 'string' ? raw : raw != null ? JSON.stringify(raw) : '';
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*?<\/think>/i, '').trim();
+}
+
+// One model for both endpoints. Alternatives: @cf/meta/llama-4-scout-17b-16e-instruct,
+// @cf/openai/gpt-oss-20b, @cf/zai-org/glm-5.3-flash (needs a paid billing method).
+const MODEL = '@cf/zai-org/glm-4.7-flash';
+
 const CHAT_ROLES = new Set(['system', 'user', 'assistant']);
 const CHAT_MAX_MESSAGES = 30;
 const CHAT_MAX_TOTAL_CHARS = 24000;
@@ -110,15 +128,15 @@ export default {
       if (totalChars > CHAT_MAX_TOTAL_CHARS) {
         return json({ error: 'too_large', message: 'Conversation too large' }, 400, origin);
       }
-      const chatResult = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+      const chatResult = await env.AI.run(MODEL, {
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         max_tokens: 1024,
         temperature: 0,
-      });
-      // llama-4-scout may return `response` as a parsed object when its
-      // output is pure JSON; re-serialize so clients always get text.
-      const chatRaw = chatResult?.response;
-      const chatText = typeof chatRaw === 'string' ? chatRaw : chatRaw != null ? JSON.stringify(chatRaw) : '';
+        // GLM thinks out loud by default: ~10x the output tokens for the same
+        // answer, and its <think> text breaks our one-JSON-object contract.
+        chat_template_kwargs: { enable_thinking: false },
+      } as any);
+      const chatText = extractText(chatResult);
       log('chat-ok', { ms: Date.now() - t0, bytes: chatText.length, messages: messages.length });
       return json({ response: chatText }, 200, origin, usageHeaders(chatResult));
     }
@@ -165,18 +183,18 @@ export default {
       '  2\tnull',
       '```',
     ].join('\n');
-    // @cf/mistral/mistral-7b-instruct-v0.1
-    // @cf/meta/llama-3.2-3b-instruct
-    // @cf/meta/llama-3.1-8b-instruct-fp8-fast
-    const result = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+    const result = await env.AI.run(MODEL, {
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user },
       ],
       max_tokens: 2048,
       temperature: 0,
-    });
-    const text = String(result?.response || '');
+      // Same as /chat: thinking would eat the token budget before the model
+      // ever emits the TOON block.
+      chat_template_kwargs: { enable_thinking: false },
+    } as any);
+    const text = extractText(result);
     log('ok', { ms: Date.now() - t0, bytes: text.length });
     return new Response(text, {
       status: 200,
@@ -190,7 +208,15 @@ function usageHeaders(result: any): Record<string, string> {
   const u = result?.usage || {};
   const inTok = Number(u.prompt_tokens) || 0;
   const outTok = Number(u.completion_tokens) || 0;
-  return inTok || outTok ? { 'x-usage-in': String(inTok), 'x-usage-out': String(outTok) } : {};
+  // Workers AI reports what the call actually cost. Forward it so callers never
+  // have to re-derive neurons from a price table that goes stale on model swaps.
+  const neurons = Number(u.neurons) || 0;
+  if (!inTok && !outTok) return {};
+  return {
+    'x-usage-in': String(inTok),
+    'x-usage-out': String(outTok),
+    ...(neurons ? { 'x-usage-neurons': String(neurons) } : {}),
+  };
 }
 
 function json(body: any, status = 200, origin = '', extraHeaders?: Record<string, string>): Response {

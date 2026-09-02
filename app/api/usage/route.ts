@@ -1,6 +1,6 @@
-// Today's site-wide Workers AI usage, metered by us from the token counts the
-// llm-worker reports on every call (see lib/usage.ts). No Cloudflare API token
-// needed; neurons are derived from the model's list price.
+// Today's site-wide Workers AI usage, summed from what llm-worker reports on
+// every call (see lib/usage.ts). No Cloudflare API token needed; the neuron
+// count is Workers AI's own, not an estimate.
 
 import { FREE_NEURONS_PER_DAY, getUsageToday, neuronsFor } from "@/lib/usage";
 
