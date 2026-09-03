@@ -215,3 +215,16 @@ export function summarizeColumn(
     outcome,
   };
 }
+
+// Drop whole columns (by index) from the header row and every data row.
+export function removeColumns(
+  headers: string[],
+  rows: string[][],
+  drop: Set<number>,
+): { headers: string[]; rows: string[][] } {
+  const keep = headers.map((_, i) => i).filter((i) => !drop.has(i));
+  return {
+    headers: keep.map((i) => headers[i]),
+    rows: rows.map((row) => keep.map((i) => row[i] ?? "")),
+  };
+}

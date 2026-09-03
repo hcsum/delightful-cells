@@ -7,6 +7,7 @@ import {
   findColumnIndex,
   findReplace,
   matchRows,
+  removeColumns,
   summarizeColumn,
   uniquifyHeader,
   type FilterOp,
@@ -110,6 +111,11 @@ export type ToolCall =
       rows: number[] | null;
     }
   | {
+      // Structural tool: drop whole columns. Rows/selection/filter are untouched.
+      tool: "remove_column";
+      columns: string[];
+    }
+  | {
       // Light UI tool: paint rows in the scope / given rows; clear:true removes marks.
       tool: "highlight_rows";
       scope: ToolScope;
@@ -143,6 +149,7 @@ export const KNOWN_TOOLS: ToolCall["tool"][] = [
   "transform_column",
   "compute_column",
   "highlight_rows",
+  "remove_column",
 ];
 
 export function validateToolCall(
@@ -196,6 +203,25 @@ export function validateToolCall(
       };
     }
     return { call: { tool: "highlight_rows", scope, rows, color, clear } };
+  }
+  if (tool === "remove_column") {
+    // Accept both "column":"A" and "columns":["A","B"].
+    const wanted = (Array.isArray(raw.columns) ? raw.columns : [raw.columns ?? raw.column])
+      .map((c) => String(c ?? "").trim())
+      .filter(Boolean);
+    if (!wanted.length) return { error: '"columns" must list the column names to delete, e.g. "columns":["Notes"].' };
+    const resolved: string[] = [];
+    for (const name of wanted) {
+      const idx = findColumnIndex(headers, name);
+      if (idx === -1) {
+        return { error: `Unknown column "${name}". Available columns: ${headers.join(" | ")}` };
+      }
+      if (!resolved.includes(headers[idx])) resolved.push(headers[idx]);
+    }
+    if (resolved.length >= headers.length) {
+      return { error: "That would delete every column and leave an empty sheet. Keep at least one column." };
+    }
+    return { call: { tool: "remove_column", columns: resolved } };
   }
   if (tool === "compute_column") {
     const formula = String(raw.formula ?? "").trim();
@@ -287,6 +313,24 @@ export function dispatchTool(
   if (call.tool === "transform_column" || call.tool === "filter_rows_ai") {
     throw new Error(`${call.tool} must be handled by the async tool runner`);
   }
+  if (call.tool === "remove_column") {
+    const drop = new Set(call.columns.map((c) => findColumnIndex(grid.headers, c)));
+    const next = removeColumns(grid.headers, grid.rows, drop);
+    const list = call.columns.map((c) => `"${c}"`).join(", ");
+    return {
+      result: {
+        ok: true,
+        summary: `${call.columns.length} column${call.columns.length === 1 ? "" : "s"} deleted`,
+        data: {
+          removed: call.columns,
+          remainingColumns: next.headers,
+          outcome: `Column${call.columns.length === 1 ? "" : "s"} ${list} deleted from the user's table. Remaining columns: ${next.headers.join(" | ")}.`,
+        },
+      },
+      nextGrid: { ...grid, headers: next.headers, rows: next.rows },
+    };
+  }
+
   const only = resolveScope(grid, call);
   const scopeNote = only ? ` within the ${only.size} ${scopeLabel(call)} rows` : "";
 
@@ -450,6 +494,7 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     '  {"type":"tool_call","tool":"summarize_column","column":"<exact column name>"}',
     '  {"type":"tool_call","tool":"transform_column","column":"<exact column name>","instruction":"what to produce from each cell, e.g. extract the main keyword","newColumnName":"..."}',
     '  {"type":"tool_call","tool":"compute_column","formula":"[Column A] / [Column B]","newColumnName":"..."}',
+    '  {"type":"tool_call","tool":"remove_column","columns":["<exact column name>", "..."]}   (deletes those columns from the sheet)',
     '  {"type":"tool_call","tool":"highlight_rows","scope":"selection","color":"yellow|green|pink|blue"}   (or "rows":[3,7] for specific row numbers; "clear":true to remove highlights)',
     "Or a final answer to the user:",
     '  {"type":"final","message":"..."}',
