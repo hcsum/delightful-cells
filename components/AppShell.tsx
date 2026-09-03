@@ -48,13 +48,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main className="container pb-24">{children}</main>
       <footer className="container text-xs text-black/50 py-8 border-t border-black/10">
         <div className="flex flex-wrap items-center justify-end gap-4">
-          <a
-            href="https://github.com/hcsum/delightful-cells"
-            title="GitHub"
-            className="underline hover:no-underline !text-black/50"
-          >
-            GitHub
-          </a>
           <Link
             href="/terms"
             title="Terms of Service"
