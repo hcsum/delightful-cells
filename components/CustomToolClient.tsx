@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { SVGProps } from "react";
 import { useForm } from "react-hook-form";
 import { processRows } from "@/lib/process";
+import { AI_ROWS_PER_REQUEST_LIMIT, DAILY_ROWS_LIMIT } from "@/lib/limits";
 
 type FormValues = {
   target: string;
@@ -135,17 +136,18 @@ export default function CustomToolClient({
     setProcessError(null);
 
     const total = dataRowCount;
-    let allowedRows = total;
+    const requestedRows = Math.min(total, AI_ROWS_PER_REQUEST_LIMIT);
+    let allowedRows = requestedRows;
     try {
       const qRes = await fetch("/api/quota", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requested: total }),
+        body: JSON.stringify({ requested: requestedRows }),
       });
       if (qRes.ok) {
         const q = await qRes.json().catch(() => null as any);
         const remaining = Number(q?.remaining ?? 0) || 0;
-        const requested = Number(q?.requested ?? total) || total;
+        const requested = Number(q?.requested ?? requestedRows) || requestedRows;
         const calcAllowed = Math.max(0, Math.min(remaining, requested));
         if (Number.isFinite(calcAllowed)) allowedRows = calcAllowed;
         if (allowedRows === 0) {
@@ -155,7 +157,7 @@ export default function CustomToolClient({
         }
         if (allowedRows < total) {
           const ok2 = window.confirm(
-            `You have ${remaining} rows remaining today, but this file has ${total} rows. Process the first ${allowedRows} rows now?`,
+            `This run can process ${allowedRows} of ${total} rows. Process the first ${allowedRows} rows now?`,
           );
           if (!ok2) {
             setDownloading(false);
@@ -402,7 +404,7 @@ export default function CustomToolClient({
         )}
         <p className="mt-3 text-xs text-black/45">
           The download includes all original columns plus the new extracted
-          column. Free tier: 300 rows per day.
+          column. Free tier: {DAILY_ROWS_LIMIT} rows per day, up to {AI_ROWS_PER_REQUEST_LIMIT} per run.
         </p>
       </section>
     </div>

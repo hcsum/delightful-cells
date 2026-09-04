@@ -18,7 +18,7 @@ export type ChatMessage =
   // text in the chat; sent to the model glued onto the next user message.
   | { id: string; role: "note"; content: string };
 
-export const MAX_STEPS = 4;
+export const MAX_STEPS = 6;
 
 let idCounter = 0;
 export function nextMessageId(): string {

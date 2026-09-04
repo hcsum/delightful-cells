@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import type { ParsedWorkbook } from "@/lib/cells/workbook";
+import { MAX_ROWS, type ParsedWorkbook } from "@/lib/cells/workbook";
+import { DAILY_ROWS_LIMIT } from "@/lib/limits";
 import type { GridState } from "@/lib/cells/tools";
 import DataTable from "./DataTable";
 import { useT } from "@/lib/cells/locale";
@@ -90,6 +91,9 @@ export default function WorkbookPanel({
               <br />
               {t("dropDesc2")}
             </p>
+            <p className="mt-3 text-xs font-semibold text-black/45">
+              {t("limitsHint", { r: MAX_ROWS.toLocaleString(), d: DAILY_ROWS_LIMIT.toLocaleString() })}
+            </p>
             <button
               onClick={() => inputRef.current?.click()}
               className="mt-5 rounded-full px-6 py-3 text-sm font-bold text-black transition-transform hover:scale-105"
@@ -136,6 +140,9 @@ export default function WorkbookPanel({
         </span>
         <span className="text-xs text-black/40">
           {t("rowsCols", { r: grid.rows.length, c: grid.headers.length })}
+        </span>
+        <span className="text-xs text-black/35">
+          {t("limitsHint", { r: MAX_ROWS.toLocaleString(), d: DAILY_ROWS_LIMIT.toLocaleString() })}
         </span>
         <button
           onClick={() => inputRef.current?.click()}
@@ -190,7 +197,7 @@ export default function WorkbookPanel({
 
       {(sheet.truncatedRows || sheet.truncatedCols) && (
         <p className="mt-3 rounded-full bg-[#ffe6ef] px-4 py-1.5 text-xs font-semibold text-[#b3003c]">
-          {sheet.truncatedRows && "Truncated to the first 5,000 rows. "}
+          {sheet.truncatedRows && `Truncated to the first ${MAX_ROWS.toLocaleString()} rows. `}
           {sheet.truncatedCols && "Truncated to the first 60 columns."}
         </p>
       )}

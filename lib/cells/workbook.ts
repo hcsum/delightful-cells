@@ -2,6 +2,8 @@
 // SheetJS is imported dynamically so it never lands in the initial bundle
 // (and never runs during SSR).
 
+import { AI_ROWS_PER_REQUEST_LIMIT } from "@/lib/limits";
+
 export type ParsedSheet = {
   name: string;
   headers: string[];
@@ -15,8 +17,8 @@ export type ParsedWorkbook = {
   sheets: ParsedSheet[];
 };
 
-export const MAX_FILE_BYTES = 5 * 1024 * 1024;
-export const MAX_ROWS = 5000;
+export const MAX_FILE_BYTES = 20 * 1024 * 1024;
+export const MAX_ROWS = AI_ROWS_PER_REQUEST_LIMIT;
 export const MAX_COLS = 60;
 
 export class WorkbookError extends Error {}
@@ -34,7 +36,7 @@ function columnLetter(index: number): string {
 export async function parseWorkbookFile(file: File): Promise<ParsedWorkbook> {
   if (file.size > MAX_FILE_BYTES) {
     throw new WorkbookError(
-      `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — the playground caps out at 5 MB. Try a smaller sheet!`,
+      `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — the playground caps out at 20 MB. Try a smaller sheet!`,
     );
   }
   const XLSX = await import("xlsx");

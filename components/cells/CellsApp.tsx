@@ -37,6 +37,7 @@ import { LocaleContext } from "@/lib/cells/locale";
 import { describeUserChanges, snapshotGrid, type GridSnapshot } from "@/lib/cells/state-diff";
 import { presetsFor } from "@/lib/cells/demo";
 import { t, type Locale } from "@/lib/cells/i18n";
+import { AI_ROWS_PER_REQUEST_LIMIT } from "@/lib/limits";
 
 // Rounded system font stack — no build-time font download, fork-friendly.
 const ROUNDED_FONT =
@@ -252,6 +253,13 @@ export default function CellsApp() {
       const only = resolveScope(grid, call);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
+      if (values.length > AI_ROWS_PER_REQUEST_LIMIT) {
+        return {
+          ok: false,
+          summary: "too many rows",
+          data: { error: `This AI action can process up to ${AI_ROWS_PER_REQUEST_LIMIT} rows at a time.` },
+        };
+      }
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
       try {
         const results = await processRows(
@@ -307,6 +315,13 @@ export default function CellsApp() {
       const only = resolveScope(grid, call);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
+      if (values.length > AI_ROWS_PER_REQUEST_LIMIT) {
+        return {
+          ok: false,
+          summary: "too many rows",
+          data: { error: `This AI action can process up to ${AI_ROWS_PER_REQUEST_LIMIT} rows at a time.` },
+        };
+      }
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
       try {
         const results = await processRows(
