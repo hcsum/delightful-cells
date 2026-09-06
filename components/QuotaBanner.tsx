@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { DAILY_ROWS_LIMIT } from '@/lib/limits';
+import { TIER_LIMITS } from '@/lib/limits';
 
 // No sign-in required anymore: /api/quota answers for anonymous visitors too
-// (keyed by IP server-side).
+// (keyed by IP server-side). Until it answers we show the anonymous cap: the
+// signed-in number would be wrong for most visitors, and wrong in the
+// flattering direction.
 export default function QuotaBanner() {
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [limit, setLimit] = useState<number>(DAILY_ROWS_LIMIT);
+  const [limit, setLimit] = useState<number>(TIER_LIMITS.anon.rowsPerDay);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -20,7 +22,9 @@ export default function QuotaBanner() {
         const json = await res.json();
         if (!cancelled) {
           setRemaining(Number(json?.remaining ?? 0) || 0);
-          const lim = Number(json?.limit ?? DAILY_ROWS_LIMIT) || DAILY_ROWS_LIMIT;
+          const lim =
+            Number(json?.limit ?? TIER_LIMITS.anon.rowsPerDay) ||
+            TIER_LIMITS.anon.rowsPerDay;
           setLimit(lim);
         }
       } catch {
@@ -33,6 +37,10 @@ export default function QuotaBanner() {
     return () => { cancelled = true; };
   }, []);
 
+  // A tier with no daily cap (paying by credits) is reported as a sentinel,
+  // not a number anyone should read.
+  const metered = limit >= Number.MAX_SAFE_INTEGER;
+
   if (remaining == null && !loading) return null;
 
   return (
@@ -40,7 +48,11 @@ export default function QuotaBanner() {
       {loading ? (
         <span>Checking remaining rows…</span>
       ) : (
-        <span>Remaining today: {remaining != null ? remaining : '—'} / {limit} rows</span>
+        <span>
+          {metered
+            ? 'Running on credits — no daily row cap'
+            : `Remaining today: ${remaining != null ? remaining : '—'} / ${limit.toLocaleString()} rows`}
+        </span>
       )}
     </div>
   );

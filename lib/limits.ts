@@ -1,13 +1,12 @@
 // Shared app limits (importable by both server and client code)
 
-// --- Free-tier values, kept as named constants because the marketing pages
-// and the legacy /tools flow quote them directly. TIER_LIMITS below is the
-// source of truth for the app itself.
+// --- Signed-in values, kept as named constants for code that needs a number
+// before /api/me answers. They are the `free` row of TIER_LIMITS, which is the
+// source of truth. Never render these as the reader's allowance: an anonymous
+// visitor gets a fifth of them. Copy written before the tier is known must
+// quote TIER_LIMITS.anon, the floor everyone is guaranteed.
 export const DAILY_ROWS_LIMIT = 3000;
 export const AI_ROWS_PER_REQUEST_LIMIT = 1000;
-
-// Delightful Cells chat: model calls per day, per email-or-IP identity.
-export const CHAT_DAILY_MESSAGES_LIMIT = 100;
 
 // --- Credits ---------------------------------------------------------------
 // Balances are stored in neurons and displayed in credits. A round trip of the
@@ -27,7 +26,38 @@ export const TIER_LIMITS = {
 
 // Site-wide daily neuron budget per free tier, so anonymous traffic can never
 // starve signed-in users. Paid traffic is not bucketed — it pays its own way.
-export const SITE_NEURON_BUDGET = { anon: 10_000, free: 50_000 } as const;
+//
+// This is a bill cap, not an anti-abuse device: a single identity can extract
+// well under a cent of inference, so nobody farms accounts for it. Read each
+// number as "the most I am willing to pay for this tier on any one day":
+// 10,000 + 100,000 neurons = $1.21/day at $0.011 per 1k, about $36/month.
+//
+// The anonymous bucket is deliberately the small one. When it runs out the
+// visitor is asked to sign in, which turns the overflow into a conversion
+// prompt rather than a bill — see siteQuotaMessage() in lib/usage.ts.
+export const SITE_NEURON_BUDGET = { anon: 10_000, free: 100_000 } as const;
+
+// --- Batching and measured cost --------------------------------------------
+// Rows per request to /api/process. Every extra call adds the fixed prompt
+// overhead below, so this is the one knob that moves cost per row.
+export const AI_BATCH_ROWS = 50;
+
+// Measured on production 2026-09-06 against ~35-character addresses, read back
+// from the `x-usage-neurons` header Cloudflare actually billed: 10 rows cost 5
+// neurons, 50 rows cost 17 (twice, identically). That fits a fixed cost per
+// call plus a cost per row. See docs/limits-and-pricing.md.
+export const MEASURED_NEURONS_PER_CALL = 2;
+export const MEASURED_NEURONS_PER_ROW = 0.3;
+
+// A FLOOR, not a quote. It is what short inputs cost; comment and description
+// columns run higher, because the bill follows input length. Anything shown to
+// a user from this has to be worded as "at least" / "about, on short text".
+export function minCreditsForRows(rows: number): number {
+  const calls = Math.ceil(rows / AI_BATCH_ROWS);
+  const neurons =
+    calls * MEASURED_NEURONS_PER_CALL + rows * MEASURED_NEURONS_PER_ROW;
+  return neurons / NEURONS_PER_CREDIT;
+}
 
 // --- Client-side parsing limits --------------------------------------------
 // These bound browser memory, not our AI bill, so they are the same for every

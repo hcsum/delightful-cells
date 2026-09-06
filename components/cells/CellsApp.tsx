@@ -38,7 +38,7 @@ import { LocaleContext } from "@/lib/cells/locale";
 import { describeUserChanges, snapshotGrid, type GridSnapshot } from "@/lib/cells/state-diff";
 import { presetsFor } from "@/lib/cells/demo";
 import { t, type Locale } from "@/lib/cells/i18n";
-import { AI_ROWS_PER_REQUEST_LIMIT, TIER_LIMITS } from "@/lib/limits";
+import { AI_BATCH_ROWS, TIER_LIMITS } from "@/lib/limits";
 import { useMe } from "@/lib/billing/useMe";
 import AuthPill from "@/components/billing/AuthPill";
 import CreditsBadge from "@/components/billing/CreditsBadge";
@@ -100,8 +100,10 @@ export default function CellsApp() {
 
   // Read through refs: the agent loop's callbacks are memoized and must see
   // the current cap, not the one captured when they were created.
-  const rowsPerRunRef = useRef<number>(AI_ROWS_PER_REQUEST_LIMIT);
-  rowsPerRunRef.current = me?.limits.aiRowsPerRun ?? AI_ROWS_PER_REQUEST_LIMIT;
+  // Before /api/me answers, assume the anonymous floor: over-guessing means
+  // sending a run the server will reject outright.
+  const rowsPerRunRef = useRef<number>(TIER_LIMITS.anon.aiRowsPerRun);
+  rowsPerRunRef.current = me?.limits.aiRowsPerRun ?? TIER_LIMITS.anon.aiRowsPerRun;
   const meRef = useRef(me);
   meRef.current = me;
 
@@ -332,10 +334,11 @@ export default function CellsApp() {
           values,
           call.instruction,
           call.column,
-          50,
+          AI_BATCH_ROWS,
           undefined,
           {
             action: "download",
+            locale: localeRef.current,
             onProgress: (done, total) =>
               setAgent((prev) => ({ ...prev, progress: { done, total } })),
           },
@@ -394,10 +397,11 @@ export default function CellsApp() {
           values,
           `Answer only YES or NO: does this text match the test "${call.criteria}"?`,
           call.column,
-          50,
+          AI_BATCH_ROWS,
           undefined,
           {
             action: "download",
+            locale: localeRef.current,
             onProgress: (done, total) =>
               setAgent((prev) => ({ ...prev, progress: { done, total } })),
           },
@@ -537,6 +541,7 @@ export default function CellsApp() {
         <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
           <WorkbookPanel
             state={workbookState}
+            limits={me?.limits}
             onFile={handleFile}
             onEditCell={handleEditCell}
             onSelectRow={handleSelectRow}

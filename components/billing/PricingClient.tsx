@@ -9,6 +9,7 @@ import {
   MAX_IMPORT_ROWS,
   NEURONS_PER_CREDIT,
   TIER_LIMITS,
+  minCreditsForRows,
 } from "@/lib/limits";
 import { useAuth } from "@/lib/auth/useAuth";
 import LoginPromptDialog from "@/components/LoginPromptDialog";
@@ -99,6 +100,12 @@ export default function PricingClient() {
           })}
         </div>
         <p className="mt-3 text-xs text-black/45">{tr("pricingNoExpiry")}</p>
+        {/* Rows are the part people mis-estimate, and the measured cost came
+            in 3x the original planning figure. State the floor and say it is a
+            floor, rather than quoting a number long columns will blow past. */}
+        <p className="mt-2 max-w-2xl text-xs text-black/45">
+          {tr("pricingRowCost", { c: Math.round(minCreditsForRows(1000)) })}
+        </p>
         {error && (
           <p className="mt-3 text-sm font-semibold text-[#b3003c]">{error}</p>
         )}

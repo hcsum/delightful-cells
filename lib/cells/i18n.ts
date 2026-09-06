@@ -11,6 +11,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     dropDesc1: ".xlsx, .xls, or .csv — it opens instantly, right in your browser.",
     dropDesc2: "Nothing is uploaded until you talk to the AI.",
     limitsHint: "Loads up to {i} rows per workbook. AI can process up to {r} rows per run, {d} rows per day.",
+    limitsHintMetered:
+      "Loads up to {i} rows per workbook. AI runs up to {r} rows at a time, billed to your credits — no daily cap.",
     chooseFile: "Choose a file",
     or: "or",
     tryDemo: "try with demo data",
@@ -102,6 +104,12 @@ const STRINGS: Record<Locale, Record<string, string>> = {
       "This AI action can process up to {n} rows at a time. Get credits to run {m} rows at once.",
     switchedToCredits:
       "Today's free allowance is used up — from here the AI runs on your credits. ⚡",
+    // Shown when the SITE-WIDE budget for the tier is gone, not the user's own
+    // allowance. Each one names the single next step that actually works.
+    siteQuotaAnon:
+      "The AI budget visitors share is used up for today. Sign in to keep going — signed-in users draw on a separate, much larger budget. Resets at midnight UTC. 🍃",
+    siteQuotaFree:
+      "The free AI budget everyone shares is used up for today. Credits are never capped by it, so topping up keeps you running. Resets at midnight UTC. 🍃",
     signInToBuy: "Sign in to buy credits.",
     // --- pricing page ---
     pricingTitle: "Credits",
@@ -112,6 +120,10 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     pricingBuy: "Buy",
     pricingBusy: "Opening checkout…",
     pricingNoExpiry: "Never expires · one-time payment · no subscription",
+    // A floor, not a quote: the bill follows input length, so long columns
+    // cost more than this. Never state it without the "short text" caveat.
+    pricingRowCost:
+      "AI rows are billed by the compute they use. On short text like addresses that is about {c} credits per 1,000 rows — measured, not estimated. Long text such as comments or descriptions costs more.",
     pricingCompare: "What you get",
     pricingColAnon: "Anonymous",
     pricingColFree: "Signed in",
@@ -144,6 +156,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     dropDesc1: "支持 .xlsx、.xls、.csv —— 秒开，就在你的浏览器里。",
     dropDesc2: "在你和 AI 说话之前，数据不会离开本机。",
     limitsHint: "整个工作簿最多载入 {i} 行；AI 每次最多处理 {r} 行，每天最多 {d} 行。",
+    limitsHintMetered:
+      "整个工作簿最多载入 {i} 行；AI 每次最多处理 {r} 行，按点数扣费，没有每日上限。",
     chooseFile: "选择文件",
     or: "或者",
     tryDemo: "用演示数据试试",
@@ -231,6 +245,10 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     rowsPerRunAnon: "未登录时每次最多处理 {n} 行。登录后每次可以处理 {m} 行。",
     rowsPerRunFree: "这个 AI 操作每次最多处理 {n} 行。有点数后每次可以跑 {m} 行。",
     switchedToCredits: "今天的免费额度用完了 —— 接下来 AI 按点数扣。⚡",
+    siteQuotaAnon:
+      "访客共用的 AI 额度今天用完了。登录就能继续 —— 登录用户用的是另一个大得多的额度。UTC 零点重置。🍃",
+    siteQuotaFree:
+      "全站共用的免费 AI 额度今天用完了。点数不受这个额度限制，充值就能接着跑。UTC 零点重置。🍃",
     signInToBuy: "登录后才能购买点数。",
     // --- pricing page ---
     pricingTitle: "点数",
@@ -240,6 +258,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     pricingBuy: "购买",
     pricingBusy: "正在打开付款页…",
     pricingNoExpiry: "永不过期 · 一次性付款 · 不自动续费",
+    pricingRowCost:
+      "AI 处理行数按实际算力扣点。地址这类短文本大约 {c} 点 / 1,000 行 —— 这是实测值，不是估算。评论、描述这类长文本会更高。",
     pricingCompare: "各档能做什么",
     pricingColAnon: "未登录",
     pricingColFree: "已登录",

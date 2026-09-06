@@ -15,7 +15,7 @@ export type ProcessResponse = {
   results: ProcessResultItem[];
 };
 
-type ProcessMeta = { action?: 'preview' | 'download'; userKey?: string; onProgress?: (completed: number, total: number) => void };
+type ProcessMeta = { action?: 'preview' | 'download'; userKey?: string; locale?: 'en' | 'zh'; onProgress?: (completed: number, total: number) => void };
 
 export async function processRows(
   rows: string[],
@@ -52,7 +52,8 @@ export async function processRows(
       });
     } catch {}
     try {
-      const extraHeaders: Record<string, string> = {};
+      // Quota refusals come back as server-written prose; tell it the language.
+      const extraHeaders: Record<string, string> = { 'x-locale': meta?.locale ?? 'en' };
       res = await fetch(base, {
         method: 'POST',
         headers: {

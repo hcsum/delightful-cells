@@ -4,6 +4,7 @@
 
 import { secondsUntilNextUtcDay } from "@/lib/date";
 import { SITE_NEURON_BUDGET, type Tier } from "@/lib/limits";
+import { t, type Locale } from "@/lib/cells/i18n";
 
 export type DailyUsage = { inputTokens: number; outputTokens: number; calls: number; neurons: number };
 
@@ -18,7 +19,30 @@ export const FREE_NEURONS_PER_DAY = SITE_NEURON_BUDGET.anon;
 // they draw on a balance the user already paid for.
 export async function isFreeTierExhausted(tier: Tier = "anon"): Promise<boolean> {
   if (tier === "paid") return false;
-  return neuronsFor(await getUsageToday(tier)) >= SITE_NEURON_BUDGET[tier];
+  const used = neuronsFor(await getUsageToday(tier));
+  const budget = SITE_NEURON_BUDGET[tier];
+  if (used < budget) return false;
+  // The budget is meant to be a circuit breaker, not a rationing device: if
+  // this shows up in the logs on an ordinary day, the number is set too low.
+  // Greppable on purpose — it is the only signal that the site just started
+  // refusing a whole tier.
+  console.warn("[site-budget] exhausted", { tier, used: Math.round(used), budget });
+  return true;
+}
+
+// The refusal text for a spent site budget. Each tier gets the one next step
+// that actually works: an anonymous visitor signs in (the signed-in bucket is
+// separate and larger), a signed-in user buys credits (paid calls skip the
+// bucket entirely). Never offer a step that would not help.
+export function siteQuotaMessage(tier: "anon" | "free", locale: Locale): string {
+  return t(locale, tier === "anon" ? "siteQuotaAnon" : "siteQuotaFree");
+}
+
+// Locale for a server-rendered message. The Cells client sends x-locale; fall
+// back to English rather than guessing from Accept-Language, which is often
+// the browser's install language and not what the user picked in the UI.
+export function localeFromRequest(req: Request): Locale {
+  return req.headers.get("x-locale") === "zh" ? "zh" : "en";
 }
 
 export function neuronsFor(u: DailyUsage): number {

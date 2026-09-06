@@ -11,7 +11,7 @@ import {
   resolveEntitlement,
 } from "@/lib/billing/entitlement";
 import { meterAndCharge } from "@/lib/billing/meter";
-import { isFreeTierExhausted } from "@/lib/usage";
+import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
 import { getClientIp } from "@/lib/client-ip";
 
 type FlatMessage = { role: string; content: string };
@@ -90,10 +90,9 @@ export async function POST(request: Request) {
       return json(
         {
           error: "site_quota_exceeded",
-          message:
-            ent.baseTier === "anon"
-              ? "Today's free AI budget for anonymous visitors is used up. Sign in to keep going — it resets at midnight UTC. 🍃"
-              : "Today's free AI budget for the whole site is used up. It resets at midnight UTC — or fork the repo and run your own! 🍃",
+          // What unblocks them differs by tier: sign in, or buy credits.
+          action: ent.baseTier === "anon" ? "sign_in" : "buy_credits",
+          message: siteQuotaMessage(ent.baseTier, localeFromRequest(request)),
         },
         429,
       );

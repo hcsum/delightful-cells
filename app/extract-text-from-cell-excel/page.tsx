@@ -1,5 +1,5 @@
 import CustomToolClient from "@/components/CustomToolClient";
-import { DAILY_ROWS_LIMIT } from "@/lib/limits";
+import RowsLimitNote from '@/components/RowsLimitNote'
 import QuotaBanner from "@/components/QuotaBanner";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -24,10 +24,7 @@ export default function Page() {
         <div className="flex items-center gap-3">
           <QuotaBanner />
         </div>
-        <p className="text-white/60 max-w-2xl text-sm">
-          Note: Daily usage is temporarily limited to {DAILY_ROWS_LIMIT} rows
-          per day.
-        </p>
+      <RowsLimitNote />
       </div>
       <CustomToolClient />
 

@@ -113,10 +113,20 @@ function newTurnId(): string {
   return `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function postChat(messages: FlatMessage[], turnId: string): Promise<string> {
+async function postChat(
+  messages: FlatMessage[],
+  turnId: string,
+  locale: Locale,
+): Promise<string> {
   const res = await fetch("/api/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-turn-id": turnId },
+    headers: {
+      "Content-Type": "application/json",
+      "x-turn-id": turnId,
+      // Refusals (quota, site budget) are written server-side, so the server
+      // has to be told which language the user is reading.
+      "x-locale": locale,
+    },
     body: JSON.stringify({ messages }),
   });
   if (!res.ok) {
@@ -150,7 +160,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
   for (let step = 1; step <= MAX_STEPS; step++) {
     opts.onStep?.(step);
     const system = buildSystemPrompt(opts.getGrid(), opts.sheetName);
-    const text = await postChat(flatten(system, history), turnId);
+    const text = await postChat(flatten(system, history), turnId, opts.locale ?? "en");
     if (opts.isStale()) return;
 
     const parsed = extractToolJson(text);

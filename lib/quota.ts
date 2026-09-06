@@ -2,7 +2,7 @@
 // Falls back to edge cache or in-memory for local dev.
 
 import { secondsUntilNextUtcDay } from "@/lib/date";
-import { DAILY_ROWS_LIMIT } from "@/lib/limits";
+import { TIER_LIMITS } from "@/lib/limits";
 
 // Try Cloudflare KV first (stores cumulative rows used for the day)
 async function checkAndConsumeRowsKV(
@@ -90,7 +90,7 @@ function checkAndConsumeRowsMemory(
 export async function addRowsToDailyQuota(
   userKey: string,
   amount: number,
-  limit: number = DAILY_ROWS_LIMIT,
+  limit: number = TIER_LIMITS.anon.rowsPerDay,
 ): Promise<boolean> {
   const kv = await checkAndConsumeRowsKV(userKey, amount, limit);
   if (kv != null) return kv;
@@ -131,7 +131,7 @@ export async function ensureSingleRowIncrement(
   userKey: string,
   rid: string,
   amount: number,
-  limit: number = DAILY_ROWS_LIMIT,
+  limit: number = TIER_LIMITS.anon.rowsPerDay,
 ): Promise<boolean> {
   // 1) KV strategy
   try {

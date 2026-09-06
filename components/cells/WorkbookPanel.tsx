@@ -2,7 +2,8 @@
 
 import { useRef } from "react";
 import { MAX_COLS, MAX_IMPORT_ROWS, type ParsedWorkbook } from "@/lib/cells/workbook";
-import { AI_ROWS_PER_REQUEST_LIMIT, DAILY_ROWS_LIMIT } from "@/lib/limits";
+import { TIER_LIMITS } from "@/lib/limits";
+import type { Me } from "@/lib/billing/useMe";
 import type { GridState } from "@/lib/cells/tools";
 import DataTable from "./DataTable";
 import { useT } from "@/lib/cells/locale";
@@ -31,8 +32,12 @@ export default function WorkbookPanel({
   onReset,
   onDownload,
   onDownloadXlsx,
+  limits,
 }: {
   state: WorkbookState;
+  // From /api/me. Null while that is in flight, and for a signed-out visitor
+  // whose request failed — both cases fall back to the anonymous floor below.
+  limits?: Me["limits"] | null;
   onFile: (file: File) => void;
   onEditCell: (rowIdx: number, colIdx: number, value: string) => void;
   onSelectRow: (rowIdx: number, mods: { shift: boolean; meta: boolean }) => void;
@@ -46,6 +51,23 @@ export default function WorkbookPanel({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const t = useT();
+
+  // Quote what *this* reader is allowed, not the signed-in numbers. Before
+  // /api/me answers we quote the anonymous floor: it is the only figure that
+  // is true for everyone, and being pleasantly surprised beats being told you
+  // had 3,000 rows and refused at 500.
+  const eff = limits ?? TIER_LIMITS.anon;
+  const limitsHint =
+    eff.rowsPerDay == null
+      ? t("limitsHintMetered", {
+          i: MAX_IMPORT_ROWS.toLocaleString(),
+          r: eff.aiRowsPerRun.toLocaleString(),
+        })
+      : t("limitsHint", {
+          i: MAX_IMPORT_ROWS.toLocaleString(),
+          r: eff.aiRowsPerRun.toLocaleString(),
+          d: eff.rowsPerDay.toLocaleString(),
+        });
 
   const fileInput = (
     <input
@@ -92,11 +114,7 @@ export default function WorkbookPanel({
               {t("dropDesc2")}
             </p>
             <p className="mt-3 text-xs font-semibold text-black/45">
-              {t("limitsHint", {
-                i: MAX_IMPORT_ROWS.toLocaleString(),
-                r: AI_ROWS_PER_REQUEST_LIMIT.toLocaleString(),
-                d: DAILY_ROWS_LIMIT.toLocaleString(),
-              })}
+              {limitsHint}
             </p>
             <button
               onClick={() => inputRef.current?.click()}
@@ -146,11 +164,7 @@ export default function WorkbookPanel({
           {t("rowsCols", { r: grid.rows.length, c: grid.headers.length })}
         </span>
         <span className="text-xs text-black/35">
-          {t("limitsHint", {
-                i: MAX_IMPORT_ROWS.toLocaleString(),
-                r: AI_ROWS_PER_REQUEST_LIMIT.toLocaleString(),
-                d: DAILY_ROWS_LIMIT.toLocaleString(),
-              })}
+          {limitsHint}
         </span>
         <button
           onClick={() => inputRef.current?.click()}

@@ -7,7 +7,7 @@ import {
 } from "@/lib/billing/entitlement";
 import { TIER_LIMITS } from "@/lib/limits";
 import { meterAndCharge } from "@/lib/billing/meter";
-import { isFreeTierExhausted } from "@/lib/usage";
+import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
 import { getClientIp } from "@/lib/client-ip";
 
 export async function OPTIONS() {
@@ -149,10 +149,8 @@ export async function POST(request: Request) {
         return new Response(
           JSON.stringify({
             error: "site_quota_exceeded",
-            message:
-              ent.baseTier === "anon"
-                ? "Today's free AI budget for anonymous visitors is used up. Sign in to keep going — it resets at midnight UTC."
-                : "Today's free AI budget for the whole site is used up. It resets at midnight UTC.",
+            action: ent.baseTier === "anon" ? "sign_in" : "buy_credits",
+            message: siteQuotaMessage(ent.baseTier, localeFromRequest(request)),
           }),
           { status: 429, headers: { "content-type": "application/json", "cache-control": "no-store" } },
         );

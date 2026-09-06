@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { SVGProps } from "react";
 import { useForm } from "react-hook-form";
 import { processRows } from "@/lib/process";
-import { AI_ROWS_PER_REQUEST_LIMIT, DAILY_ROWS_LIMIT, MAX_FILE_BYTES } from "@/lib/limits";
+import { AI_BATCH_ROWS, MAX_FILE_BYTES, TIER_LIMITS } from "@/lib/limits";
 
 type FormValues = {
   target: string;
@@ -138,7 +138,10 @@ export default function CustomToolClient({
     // Ask the server what this visitor is allowed right now: the per-run cap
     // and the daily allowance both move with their tier (and with credits).
     const total = dataRowCount;
-    let perRun = AI_ROWS_PER_REQUEST_LIMIT;
+    // Fall back to the anonymous cap, not the signed-in one: if /api/me is
+    // unreachable we would rather truncate the run than have the server
+    // reject it.
+    let perRun: number = TIER_LIMITS.anon.aiRowsPerRun;
     let allowedRows = Math.min(total, perRun);
     try {
       const meRes = await fetch("/api/me");
@@ -185,7 +188,7 @@ export default function CustomToolClient({
         inputs,
         (target || "").trim(),
         (source || "").trim(),
-        50,
+        AI_BATCH_ROWS,
         undefined,
         {
           action: "download",
@@ -407,8 +410,11 @@ export default function CustomToolClient({
         )}
         <p className="mt-3 text-xs text-black/45">
           The download includes all original columns plus the new extracted
-          column. Signed in: {DAILY_ROWS_LIMIT} rows per day, up to{" "}
-          {AI_ROWS_PER_REQUEST_LIMIT} per run. Credits lift both.
+          column. Without signing in: {TIER_LIMITS.anon.rowsPerDay} rows a day,{" "}
+          {TIER_LIMITS.anon.aiRowsPerRun} per run. Signed in:{" "}
+          {TIER_LIMITS.free.rowsPerDay.toLocaleString()} a day,{" "}
+          {TIER_LIMITS.free.aiRowsPerRun.toLocaleString()} per run. Credits lift
+          both.
         </p>
       </section>
     </div>

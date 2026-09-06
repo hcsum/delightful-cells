@@ -40,12 +40,12 @@ allowance. `MAX_CALLS_PER_TURN = 8` bounds a forged id.
 | Chat turns / day | 10 | 10 | metered |
 | AI rows / day | 500 | 3,000 | metered |
 | AI rows / run | 100 | 1,000 | 5,000 |
-| Site neuron budget / day | 10,000 | 50,000 | not bucketed |
+| Site neuron budget / day | 10,000 | 100,000 | not bucketed |
 | Import (whole workbook) | 10,000 rows / 20 MB | same | same |
 | Filter, replace, compute, delete | unlimited | same | same |
 
-Signing in does **not** buy more chat turns. It buys three things: your own
-50k site budget instead of the shared anonymous 10k, 500 → 3,000 rows a day,
+Signing in does **not** buy more chat turns. It buys three things: the 100k
+site budget instead of the shared anonymous 10k, 500 → 3,000 rows a day,
 and 100 → 1,000 rows per run.
 
 Import and the mechanical tools run entirely in the browser
@@ -71,6 +71,34 @@ that is going to be billed anyway.
 
 ---
 
+## What the UI is allowed to say
+
+A number is only true for one tier, so copy written before the reader's tier is
+known must quote **`TIER_LIMITS.anon`** — the floor everyone is guaranteed —
+and then say what signing in adds. Quoting the signed-in numbers to everyone is
+how the drop zone came to tell anonymous visitors they had 1,000 rows per run
+when they had 100.
+
+Where this is enforced:
+
+| Surface | Source of numbers |
+|---|---|
+| `/cells` drop zone and file bar | `me.limits` from `/api/me`, anon floor until it answers |
+| `/tools` landing pages (static) | `components/RowsLimitNote.tsx`, anon floor + what sign-in adds |
+| `QuotaBanner` | `/api/quota` (tier-aware), anon floor until it answers |
+| `/pricing` comparison table | `TIER_LIMITS`, all three columns shown side by side |
+
+The same rule applies to client-side fallbacks, not just copy: when `/api/me`
+is unreachable, `CustomToolClient` and `CellsApp` assume the anonymous per-run
+cap. Guessing high only produces a run the server rejects.
+
+Row *cost* gets the same treatment for a different reason: the bill follows
+input length, so `minCreditsForRows()` in `lib/limits.ts` is a **floor**, valid
+for short inputs. `/pricing` states it with the "short text" caveat attached.
+Never quote it bare.
+
+---
+
 ## Measured cost
 
 Run on production, 2026-09-06, extracting a city from ~35-character addresses.
@@ -82,8 +110,8 @@ Read from `x-usage-neurons`, which is what Cloudflare actually billed.
 | 50 rows | 17 (measured twice, identical) |
 
 That fits `2 + 0.30 × rows` per call: about **2 neurons of fixed prompt
-overhead per request, plus 0.30 neurons per row**. `lib/process.ts` batches at
-50 rows, so:
+overhead per request, plus 0.30 neurons per row**. Both figures, and the
+`AI_BATCH_ROWS = 50` batch size, live in `lib/limits.ts`, so:
 
 | Rows | Calls | Neurons | Credits |
 |---|---|---|---|
@@ -140,18 +168,46 @@ transferable (see `/terms` §5).
 
 Worst case, both site buckets fully drained every day:
 
-`(10,000 + 50,000) neurons × $0.011/1k = $0.66/day ≈ $20/month`
+`(10,000 + 100,000) neurons × $0.011/1k = $1.21/day ≈ $36/month`
 
 The buckets are per tier so a flood of anonymous traffic cannot spend what
 signed-in users depend on.
+
+**They are a bill cap, not an anti-abuse device.** A single identity can
+extract at most about $0.003 (anonymous) or $0.007 (signed in) of inference in
+a day, so no one farms accounts for it. Read each number as "the most I am
+willing to pay for this tier on any one day", set it high enough that an
+ordinary day never reaches it, and treat a hit as an alarm —
+`isFreeTierExhausted` logs `[site-budget] exhausted` for exactly that reason.
+
+The anonymous bucket is deliberately the small one, and not only to save
+money: when it runs out the visitor is asked to sign in, which turns overflow
+traffic into sign-ups instead of into cost. At the current numbers that wall
+arrives after roughly 95 typical visitors a day (3 chat turns plus one 60-row
+demo run ≈ 105 neurons each).
+
+> The cost of keeping it that low is a timezone one: the bucket is a single
+> UTC-day counter, so a busy American afternoon can leave later timezones
+> hitting the wall on arrival, every day. Slicing the day into hourly
+> allowances would fix it; nothing does that today.
+
+When a bucket is spent, the refusal names the one step that actually works for
+that tier — sign in (anonymous: the signed-in bucket is separate) or buy
+credits (signed in: paid calls skip the bucket entirely). The text lives in
+`lib/cells/i18n.ts` as `siteQuotaAnon` / `siteQuotaFree`, picked by
+`siteQuotaMessage()`; the client sends `x-locale` so a server-written refusal
+comes back in the language the user is reading.
 
 ---
 
 ## Known gaps
 
-- **Batch size is 50 and untuned.** At 2 neurons fixed overhead per call, going
-  to 100 rows per batch would cut cost per row by roughly 15%. Untested; it
-  also doubles the payload per request and halves the progress-bar resolution.
+- **Batch size is 50 and untuned** (`AI_BATCH_ROWS`). At 2 neurons fixed
+  overhead per call, going to 100 rows per batch would cut cost per row by
+  roughly 15% — about $0.05 on a $5 pack, against doubling the payload per
+  request, halving the progress-bar resolution, and losing 100 rows instead of
+  50 when a batch fails. Not worth it until compute cost is actually the
+  constraint.
 - **The counter switch is not migrated.** Before this change, `chat:<key>`
   counted model calls against a limit of 100. It now counts turns against 10.
   Same KV key, so on the day of deploy anyone with ≥10 calls already recorded
