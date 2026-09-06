@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { DAILY_ROWS_LIMIT } from '@/lib/limits'
+import { TIER_LIMITS } from '@/lib/limits'
 
 export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }: { open: boolean; onClose: () => void; onSignIn: () => void; disabled?: boolean }) {
 
@@ -20,19 +20,29 @@ export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }:
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-lg border border-white/10 shadow-xl" style={{ background: 'var(--panel-bg)', color: 'var(--fg)' }}>
-        <div className="p-4 border-b border-white/10">
-            <h3 className="text-base font-semibold">Please Sign In</h3>
-        </div>
-        <div className="p-4">
-          <button type="button" onClick={onSignInClick} disabled={disabled} className="inline-flex items-center gap-2 px-3 py-1 rounded border-[1px] border-neutral-600/50">
-            <GoogleIcon />
-            <span className="text-xs font-medium">Sign in with Google</span>
-          </button>
-        </div>
-        <div className="p-4 border-t border-white/10 flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-3 py-1 rounded border border-white/10 hover:bg-white/10 text-xs">Cancel</button>
-        </div>
+      <div className="relative w-full max-w-sm rounded-3xl border !border-black/10 bg-[#fffaf0] p-6 text-black shadow-xl">
+        <h3 className="text-lg font-extrabold">Sign in to keep going</h3>
+        <ul className="mt-3 space-y-1.5 text-sm text-black/65">
+          <li>· {TIER_LIMITS.free.rowsPerDay.toLocaleString()} AI rows a day instead of {TIER_LIMITS.anon.rowsPerDay.toLocaleString()}</li>
+          <li>· Up to {TIER_LIMITS.free.aiRowsPerRun.toLocaleString()} rows per run instead of {TIER_LIMITS.anon.aiRowsPerRun.toLocaleString()}</li>
+          <li>· Your own daily AI budget, not the shared one</li>
+        </ul>
+        <button
+          type="button"
+          onClick={onSignInClick}
+          disabled={disabled}
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-black px-4 py-2.5 text-sm font-bold text-[#fffdf8] hover:opacity-85 disabled:opacity-50"
+        >
+          <GoogleIcon />
+          <span>Continue with Google</span>
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-2 w-full rounded-full px-4 py-2 text-xs font-semibold text-black/50 hover:bg-black/5"
+        >
+          Not now
+        </button>
       </div>
     </div>
   )

@@ -15,7 +15,7 @@ export function useAuth() {
       error: null,
       refetch: async () => ({ data: { user: fakeUser } }),
       signInWithGoogle: noop,
-      signOut: noop,
+      signOut: async () => {},
     } as const;
   }
 
@@ -25,6 +25,11 @@ export function useAuth() {
   const signInWithGoogle = (callbackURL: string = '/') =>
     signIn.social({ provider: 'google', callbackURL });
 
+  // Normalized so callers get the same signature in bypass mode and out of it.
+  const signOutUser = async () => {
+    await signOut();
+  };
+
   return {
     user,
     session,
@@ -33,6 +38,6 @@ export function useAuth() {
     error,
     refetch,
     signInWithGoogle,
-    signOut,
+    signOut: signOutUser,
   } as const;
 }

@@ -2,11 +2,12 @@
 
 import Papa from "papaparse";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { MAX_FILE_BYTES } from "@/lib/limits";
 
 type Row = string[];
 
 const HARD_LIMITS = {
-  maxFileBytes: 20 * 1024 * 1024, // this page supports up to 20 MB
+  maxFileBytes: MAX_FILE_BYTES,
   maxRows: 5001, // 5000 data rows + 1 header row
 } as const;
 

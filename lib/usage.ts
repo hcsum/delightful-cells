@@ -3,6 +3,7 @@
 // lib/quota.ts: KV → edge cache → in-memory (dev). Not atomic; display only.
 
 import { secondsUntilNextUtcDay } from "@/lib/date";
+import { SITE_NEURON_BUDGET, type Tier } from "@/lib/limits";
 
 export type DailyUsage = { inputTokens: number; outputTokens: number; calls: number; neurons: number };
 
@@ -10,12 +11,14 @@ export type DailyUsage = { inputTokens: number; outputTokens: number; calls: num
 // actually cost; llm-worker forwards that as x-usage-neurons and we add it up.
 // Nothing here derives neurons from a price table — swapping the model needs no
 // change on this side.
-export const FREE_NEURONS_PER_DAY = 10_000;
+export const FREE_NEURONS_PER_DAY = SITE_NEURON_BUDGET.anon;
 
-// Hard stop before the free tier runs out. Cloudflare bills anything above
-// 10k neurons/day, so the site refuses new AI calls once today's total hits it.
-export async function isFreeTierExhausted(): Promise<boolean> {
-  return neuronsFor(await getUsageToday()) >= FREE_NEURONS_PER_DAY;
+// Site-wide backstop, bucketed per tier so a flood of anonymous traffic cannot
+// spend the budget signed-in users depend on. Paid calls are never bucketed:
+// they draw on a balance the user already paid for.
+export async function isFreeTierExhausted(tier: Tier = "anon"): Promise<boolean> {
+  if (tier === "paid") return false;
+  return neuronsFor(await getUsageToday(tier)) >= SITE_NEURON_BUDGET[tier];
 }
 
 export function neuronsFor(u: DailyUsage): number {
@@ -23,7 +26,11 @@ export function neuronsFor(u: DailyUsage): number {
 }
 
 const ZERO: DailyUsage = { inputTokens: 0, outputTokens: 0, calls: 0, neurons: 0 };
-const key = () => `usage:${new Date().toISOString().slice(0, 10)}`;
+const today = () => new Date().toISOString().slice(0, 10);
+// One bucket per tier. `usage:<date>` (no tier) stays the aggregate the public
+// meter reads, so the homepage total survives the split.
+const key = (tier?: Tier) =>
+  tier ? `usage:${today()}:${tier}` : `usage:${today()}`;
 
 function parse(raw: string | null | undefined): DailyUsage {
   try {
@@ -56,8 +63,11 @@ function edgeCache(): any | null {
   return cache && typeof cache.match === "function" && typeof cache.put === "function" ? cache : null;
 }
 
-export async function getUsageToday(): Promise<DailyUsage> {
-  const k = key();
+export async function getUsageToday(tier?: Tier): Promise<DailyUsage> {
+  return readUsage(key(tier));
+}
+
+async function readUsage(k: string): Promise<DailyUsage> {
   const kv = await kvBinding();
   if (kv) return parse(await kv.get(k));
   const cache = edgeCache();
@@ -66,24 +76,35 @@ export async function getUsageToday(): Promise<DailyUsage> {
     return parse(hit ? await hit.text() : null);
   }
   const g: any = globalThis as any;
-  return g.__usage?.day === k ? g.__usage.value : { ...ZERO };
+  return g.__usage?.[k] ?? { ...ZERO };
 }
 
 // Read from upstream headers set by llm-worker; no-op when absent (e.g. mock).
-export async function recordUsageFromHeaders(headers: Headers): Promise<void> {
+export async function recordUsageFromHeaders(
+  headers: Headers,
+  tier: Tier = "anon",
+): Promise<number> {
   const inTok = Number(headers.get("x-usage-in")) || 0;
   const outTok = Number(headers.get("x-usage-out")) || 0;
   const neurons = Number(headers.get("x-usage-neurons")) || 0;
-  if (!inTok && !outTok) return;
+  if (!inTok && !outTok) return 0;
+  const delta = { inputTokens: inTok, outputTokens: outTok, calls: 1, neurons };
+  // Written twice: the tier bucket gates that tier, the untiered key is the
+  // all-visitors total the public meter shows.
+  await addUsage(key(tier), delta);
+  await addUsage(key(), delta);
+  return neurons;
+}
+
+async function addUsage(k: string, delta: DailyUsage): Promise<void> {
   try {
-    const cur = await getUsageToday();
+    const cur = await readUsage(k);
     const next: DailyUsage = {
-      inputTokens: cur.inputTokens + inTok,
-      outputTokens: cur.outputTokens + outTok,
-      calls: cur.calls + 1,
-      neurons: cur.neurons + neurons,
+      inputTokens: cur.inputTokens + delta.inputTokens,
+      outputTokens: cur.outputTokens + delta.outputTokens,
+      calls: cur.calls + delta.calls,
+      neurons: cur.neurons + delta.neurons,
     };
-    const k = key();
     const body = JSON.stringify(next);
     const kv = await kvBinding();
     if (kv) return void (await kv.put(k, body, { expirationTtl: secondsUntilNextUtcDay() }));
@@ -94,6 +115,8 @@ export async function recordUsageFromHeaders(headers: Headers): Promise<void> {
         new Response(body, { headers: { "Cache-Control": `max-age=${secondsUntilNextUtcDay()}` } }),
       ));
     }
-    (globalThis as any).__usage = { day: k, value: next };
+    const g: any = globalThis as any;
+    g.__usage ||= {};
+    g.__usage[k] = next;
   } catch {}
 }

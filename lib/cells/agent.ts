@@ -107,10 +107,16 @@ export function extractToolJson(text: string): Record<string, unknown> | null {
   return null;
 }
 
-async function postChat(messages: FlatMessage[]): Promise<string> {
+// One id per turn, sent on every call the turn makes. The daily allowance is
+// counted in turns, and only the first call carrying a given id spends one.
+function newTurnId(): string {
+  return `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function postChat(messages: FlatMessage[], turnId: string): Promise<string> {
   const res = await fetch("/api/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-turn-id": turnId },
     body: JSON.stringify({ messages }),
   });
   if (!res.ok) {
@@ -138,12 +144,13 @@ export type AgentTurnOptions = {
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
   const history = [...opts.history];
+  const turnId = newTurnId();
   let correctedOnce = false;
 
   for (let step = 1; step <= MAX_STEPS; step++) {
     opts.onStep?.(step);
     const system = buildSystemPrompt(opts.getGrid(), opts.sheetName);
-    const text = await postChat(flatten(system, history));
+    const text = await postChat(flatten(system, history), turnId);
     if (opts.isStale()) return;
 
     const parsed = extractToolJson(text);

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import HeaderAuth from "@/components/HeaderAuth";
 
 // Site chrome (header/main.container/footer) extracted from the root layout.
 // Full-bleed experiences (the Delightful Cells homepage) opt out entirely.
@@ -42,12 +43,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Find duplicates
             </Link>
+            <Link
+              href="/pricing"
+              title="Credits"
+              className="rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
+            >
+              Credits
+            </Link>
+            <HeaderAuth />
           </nav>
         </div>
       </header>
       <main className="container pb-24">{children}</main>
       <footer className="container text-xs text-black/50 py-8 border-t border-black/10">
         <div className="flex flex-wrap items-center justify-end gap-4">
+          <Link
+            href="/pricing"
+            title="Credits"
+            className="underline hover:no-underline !text-black/50"
+          >
+            Credits
+          </Link>
           <Link
             href="/terms"
             title="Terms of Service"

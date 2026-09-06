@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   downloadWorkbookXlsx,
+  ExportTooLargeError,
   parseWorkbookFile,
   toCsv,
   WorkbookError,
@@ -37,7 +38,10 @@ import { LocaleContext } from "@/lib/cells/locale";
 import { describeUserChanges, snapshotGrid, type GridSnapshot } from "@/lib/cells/state-diff";
 import { presetsFor } from "@/lib/cells/demo";
 import { t, type Locale } from "@/lib/cells/i18n";
-import { AI_ROWS_PER_REQUEST_LIMIT } from "@/lib/limits";
+import { AI_ROWS_PER_REQUEST_LIMIT, TIER_LIMITS } from "@/lib/limits";
+import { useMe } from "@/lib/billing/useMe";
+import AuthPill from "@/components/billing/AuthPill";
+import CreditsBadge from "@/components/billing/CreditsBadge";
 
 // Rounded system font stack — no build-time font download, fork-friendly.
 const ROUNDED_FONT =
@@ -72,6 +76,11 @@ export default function CellsApp() {
   });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [usageRefresh, setUsageRefresh] = useState(0);
+  // Tier, allowance and balance. Re-read after every turn so the meter and the
+  // per-run cap follow a sign-in or a top-up without a reload.
+  const { me } = useMe(usageRefresh);
+  // The "you're on credits now" note is shown once per session, not per call.
+  const creditsNoticeShownRef = useRef(false);
   const [agent, setAgent] = useState<{
     thinking: boolean;
     step: number;
@@ -89,6 +98,41 @@ export default function CellsApp() {
   const userEditsRef = useRef(0);
   const turnIdRef = useRef(0);
 
+  // Read through refs: the agent loop's callbacks are memoized and must see
+  // the current cap, not the one captured when they were created.
+  const rowsPerRunRef = useRef<number>(AI_ROWS_PER_REQUEST_LIMIT);
+  rowsPerRunRef.current = me?.limits.aiRowsPerRun ?? AI_ROWS_PER_REQUEST_LIMIT;
+  const meRef = useRef(me);
+  meRef.current = me;
+
+  // Hitting the per-run cap is the main reason to sign in or top up, so say
+  // what the next tier up would allow instead of just refusing.
+  const rowsPerRunError = useCallback(() => {
+    const cap = rowsPerRunRef.current;
+    const tier = meRef.current?.tier ?? "anon";
+    return tier === "anon"
+      ? t(localeRef.current, "rowsPerRunAnon", { n: cap, m: TIER_LIMITS.free.aiRowsPerRun })
+      : t(localeRef.current, "rowsPerRunFree", {
+          n: cap,
+          m: meRef.current?.limits.paidAiRowsPerRun ?? TIER_LIMITS.paid.aiRowsPerRun,
+        });
+  }, []);
+
+  // First time a call is billed to credits instead of the free allowance, say
+  // so once. Silent after that — the balance in the header is the ongoing cue.
+  useEffect(() => {
+    if (!me?.billingToCredits || creditsNoticeShownRef.current) return;
+    creditsNoticeShownRef.current = true;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: nextMessageId(),
+        role: "note",
+        content: t(localeRef.current, "switchedToCredits"),
+      },
+    ]);
+  }, [me?.billingToCredits]);
+
   const setGrid = useCallback((grid: GridState) => {
     gridRef.current = grid;
     setWorkbookState((prev) =>
@@ -101,7 +145,13 @@ export default function CellsApp() {
     lastTurnSnapshotRef.current = null;
     userEditsRef.current = 0;
     setAgent({ thinking: false, step: 1, progress: null });
-    setWorkbookState({ status: "parsing", fileName: file.name });
+    // XLSX.read is synchronous: a big file freezes the tab for seconds, so say
+    // so up front rather than looking hung.
+    setWorkbookState({
+      status: "parsing",
+      fileName: file.name,
+      big: file.size > 5 * 1024 * 1024,
+    });
     // Let the "parsing" frame paint before the (synchronous) parse work.
     window.setTimeout(async () => {
       try {
@@ -239,7 +289,23 @@ export default function CellsApp() {
     );
     const fileName =
       workbookState.workbook.fileName.replace(/\.[^.]+$/, "") + "-cells.xlsx";
-    void downloadWorkbookXlsx(fileName, sheets);
+    void downloadWorkbookXlsx(fileName, sheets).catch((e) => {
+      // The styled writer refuses past MAX_STYLED_EXPORT_ROWS; the CSV and
+      // unhighlighted paths still work, so say which way out is available.
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextMessageId(),
+          role: "note",
+          content:
+            e instanceof ExportTooLargeError
+              ? t(localeRef.current, "exportTooLarge", {
+                  n: Number(e.message).toLocaleString(),
+                })
+              : t(localeRef.current, "genericError"),
+        },
+      ]);
+    });
   }, [workbookState]);
 
   // transform_column: run the instruction on every row via the batched LLM
@@ -253,11 +319,11 @@ export default function CellsApp() {
       const only = resolveScope(grid, call);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
-      if (values.length > AI_ROWS_PER_REQUEST_LIMIT) {
+      if (values.length > rowsPerRunRef.current) {
         return {
           ok: false,
           summary: "too many rows",
-          data: { error: `This AI action can process up to ${AI_ROWS_PER_REQUEST_LIMIT} rows at a time.` },
+          data: { error: rowsPerRunError() },
         };
       }
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
@@ -315,11 +381,11 @@ export default function CellsApp() {
       const only = resolveScope(grid, call);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
-      if (values.length > AI_ROWS_PER_REQUEST_LIMIT) {
+      if (values.length > rowsPerRunRef.current) {
         return {
           ok: false,
           summary: "too many rows",
-          data: { error: `This AI action can process up to ${AI_ROWS_PER_REQUEST_LIMIT} rows at a time.` },
+          data: { error: rowsPerRunError() },
         };
       }
       setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
@@ -460,6 +526,10 @@ export default function CellsApp() {
         >
           {locale === "zh" ? "EN" : "中文"}
         </button>
+        {/* AppShell early-returns on "/", so the homepage carries its own
+            header controls rather than inheriting the site chrome. */}
+        <CreditsBadge me={me} />
+        <AuthPill />
         </div>
       </header>
 
@@ -480,7 +550,7 @@ export default function CellsApp() {
           />
         </div>
         <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
-          <UsageMeter refreshKey={usageRefresh} />
+          <UsageMeter me={me} />
           <ChatPanel
             messages={messages}
             thinking={agent.thinking}

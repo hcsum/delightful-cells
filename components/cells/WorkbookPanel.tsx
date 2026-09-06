@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { MAX_ROWS, type ParsedWorkbook } from "@/lib/cells/workbook";
-import { DAILY_ROWS_LIMIT } from "@/lib/limits";
+import { MAX_COLS, MAX_IMPORT_ROWS, type ParsedWorkbook } from "@/lib/cells/workbook";
+import { AI_ROWS_PER_REQUEST_LIMIT, DAILY_ROWS_LIMIT } from "@/lib/limits";
 import type { GridState } from "@/lib/cells/tools";
 import DataTable from "./DataTable";
 import { useT } from "@/lib/cells/locale";
@@ -10,7 +10,7 @@ import { makeDemoFile } from "@/lib/cells/demo";
 
 export type WorkbookState =
   | { status: "idle" }
-  | { status: "parsing"; fileName: string }
+  | { status: "parsing"; fileName: string; big: boolean }
   | {
       status: "ready";
       workbook: ParsedWorkbook;
@@ -77,7 +77,7 @@ export default function WorkbookPanel({
           <div className="text-center">
             <div className="animate-bounce text-5xl">📊</div>
             <p className="mt-4 text-sm font-semibold text-black/60">
-              {t("opening", { name: state.fileName })}
+              {t(state.big ? "openingBig" : "opening", { name: state.fileName })}
             </p>
           </div>
         ) : (
@@ -92,7 +92,11 @@ export default function WorkbookPanel({
               {t("dropDesc2")}
             </p>
             <p className="mt-3 text-xs font-semibold text-black/45">
-              {t("limitsHint", { r: MAX_ROWS.toLocaleString(), d: DAILY_ROWS_LIMIT.toLocaleString() })}
+              {t("limitsHint", {
+                i: MAX_IMPORT_ROWS.toLocaleString(),
+                r: AI_ROWS_PER_REQUEST_LIMIT.toLocaleString(),
+                d: DAILY_ROWS_LIMIT.toLocaleString(),
+              })}
             </p>
             <button
               onClick={() => inputRef.current?.click()}
@@ -142,7 +146,11 @@ export default function WorkbookPanel({
           {t("rowsCols", { r: grid.rows.length, c: grid.headers.length })}
         </span>
         <span className="text-xs text-black/35">
-          {t("limitsHint", { r: MAX_ROWS.toLocaleString(), d: DAILY_ROWS_LIMIT.toLocaleString() })}
+          {t("limitsHint", {
+                i: MAX_IMPORT_ROWS.toLocaleString(),
+                r: AI_ROWS_PER_REQUEST_LIMIT.toLocaleString(),
+                d: DAILY_ROWS_LIMIT.toLocaleString(),
+              })}
         </span>
         <button
           onClick={() => inputRef.current?.click()}
@@ -197,8 +205,9 @@ export default function WorkbookPanel({
 
       {(sheet.truncatedRows || sheet.truncatedCols) && (
         <p className="mt-3 rounded-full bg-[#ffe6ef] px-4 py-1.5 text-xs font-semibold text-[#b3003c]">
-          {sheet.truncatedRows && `Truncated to the first ${MAX_ROWS.toLocaleString()} rows. `}
-          {sheet.truncatedCols && "Truncated to the first 60 columns."}
+          {sheet.truncatedRows &&
+            t("truncatedRowsMsg", { i: MAX_IMPORT_ROWS.toLocaleString() })}
+          {sheet.truncatedCols && t("truncatedColsMsg", { c: MAX_COLS })}
         </p>
       )}
 

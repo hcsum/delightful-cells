@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth/useAuth'
 
 export default function HeaderAuth() {
@@ -7,7 +8,7 @@ export default function HeaderAuth() {
 
   if (isLoading) {
     return (
-      <div className="h-8 w-8 rounded-full bg-white/10 animate-pulse" aria-hidden />
+      <div className="h-8 w-8 animate-pulse rounded-full bg-black/5" aria-hidden />
     )
   }
 
@@ -23,7 +24,7 @@ export default function HeaderAuth() {
           }
           signInWithGoogle(cb)
         }}
-        className="inline-flex items-center gap-2 px-2 py-1 rounded border border-white/10 hover:bg-white/10 text-xs"
+        className="inline-flex items-center gap-2 rounded-full border !border-black/15 bg-white px-3 py-1 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
       >
         Sign in
       </button>
@@ -34,24 +35,25 @@ export default function HeaderAuth() {
   const initial = name.trim().charAt(0).toUpperCase()
   const img = (user as any)?.image as string | undefined
 
+  // The avatar is the way into the account page (balance, ledger, sign out).
   return (
-    <div className="flex items-center gap-2">
+    <Link href="/account" title={name} className="flex items-center gap-2">
       {img ? (
         <img
           src={img}
           alt={name}
-          className="h-8 w-8 rounded-full border border-white/10 object-cover"
+          className="h-8 w-8 rounded-full border !border-black/15 object-cover"
           referrerPolicy="no-referrer"
         />
       ) : (
         <div
-          className="h-8 w-8 rounded-full bg-white/10 border border-white/10 grid place-items-center text-xs font-semibold"
+          className="grid h-8 w-8 place-items-center rounded-full border !border-black/15 bg-white text-xs font-bold text-black/70"
           aria-label={name}
           title={name}
         >
           {initial}
         </div>
       )}
-    </div>
+    </Link>
   )
 }

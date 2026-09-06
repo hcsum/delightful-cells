@@ -1,14 +1,14 @@
 import { decode, encode } from "@toon-format/toon";
-import { addRowsToDailyQuota, getRowsUsedToday } from "@/lib/quota";
-import { DAILY_ROWS_LIMIT } from "@/lib/limits";
-import { isFreeTierExhausted, recordUsageFromHeaders } from "@/lib/usage";
-import { getQuotaKeyFromRequest } from "@/lib/auth/session";
-
-// Allow local/dev usage without sign-in when explicitly enabled via env.
-// Use either NEXT_PUBLIC_BYPASS_AUTH (for simplicity) or BYPASS_AUTH (server-only).
-const BYPASS_AUTH =
-  process.env.NEXT_PUBLIC_BYPASS_AUTH === "true" ||
-  process.env.BYPASS_AUTH === "true";
+import {
+  asPaid,
+  billRows,
+  commitRows,
+  resolveEntitlement,
+} from "@/lib/billing/entitlement";
+import { TIER_LIMITS } from "@/lib/limits";
+import { meterAndCharge } from "@/lib/billing/meter";
+import { isFreeTierExhausted } from "@/lib/usage";
+import { getClientIp } from "@/lib/client-ip";
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -110,44 +110,76 @@ export async function POST(request: Request) {
         toonForWorker = encode({ inputs: rowsArr }, { delimiter: "\t" });
     } catch {}
 
-    // Enforce a daily row quota for ALL actions. Sign-in is optional:
-    // logged-in users are keyed by email, anonymous users by IP.
+    // Billing order: today's free rows for this tier, then credits. The
+    // per-run cap moves with the tier too (100 / 1000 / 5000 rows).
     const rowsCount = Array.isArray((body as any)?.rows)
       ? (body as any).rows.length
       : 0;
-    const userKey = BYPASS_AUTH
-      ? "dev-local"
-      : await getQuotaKeyFromRequest(request);
-    // Pre-check remaining quota before contacting the worker (optimistic; do not mutate state yet)
-    if (rowsCount > 0) {
-      try {
-        const used = await getRowsUsedToday(userKey);
-        if (used + rowsCount > DAILY_ROWS_LIMIT) {
-          return new Response(
-            JSON.stringify({
-              error: "quota_exceeded",
-              message: `Daily row limit reached (${DAILY_ROWS_LIMIT} rows per day)`,
-            }),
-            {
-              status: 429,
-              headers: {
-                "content-type": "application/json",
-                "cache-control": "no-store",
-              },
-            },
-          );
-        }
-      } catch {}
-    }
+    let ent = await resolveEntitlement(request);
 
-    if (await isFreeTierExhausted()) {
+    // Checked before the daily allowance so an oversized batch reports the cap
+    // it actually hit. A user with a balance is measured against the paid cap,
+    // because a run over the free cap is simply billed to credits.
+    const canPay = ent.balanceNeurons > 0;
+    const runCap = canPay
+      ? TIER_LIMITS.paid.aiRowsPerRun
+      : ent.limits.aiRowsPerRun;
+    if (rowsCount > runCap) {
       return new Response(
         JSON.stringify({
-          error: "site_quota_exceeded",
-          message: "Today's free AI budget for the whole site is used up. It resets at midnight UTC.",
+          error: "rows_per_run_exceeded",
+          message: `This AI action can process up to ${runCap} rows at a time.`,
+          limit: runCap,
         }),
-        { status: 429, headers: { "content-type": "application/json", "cache-control": "no-store" } },
+        {
+          status: 400,
+          headers: {
+            "content-type": "application/json",
+            "cache-control": "no-store",
+          },
+        },
       );
+    }
+
+    // Site budget before the free allowance: when the shared budget for this
+    // tier is gone, credits are the way through.
+    if (await isFreeTierExhausted(ent.baseTier)) {
+      if (canPay) ent = asPaid(ent);
+      else
+        return new Response(
+          JSON.stringify({
+            error: "site_quota_exceeded",
+            message:
+              ent.baseTier === "anon"
+                ? "Today's free AI budget for anonymous visitors is used up. Sign in to keep going — it resets at midnight UTC."
+                : "Today's free AI budget for the whole site is used up. It resets at midnight UTC.",
+          }),
+          { status: 429, headers: { "content-type": "application/json", "cache-control": "no-store" } },
+        );
+    }
+
+    if (ent.tier !== "paid") {
+      const billing = await billRows(ent, rowsCount);
+      if (billing.mode === "exceeded") {
+        return new Response(
+          JSON.stringify({
+            error: "quota_exceeded",
+            message: `Daily row limit reached (${ent.limits.rowsPerDay} rows per day)`,
+          }),
+          {
+            status: 429,
+            headers: {
+              "content-type": "application/json",
+              "cache-control": "no-store",
+            },
+          },
+        );
+      }
+      // Either the free allowance ran out, or this run is bigger than the free
+      // per-run cap; both are paid for out of the balance.
+      if (billing.mode === "paid" || rowsCount > ent.limits.aiRowsPerRun) {
+        ent = asPaid(ent);
+      }
     }
 
     // Forward request to LLM worker (include pre-encoded TOON)
@@ -160,6 +192,9 @@ export async function POST(request: Request) {
         "x-app": app,
         ...(apiKey ? { "x-api-key": apiKey } : {}),
         ...(origin ? { Origin: origin } : {}),
+        // Trusted by the worker because x-api-key already proves this is us.
+        "x-client-ip": getClientIp(request),
+        "x-tier": ent.tier,
       },
       body: JSON.stringify({
         ...body,
@@ -185,25 +220,10 @@ export async function POST(request: Request) {
     } catch {}
     // If worker responded OK, now charge quota and then extract results
     if (workerResponse.ok) {
-      await recordUsageFromHeaders(workerResponse.headers);
-      if (rowsCount > 0) {
-        const ok2 = await addRowsToDailyQuota(userKey, rowsCount);
-        if (!ok2) {
-          return new Response(
-            JSON.stringify({
-              error: "quota_exceeded",
-              message: `Daily row limit reached (${DAILY_ROWS_LIMIT} rows per day)`,
-            }),
-            {
-              status: 429,
-              headers: {
-                "content-type": "application/json",
-                "cache-control": "no-store",
-              },
-            },
-          );
-        }
-      }
+      await meterAndCharge(workerResponse.headers, ent, "process", requestId);
+      // Charged only on success, so a worker error costs the user nothing. Paid
+      // batches are billed in neurons above and don't touch the daily counter.
+      if (ent.tier !== "paid") await commitRows(ent, rowsCount);
       const expected = Array.isArray(body?.rows) ? body.rows.length : 0;
       let decoded: any = null;
       try {

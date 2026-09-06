@@ -90,7 +90,59 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">5. Intellectual Property</h2>
+        <h2 className="text-lg font-semibold">5. Credits and Payment</h2>
+        <h3 className="font-medium">5.1 What credits are</h3>
+        <p>
+          Some AI features are metered in "credits". Credits are a prepaid unit of account for
+          usage of the Service. They are not money, not a stored-value instrument, and carry no
+          cash value. Credits are consumed in proportion to the actual compute your requests use,
+          so a small request costs a fraction of a credit and a large one costs more.
+        </p>
+        <h3 className="font-medium">5.2 One-time purchases</h3>
+        <p>
+          Credit packs are one-time purchases. There is no subscription and nothing renews
+          automatically. Payments are processed by Stripe; we do not receive or store your card
+          details. Prices are shown before checkout and are charged in the currency displayed.
+        </p>
+        <h3 className="font-medium">5.3 Expiry and transfer</h3>
+        <p>
+          Credits do not expire. They are tied to your account and may not be sold, transferred,
+          or shared. If your account is terminated for a breach of these Terms, any remaining
+          credits are forfeited.
+        </p>
+        <h3 className="font-medium">5.4 Refunds</h3>
+        <p>
+          If credits were charged in error, or a purchase failed to deliver credits to your
+          balance, contact us via the website within 30 days of the purchase and we will refund
+          the affected amount. We will also refund unused credits on request within 14 days of
+          purchase. Credits already spent on completed AI requests are non-refundable, because
+          the underlying compute has been consumed. Refunds are issued to the original payment
+          method.
+        </p>
+        <h3 className="font-medium">5.5 Free allowance</h3>
+        <p>
+          The Service also offers a daily free allowance, which is separate from purchased
+          credits and is always consumed first. The size of that allowance may change at any
+          time. Purchased credits are only spent once the free allowance for the day is used up.
+        </p>
+        <h3 className="font-medium">5.6 Service interruption</h3>
+        <p>
+          The AI features depend on third-party infrastructure and may be unavailable, degraded,
+          or rate limited at times. Purchased credits are not consumed by requests that fail, and
+          an interruption does not entitle you to compensation beyond the refund of unspent
+          credits described in 5.4. If we discontinue the paid features entirely, we will refund
+          unspent credits.
+        </p>
+        <h3 className="font-medium">5.7 Price changes</h3>
+        <p>
+          We may change the price of credit packs or how many credits a request consumes at any
+          time. Changes apply to future purchases and future usage only; credits already in your
+          balance keep the amount of usage they were sold as.
+        </p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold">6. Intellectual Property</h2>
         <p>
           All rights, title, and interest in the Service, including its design, software, and branding, are owned by us
           or our licensors. You retain all rights to the data you upload. We claim no ownership over your content.
@@ -98,7 +150,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">6. Disclaimer of Warranties</h2>
+        <h2 className="text-lg font-semibold">7. Disclaimer of Warranties</h2>
         <p>
           THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED,
           INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
@@ -112,7 +164,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">7. Limitation of Liability</h2>
+        <h2 className="text-lg font-semibold">8. Limitation of Liability</h2>
         <p>
           To the maximum extent permitted by law, we shall not be liable for any indirect, incidental, consequential, or
           special damages, including loss of data, loss of profits, or business interruption, arising out of or related
@@ -121,7 +173,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">8. Termination</h2>
+        <h2 className="text-lg font-semibold">9. Termination</h2>
         <p>
           We may suspend or terminate your access to the Service at any time, with or without notice, if we believe you
           have violated these Terms or used the Service in a way that may cause harm or legal risk.
@@ -129,7 +181,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">9. Changes to These Terms</h2>
+        <h2 className="text-lg font-semibold">10. Changes to These Terms</h2>
         <p>
           We may update these Terms from time to time. Any changes will be effective when posted on this page. Your
           continued use of the Service after changes are posted constitutes acceptance of the updated Terms.
@@ -137,7 +189,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">10. Governing Law</h2>
+        <h2 className="text-lg font-semibold">11. Governing Law</h2>
         <p>
           These Terms are governed by and construed in accordance with the laws of the applicable jurisdiction, without
           regard to conflict of law principles.
@@ -145,7 +197,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">11. Contact</h2>
+        <h2 className="text-lg font-semibold">12. Contact</h2>
         <p>If you have questions about these Terms, please contact us via the website.</p>
       </section>
     </div>

@@ -7,6 +7,8 @@ type ExportedHandler<TEnv = any> = {
 export interface Env {
   AI: Ai;
   LLM_API_KEY?: string;
+  RL_FREE?: { limit: (opts: { key: string }) => Promise<{ success: boolean }> };
+  RL_PAID?: { limit: (opts: { key: string }) => Promise<{ success: boolean }> };
 }
 
 type ProcessRequest = {
@@ -62,17 +64,36 @@ export default {
       return new Response('Method Not Allowed', { status: 405, headers: corsHeaders(origin) });
     }
 
-    // Rate limit using Cloudflare Rate Limiting binding configured in wrangler (MY_RATE_LIMITER).
-    // See https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+    // Verify shared API key FIRST: the rate limiter below trusts x-client-ip /
+    // x-tier, and those are only trustworthy once we know the caller is our own
+    // Next worker. Rejected requests never reach the AI binding, so leaving them
+    // unmetered costs nothing.
+    const key = request.headers.get('x-api-key') || '';
+    const expected = (env as any).LLM_API_KEY || '';
+    if (!expected || key !== expected) {
+      // Return 401 with no body (unauthorized with no message)
+      return new Response('', { status: 401, headers: corsHeaders(origin) });
+    }
+
+    // Rate limit using Cloudflare Rate Limiting bindings configured in wrangler
+    // (RL_FREE / RL_PAID). See
+    // https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+    //
+    // The key is x-client-ip, forwarded by the Next worker from its own
+    // CF-Connecting-IP. Reading CF-Connecting-IP here would give the Next
+    // worker's egress IP instead — one shared bucket for every visitor.
+    const tier = request.headers.get('x-tier') === 'paid' ? 'paid' : 'free';
     try {
-      const limiter: any = (env as any).MY_RATE_LIMITER;
+      const limiter: any = tier === 'paid' ? (env as any).RL_PAID : (env as any).RL_FREE;
       if (limiter && typeof limiter.limit === 'function') {
-        // Use client IP, falling back to pathname as key if missing.
-        const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('x-real-ip') || '';
-        const { pathname } = new URL(request.url);
-        const key = ip || pathname || 'anonymous';
-        const res = await limiter.limit({ key });
-        log('rl', { key, ...(res || {}) });
+        const clientIp =
+          request.headers.get('x-client-ip') ||
+          request.headers.get('CF-Connecting-IP') ||
+          request.headers.get('x-real-ip') ||
+          '';
+        const rlKey = `${tier}:${clientIp || 'anonymous'}`;
+        const res = await limiter.limit({ key: rlKey });
+        log('rl', { key: rlKey, ...(res || {}) });
         if (!res?.success) {
           const extra: Record<string, string> = {};
           if (res.limit != null) extra['X-RateLimit-Limit'] = String(res.limit);
@@ -82,11 +103,12 @@ export default {
           const nowSec = Math.floor(Date.now() / 1000);
           const retryAfterSec = res?.reset ? Math.max(1, Number(res.reset) - nowSec) : 60;
           extra['Retry-After'] = String(retryAfterSec);
+          const perMinute = tier === 'paid' ? 120 : 20;
           // Return a friendly, display-ready message along with a machine-readable code
           return json(
             {
               error: 'rate_limited',
-              message: `Rate limit exceeded: max 20 requests per minute per IP. Try again in ${retryAfterSec}s.`,
+              message: `Rate limit exceeded: max ${perMinute} requests per minute. Try again in ${retryAfterSec}s.`,
               retryAfterSeconds: retryAfterSec,
             },
             429,
@@ -97,14 +119,6 @@ export default {
       }
     } catch (e) {
       log('rl-error', String(e));
-    }
-
-    // Verify shared API key
-    const key = request.headers.get('x-api-key') || '';
-    const expected = (env as any).LLM_API_KEY || '';
-    if (!expected || key !== expected) {
-      // Return 401 with no body (unauthorized with no message)
-      return new Response('', { status: 401, headers: corsHeaders(origin) });
     }
 
     // Chat endpoint for Delightful.cells (/cells). Rate limiting and the
@@ -237,7 +251,7 @@ function corsHeaders(origin: string) {
   ]);
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-request-id, x-action, x-app',
+    'Access-Control-Allow-Headers': 'Content-Type, x-request-id, x-action, x-app, x-client-ip, x-tier',
     'Vary': 'Origin',
   };
   if (origin && allowed.has(origin)) headers['Access-Control-Allow-Origin'] = origin;

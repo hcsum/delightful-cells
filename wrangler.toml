@@ -21,6 +21,7 @@ routes = [
 
 [env.prod.vars]
 LLM_WORKER_URL = "https://extract-excel-app-llm-worker.sumtsui.workers.dev"
+AUTH_URL = "https://delightfulcells.com"
 NEXT_PUBLIC_SITE_URL = "https://delightfulcells.com"
 NEXT_PUBLIC_BASE_URL = "https://delightfulcells.com"
 GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleusercontent.com"
@@ -29,10 +30,25 @@ GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleuse
 #   wrangler secret put GOOGLE_CLIENT_SECRET --env prod
 #   wrangler secret put AUTH_SECRET --env prod
 #   wrangler secret put LLM_API_KEY --env prod
+#   wrangler secret put STRIPE_SECRET_KEY --env prod
+#   wrangler secret put STRIPE_WEBHOOK_SECRET --env prod
 
 [[env.prod.kv_namespaces]]
 binding = "UPLOAD_QUOTA"
 
+# Auth tables (better-auth) plus credit balances and their ledger.
+[[env.prod.d1_databases]]
+binding = "DB"
+database_name = "delightful-cells"
+database_id = "519b6ca2-1304-4133-941b-6a58ce75d1f7"
+migrations_dir = "migrations"
+
 [[kv_namespaces]]
 binding = "UPLOAD_QUOTA"
 id = "ad6ac48ce9c241f191223837847d3b8a"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "delightful-cells"
+database_id = "519b6ca2-1304-4133-941b-6a58ce75d1f7"
+migrations_dir = "migrations"

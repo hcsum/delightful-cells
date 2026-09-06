@@ -1,13 +1,18 @@
 // Chat proxy for Delightful Cells (/cells).
 // Browser → here → llm-worker /chat (hides the shared x-api-key).
-// POC: no auth, no quota — the worker's per-IP rate limiter is the backstop.
-// MOCK_LLM=true answers locally with a scripted model so the whole agent loop
-// runs without a Cloudflare account.
+// Billing order per request: site budget for the tier → today's free turns →
+// credit balance. MOCK_LLM=true answers locally with a scripted model so the
+// whole agent loop runs without a Cloudflare account.
 
-import { addRowsToDailyQuota } from "@/lib/quota";
-import { CHAT_DAILY_MESSAGES_LIMIT } from "@/lib/limits";
-import { getQuotaKeyFromRequest } from "@/lib/auth/session";
-import { isFreeTierExhausted, recordUsageFromHeaders } from "@/lib/usage";
+import {
+  asPaid,
+  billChatTurn,
+  guardTurnCalls,
+  resolveEntitlement,
+} from "@/lib/billing/entitlement";
+import { meterAndCharge } from "@/lib/billing/meter";
+import { isFreeTierExhausted } from "@/lib/usage";
+import { getClientIp } from "@/lib/client-ip";
 
 type FlatMessage = { role: string; content: string };
 
@@ -59,35 +64,59 @@ export async function POST(request: Request) {
     );
   }
 
-  if (process.env.MOCK_LLM === "true") {
-    return json({ response: mockRespond(messages) });
-  }
+  let ent = await resolveEntitlement(request);
 
-  if (await isFreeTierExhausted()) {
-    return json(
-      {
-        error: "site_quota_exceeded",
-        message: "Today's free AI budget for the whole site is used up. It resets at midnight UTC — or fork the repo and run your own! 🍃",
-      },
-      429,
-    );
-  }
-
-  // Daily chat quota: one unit per model call, keyed by email or IP.
-  const quotaKey = `chat:${await getQuotaKeyFromRequest(request)}`;
-  const withinQuota = await addRowsToDailyQuota(
-    quotaKey,
-    1,
-    CHAT_DAILY_MESSAGES_LIMIT,
-  );
-  if (!withinQuota) {
+  // A turn id groups the up-to-MAX_STEPS calls one user message produces; the
+  // allowance is spent once per turn, not once per call. The per-turn cap is
+  // the backstop against a forged id being reused to make the allowance look
+  // untouched, so it applies to paid calls too.
+  const turnId = request.headers.get("x-turn-id") || requestIdFor(request);
+  if (!(await guardTurnCalls(turnId))) {
     return json(
       {
         error: "quota_exceeded",
-        message: `Daily chat limit reached (${CHAT_DAILY_MESSAGES_LIMIT} messages per day). Come back tomorrow!`,
+        message: "That turn made too many AI calls. Start a new message.",
       },
       429,
     );
+  }
+
+  // Site budget before the free allowance: when the shared budget for this
+  // tier is gone, credits are the way through, and there is no sense spending
+  // a free turn on a call that will be billed anyway.
+  if (await isFreeTierExhausted(ent.baseTier)) {
+    if (ent.balanceNeurons > 0) ent = asPaid(ent);
+    else
+      return json(
+        {
+          error: "site_quota_exceeded",
+          message:
+            ent.baseTier === "anon"
+              ? "Today's free AI budget for anonymous visitors is used up. Sign in to keep going — it resets at midnight UTC. 🍃"
+              : "Today's free AI budget for the whole site is used up. It resets at midnight UTC — or fork the repo and run your own! 🍃",
+        },
+        429,
+      );
+  }
+
+  if (ent.tier !== "paid") {
+    const billing = await billChatTurn(ent, turnId);
+    if (billing.mode === "exceeded") {
+      return json(
+        {
+          error: "quota_exceeded",
+          message: `Daily chat limit reached (${ent.limits.chatTurns} turns per day). Sign in or top up credits to keep going.`,
+        },
+        429,
+      );
+    }
+    if (billing.mode === "paid") ent = asPaid(ent);
+  }
+
+  // Mocked *after* billing on purpose: the tier and quota logic is the part
+  // worth exercising offline, and the mock reports no usage so nothing is spent.
+  if (process.env.MOCK_LLM === "true") {
+    return json({ response: mockRespond(messages) });
   }
 
   const workerUrl = process.env.LLM_WORKER_URL;
@@ -99,9 +128,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const requestId =
-    request.headers.get("x-request-id") ||
-    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const requestId = requestIdFor(request);
 
   const upstream = await fetch(`${workerUrl.replace(/\/$/, "")}/chat`, {
     method: "POST",
@@ -110,6 +137,9 @@ export async function POST(request: Request) {
       "x-api-key": apiKey,
       "x-request-id": requestId,
       "x-app": "delightful-cells",
+      // Trusted by the worker because x-api-key already proves this is us.
+      "x-client-ip": getClientIp(request),
+      "x-tier": ent.tier,
     },
     body: JSON.stringify({ messages }),
   });
@@ -128,9 +158,22 @@ export async function POST(request: Request) {
     );
   }
 
-  await recordUsageFromHeaders(upstream.headers);
+  const charged = await meterAndCharge(upstream.headers, ent, "chat", requestId);
   const data = (await upstream.json()) as { response?: string };
-  return json({ response: String(data?.response ?? "") });
+  return json(
+    { response: String(data?.response ?? "") },
+    200,
+    // The client shows a one-time notice the first time a call is billed to
+    // credits rather than to the free allowance.
+    ent.tier === "paid" ? { "x-billed-neurons": String(charged) } : undefined,
+  );
+}
+
+function requestIdFor(request: Request): string {
+  return (
+    request.headers.get("x-request-id") ||
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 }
 
 // ---------------------------------------------------------------------------

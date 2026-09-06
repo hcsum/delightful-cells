@@ -131,6 +131,7 @@ export async function ensureSingleRowIncrement(
   userKey: string,
   rid: string,
   amount: number,
+  limit: number = DAILY_ROWS_LIMIT,
 ): Promise<boolean> {
   // 1) KV strategy
   try {
@@ -141,7 +142,7 @@ export async function ensureSingleRowIncrement(
       const ridKey = `rid:${rid}`;
       const exists = await kv.get(ridKey);
       if (exists) return true; // already counted for this rid
-      const ok = await addRowsToDailyQuota(userKey, amount);
+      const ok = await addRowsToDailyQuota(userKey, amount, limit);
       if (!ok) return false;
       // Short TTL; enough to cover the in-flight batch window
       await kv.put(ridKey, "1", { expirationTtl: 60 * 30 }); // 30 minutes
@@ -163,7 +164,7 @@ export async function ensureSingleRowIncrement(
       );
       const hit = await cache.match(req);
       if (hit) return true;
-      const ok = await addRowsToDailyQuota(userKey, amount);
+      const ok = await addRowsToDailyQuota(userKey, amount, limit);
       if (!ok) return false;
       await cache.put(
         req,
@@ -177,7 +178,7 @@ export async function ensureSingleRowIncrement(
   const g: any = globalThis as any;
   g.__quota_rid ||= new Set<string>();
   if (g.__quota_rid.has(rid)) return true;
-  const ok = await addRowsToDailyQuota(userKey, amount);
+  const ok = await addRowsToDailyQuota(userKey, amount, limit);
   if (!ok) return false;
   g.__quota_rid.add(rid);
   return true;

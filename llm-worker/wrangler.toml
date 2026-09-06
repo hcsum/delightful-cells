@@ -8,10 +8,18 @@ binding = "AI"
 [observability]
 enabled = true
 
+# Two buckets, picked by the x-tier header the Next worker sends. Keyed by
+# x-client-ip (the browser's IP, forwarded by the Next worker) — CF-Connecting-IP
+# here is always the Next worker's egress IP, i.e. one bucket for the whole site.
 [[ratelimits]]
-name = "MY_RATE_LIMITER"
+name = "RL_FREE"
 namespace_id = "1001"
-simple = { limit = 10, period = 60 }
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "RL_PAID"
+namespace_id = "1002"
+simple = { limit = 120, period = 60 }
 
 [vars]
 # Shared secret to authorize requests from Next.js API.

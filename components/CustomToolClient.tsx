@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { SVGProps } from "react";
 import { useForm } from "react-hook-form";
 import { processRows } from "@/lib/process";
-import { AI_ROWS_PER_REQUEST_LIMIT, DAILY_ROWS_LIMIT } from "@/lib/limits";
+import { AI_ROWS_PER_REQUEST_LIMIT, DAILY_ROWS_LIMIT, MAX_FILE_BYTES } from "@/lib/limits";
 
 type FormValues = {
   target: string;
@@ -13,7 +13,7 @@ type FormValues = {
 };
 
 type Row = string[];
-const HARD_LIMITS = { maxFileBytes: 2 * 1024 * 1024, previewRows: 3 } as const;
+const HARD_LIMITS = { maxFileBytes: MAX_FILE_BYTES, previewRows: 3 } as const;
 
 // Flow: upload first (no prerequisites), see your columns, pick the source
 // column from a dropdown, say what to extract, preview 3 rows, process.
@@ -73,7 +73,7 @@ export default function CustomToolClient({
         return;
       }
       if (file.size > HARD_LIMITS.maxFileBytes) {
-        setUploadError("File too large. Max 2 MB.");
+        setUploadError("File too large. Max 20 MB.");
         return;
       }
       setUploadedFileName(file.name);
@@ -135,23 +135,26 @@ export default function CustomToolClient({
     setUploadError(null);
     setProcessError(null);
 
+    // Ask the server what this visitor is allowed right now: the per-run cap
+    // and the daily allowance both move with their tier (and with credits).
     const total = dataRowCount;
-    const requestedRows = Math.min(total, AI_ROWS_PER_REQUEST_LIMIT);
-    let allowedRows = requestedRows;
+    let perRun = AI_ROWS_PER_REQUEST_LIMIT;
+    let allowedRows = Math.min(total, perRun);
     try {
-      const qRes = await fetch("/api/quota", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requested: requestedRows }),
-      });
-      if (qRes.ok) {
-        const q = await qRes.json().catch(() => null as any);
-        const remaining = Number(q?.remaining ?? 0) || 0;
-        const requested = Number(q?.requested ?? requestedRows) || requestedRows;
-        const calcAllowed = Math.max(0, Math.min(remaining, requested));
-        if (Number.isFinite(calcAllowed)) allowedRows = calcAllowed;
+      const meRes = await fetch("/api/me");
+      if (meRes.ok) {
+        const me = await meRes.json();
+        perRun = Number(me?.limits?.aiRowsPerRun) || perRun;
+        // rowsLeft is null when the tier has no daily cap (paying by credits).
+        const rowsLeft = me?.daily?.rowsLeft;
+        const cap = rowsLeft === null ? total : Number(rowsLeft) || 0;
+        allowedRows = Math.max(0, Math.min(total, perRun, cap));
         if (allowedRows === 0) {
-          setProcessError("Daily row limit reached. Try again tomorrow.");
+          setProcessError(
+            me?.tier === "anon"
+              ? "Daily row limit reached. Sign in for a bigger allowance, or try again tomorrow."
+              : "Daily row limit reached. Get credits to keep going, or try again tomorrow.",
+          );
           setDownloading(false);
           return;
         }
@@ -232,7 +235,7 @@ export default function CustomToolClient({
       <section className="rounded-[28px] border !border-black/10 bg-[#fffaf0] p-5">
         <h3 className="text-lg font-extrabold">1. Upload your CSV 📄</h3>
         <p className="mt-1 text-sm text-black/55">
-          Export your Excel sheet as CSV, then drop it here. Max 2 MB. We don't
+          Export your Excel sheet as CSV, then drop it here. Max 20 MB. We don't
           store your file.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -404,7 +407,8 @@ export default function CustomToolClient({
         )}
         <p className="mt-3 text-xs text-black/45">
           The download includes all original columns plus the new extracted
-          column. Free tier: {DAILY_ROWS_LIMIT} rows per day, up to {AI_ROWS_PER_REQUEST_LIMIT} per run.
+          column. Signed in: {DAILY_ROWS_LIMIT} rows per day, up to{" "}
+          {AI_ROWS_PER_REQUEST_LIMIT} per run. Credits lift both.
         </p>
       </section>
     </div>
