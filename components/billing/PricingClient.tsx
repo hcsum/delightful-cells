@@ -7,7 +7,6 @@ import { PACKS, PACK_ORDER, type PackId } from "@/lib/billing/packs";
 import {
   MAX_FILE_BYTES,
   MAX_IMPORT_ROWS,
-  NEURONS_PER_CREDIT,
   TIER_LIMITS,
   minCreditsForRows,
 } from "@/lib/limits";
@@ -162,10 +161,6 @@ export default function PricingClient() {
             </tbody>
           </table>
         </div>
-        <p className="mt-4 text-xs text-black/45">
-          1 credit = {NEURONS_PER_CREDIT} neurons.
-        </p>
-
         <LoginPromptDialog
           open={askSignIn}
           onClose={() => setAskSignIn(false)}

@@ -111,8 +111,11 @@ function AccountBody({
           <div className="mt-1 text-4xl font-extrabold">
             {credits.toLocaleString()}
           </div>
+          {/* Credits are the only unit a user ever sees. Neurons are how the
+              balance is stored so sub-credit calls can be charged honestly —
+              showing both just asked the reader to do the division. */}
           <div className="mt-1 text-xs text-black/45">
-            {balanceNeurons.toLocaleString()} neurons · 1 credit = {NEURONS_PER_CREDIT}
+            {tr("pricingPerCredit", { n: credits.toLocaleString() })}
           </div>
           <Link
             href="/pricing"
@@ -156,7 +159,7 @@ function AccountBody({
                     className={`py-2.5 pr-4 tabular-nums ${l.delta < 0 ? "text-[#b3003c]" : "text-[#0b6b2f]"}`}
                   >
                     {l.delta > 0 ? "+" : ""}
-                    {l.delta.toLocaleString()} neurons
+                    {tr("creditsAmount", { n: creditsLabel(l.delta) })}
                   </td>
                 </tr>
               ))}
@@ -166,4 +169,14 @@ function AccountBody({
       </div>
     </LocaleContext.Provider>
   );
+}
+
+// One line of the ledger, in credits. A chat turn costs about 0.93 credits, so
+// rounding to whole numbers would print "0" next to real spend; two decimals
+// keep small charges visible without inventing a second unit for them. The
+// smallest charge that can be recorded is one neuron, which lands at 0.03.
+function creditsLabel(deltaNeurons: number): string {
+  return (deltaNeurons / NEURONS_PER_CREDIT).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  });
 }

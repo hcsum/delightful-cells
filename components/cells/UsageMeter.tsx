@@ -52,17 +52,14 @@ export default function UsageMeter({ me }: { me: Me | null }) {
   // showing it — plus what signing in would change.
   const used = me.site.tierNeurons;
   const free = me.site.tierBudget;
-  const tokens = me.site.inputTokens + me.site.outputTokens;
+  // A share of the budget, not a raw neuron count: an anonymous visitor has no
+  // credits, so neurons would be a unit they can neither spend nor buy.
+  const left = free > 0 ? Math.max(0, Math.round(((free - used) / free) * 100)) : 0;
   return (
-    <div
-      className={box}
-      title={t("usageHover", { c: me.site.requests, t: tokens.toLocaleString() })}
-    >
+    <div className={box} title={t("usageHover", { c: me.site.requests })}>
       <div className="flex items-center justify-between font-semibold">
         <span>{t("usageTitle")}</span>
-        <span className="text-black/80">
-          {t("usageFree", { u: used.toLocaleString(), f: free.toLocaleString() })}
-        </span>
+        <span className="text-black/80">{t("usageFree", { p: left })}</span>
       </div>
       <Bar used={used} total={free} />
       <div className="mt-1 text-[11px] text-black/45">
