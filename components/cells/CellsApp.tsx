@@ -111,12 +111,17 @@ export default function CellsApp() {
   // what the next tier up would allow instead of just refusing.
   const rowsPerRunError = useCallback(() => {
     const cap = rowsPerRunRef.current;
-    const tier = meRef.current?.tier ?? "anon";
+    const me = meRef.current;
+    const tier = me?.tier ?? "anon";
+    // Already on the paid cap: there is no tier above to sell, so state the
+    // limit plainly instead of offering credits they have.
+    if ((me?.credits.neurons ?? 0) > 0)
+      return t(localeRef.current, "rowsPerRunPaid", { n: cap });
     return tier === "anon"
       ? t(localeRef.current, "rowsPerRunAnon", { n: cap, m: TIER_LIMITS.free.aiRowsPerRun })
       : t(localeRef.current, "rowsPerRunFree", {
           n: cap,
-          m: meRef.current?.limits.paidAiRowsPerRun ?? TIER_LIMITS.paid.aiRowsPerRun,
+          m: me?.limits.paidAiRowsPerRun ?? TIER_LIMITS.paid.aiRowsPerRun,
         });
   }, []);
 

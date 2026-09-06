@@ -53,7 +53,14 @@ export async function GET(request: Request) {
         // Infinity does not survive JSON; null means "no limit".
         chatTurns: finite(ent.limits.chatTurns),
         rowsPerDay: finite(ent.limits.rowsPerDay),
-        aiRowsPerRun: ent.limits.aiRowsPerRun,
+        // The cap /api/process will actually enforce, which is the paid one as
+        // soon as there is a balance: a run over the free cap is simply billed
+        // to credits. Reporting the free cap here left a paying user unable to
+        // start the big run they had already paid for.
+        aiRowsPerRun:
+          ent.balanceNeurons > 0
+            ? TIER_LIMITS.paid.aiRowsPerRun
+            : ent.limits.aiRowsPerRun,
         // What they'd get by paying, so the UI can say what a top-up unlocks.
         paidAiRowsPerRun: TIER_LIMITS.paid.aiRowsPerRun,
       },

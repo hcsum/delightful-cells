@@ -101,6 +101,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
       "Anonymous runs are capped at {n} rows at a time. Sign in to process {m} rows per run.",
     rowsPerRunFree:
       "This AI action can process up to {n} rows at a time. Get credits to run {m} rows at once.",
+    rowsPerRunPaid:
+      "This AI action can process up to {n} rows at a time. Split the sheet and run it in parts.",
     switchedToCredits:
       "Today's free allowance is used up — from here the AI runs on your credits. ⚡",
     // Shown when the SITE-WIDE budget for the tier is gone, not the user's own
@@ -243,6 +245,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     // --- conversion prompts ---
     rowsPerRunAnon: "未登录时每次最多处理 {n} 行。登录后每次可以处理 {m} 行。",
     rowsPerRunFree: "这个 AI 操作每次最多处理 {n} 行。有点数后每次可以跑 {m} 行。",
+    rowsPerRunPaid: "这个 AI 操作每次最多处理 {n} 行。拆成几次跑就行。",
     switchedToCredits: "今天的免费额度用完了 —— 接下来 AI 按点数扣。⚡",
     siteQuotaAnon:
       "访客共用的 AI 额度今天用完了。登录就能继续 —— 登录用户用的是另一个大得多的额度。UTC 零点重置。🍃",
