@@ -177,6 +177,29 @@ The slowest batch was three times the median, so a progress bar that stalls for
 
 ---
 
+## Internal accounts
+
+`UNLIMITED_ACCOUNTS` is a comma-separated list of emails, set as a Wrangler
+secret on prod. A signed-in user whose email is in it gets `TIER_LIMITS.paid`
+— no daily allowance, the 5,000-row per-run cap — so a load test on production
+is not fought by the same limits it is trying to measure.
+
+Deliberately narrow:
+
+- Unset means the list is empty. It never defaults to open.
+- Anonymous requests are never matched, whatever the list says.
+- It lifts the free allowance and the per-run cap, nothing else. **The site
+  neuron budget still applies**, so an internal account cannot quietly run up
+  the bill.
+- The tier stays `free`, so no credits are deducted and no ledger row is
+  written. Usage still lands in the site counter, so a test run is visible in
+  what the day cost.
+
+Set or clear it with `wrangler secret put UNLIMITED_ACCOUNTS --env prod`. The
+value is a real privilege grant: keep it to accounts you control.
+
+---
+
 ## Batch size
 
 `AI_BATCH_ROWS` is 100. Measured on production 2026-09-06, the same 200 rows

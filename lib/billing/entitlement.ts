@@ -30,10 +30,30 @@ export type Billing =
   | { mode: "paid" }
   | { mode: "exceeded"; reason: "daily" | "per_turn" };
 
+// Our own accounts, so a load test on production is not fought by the daily
+// allowance. Comma-separated emails in UNLIMITED_ACCOUNTS, matched against the
+// quota key (which is the signed-in user's lowercased email). Unset means the
+// set is empty and nothing changes — never let this default to open.
+//
+// It lifts the free allowance and the per-run cap ONLY. The site neuron budget
+// still applies, so an internal account cannot quietly run up the bill, and
+// nothing is deducted from credits because the tier stays `free`.
+function isUnlimitedAccount(quotaKey: string, signedIn: boolean): boolean {
+  if (!signedIn) return false;
+  const raw = process.env.UNLIMITED_ACCOUNTS;
+  if (!raw) return false;
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(quotaKey.toLowerCase());
+}
+
 export async function resolveEntitlement(req: Request): Promise<Entitlement> {
   const userId = await getUserIdFromRequest(req);
   const quotaKey = await getQuotaKeyFromRequest(req);
   const baseTier: "anon" | "free" = userId ? "free" : "anon";
+  const unlimited = isUnlimitedAccount(quotaKey, userId !== null);
   // Only signed-in users can hold a balance; anonymous visitors have no row to
   // read, so don't touch D1 for them.
   let balanceNeurons = 0;
@@ -52,7 +72,10 @@ export async function resolveEntitlement(req: Request): Promise<Entitlement> {
     userId,
     quotaKey,
     balanceNeurons,
-    limits: TIER_LIMITS[baseTier],
+    // TIER_LIMITS.paid is Infinity per day, which every caller already handles:
+    // billRows/billChatTurn compare against it and always pass, remainingDaily
+    // reports null, and the UI renders that as "unlimited".
+    limits: unlimited ? TIER_LIMITS.paid : TIER_LIMITS[baseTier],
   };
 }
 
