@@ -37,16 +37,31 @@ allowance. `MAX_CALLS_PER_TURN = 8` bounds a forged id.
 
 | | Anonymous | Signed in | With credits |
 |---|---|---|---|
-| Chat turns / day | 10 | 10 | metered |
-| AI rows / day | 500 | 3,000 | metered |
-| AI rows / run | 100 | 1,000 | 5,000 |
+| Chat turns / day | 6 | 10 | metered |
+| AI rows / day | 200 | 1,000 | metered |
+| AI rows / run | 100 | 500 | 5,000 |
 | Site neuron budget / day | 10,000 | 100,000 | not bucketed |
 | Import (whole workbook) | 10,000 rows / 20 MB | same | same |
 | Filter, replace, compute, delete | unlimited | same | same |
 
-Signing in does **not** buy more chat turns. It buys three things: the 100k
-site budget instead of the shared anonymous 10k, 500 → 3,000 rows a day,
-and 100 → 1,000 rows per run.
+The two free rows are sized by what they are *for*.
+
+**Anonymous is a demo.** Enough to watch it work, not to get work done. The
+demo sheet is 60 rows, which is why the per-run cap stays at 100 — going below
+that truncates the showcase on the homepage, and a broken-looking demo saves no
+money. Six turns covers the four demo presets plus a couple of the visitor's
+own questions; 200 rows a day is the demo three times, or one small file of
+their own.
+
+**Signed in is light real use that ends.** 1,000 rows a day at 500 per run gets
+a real file processed, twice, and then the day is over. Chat turns stay at 10
+because turns are where the product proves itself: cutting them reads as
+broken, while running out of rows reads as "I finished something and want to do
+the next one."
+
+Signing in buys four things: the 100k site budget instead of the shared
+anonymous 10k, 200 → 1,000 rows a day, 100 → 500 rows per run, and 6 → 10 chat
+turns.
 
 Import and the mechanical tools run entirely in the browser
 (`lib/cells/workbook.ts`, `lib/cells/table-ops.ts`). They cost nothing to
