@@ -162,18 +162,30 @@ extracting a city from ~35-character addresses:
 | Slowest | 22.6 |
 
 **500 rows took 81 seconds end to end**, all ten calls returning 200 — no rate
-limiting, which is the thing the per-IP fix was supposed to buy. At this rate a
-full 5,000-row paid run is about **13 minutes**, not the 5 the plan assumed, and
-the tab has to stay open for all of it.
+limiting, which is the thing the per-IP fix was supposed to buy.
 
-The slowest batch was three times the median, so a progress bar that stalls for
-20 seconds is normal, not a hang. Worth saying so in the UI.
+Then the same again at the current batch size, on an account in
+`UNLIMITED_ACCOUNTS`:
 
-> A real 5,000-row run is still unverified: the per-run cap only lifts to 5,000
-> once an account holds credits, and nothing here has been run on a paid
-> account. The 13-minute figure is extrapolation, and so is the claim that 100
-> calls stay under `RL_PAID` (120/60s) — at this cadence they arrive at roughly
-> 7 per minute, a wide margin, but nobody has watched it happen.
+| Run | Calls | Statuses | Rows back | Correct | Neurons | Wall clock |
+|---|---|---|---|---|---|---|
+| 1,000 rows @ 100 | 10 | all 200 | 1,000 | 1,000 | 321 | 105.8 s |
+
+`2 × 10 + 0.30 × 1000` predicts 320 and the counter said 321, so the cost model
+holds at scale, not just on a 200-row sample. Per call: 5.6 s fastest, 10.5 s
+median, 19.2 s slowest.
+
+**A 5,000-row run should therefore take about 9 minutes**, and the tab has to
+stay open for all of it. The plan said 5.
+
+Two calls out of ten took over 18 seconds — nearly twice the median. A progress
+bar that sits still for 20 seconds is normal, not a hang, and the UI should say
+so.
+
+> No 5,000-row run has actually been made. What is measured is the *cadence*:
+> ten calls in 106 seconds is about 5.7 a minute, and `RL_PAID` allows 120 a
+> minute. Fifty calls arrive at that same cadence, so the margin is wide — but
+> the 9-minute figure is still extrapolation from a run a fifth the size.
 
 ---
 
@@ -220,7 +232,7 @@ earlier note in this file claimed — that figure was simply wrong arithmetic.
 The real win is time: 38% off the same work, because per-call latency hardly
 moves with row count (a 100-row call took about as long as a 50-row one), so
 halving the number of calls nearly halves the wait. A 5,000-row run goes from
-roughly 13 minutes to roughly 7.
+roughly 13 minutes to roughly 9 (measured at 1,000 rows, see above).
 
 The price is that a failed batch loses 100 rows of work instead of 50, and the
 progress bar advances half as often — at ~9 s a call it still moves about every
