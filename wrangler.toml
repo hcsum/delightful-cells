@@ -25,6 +25,9 @@ AUTH_URL = "https://delightfulcells.com"
 NEXT_PUBLIC_SITE_URL = "https://delightfulcells.com"
 NEXT_PUBLIC_BASE_URL = "https://delightfulcells.com"
 GOOGLE_CLIENT_ID = "240774681338-ufu6243clvnfmjr3bkd3rs5j583efu22.apps.googleusercontent.com"
+STRIPE_PRICE_STARTER = "price_1UCfckASXLwaTgy52d7VENlC"
+STRIPE_PRICE_PLUS = "price_1UCfcDASXLwaTgy5gtuoBmzF"
+STRIPE_PRICE_PRO = "price_1UCfckASXLwaTgy50u1UAOMO"
 # Secrets are intentionally not stored in versioned TOML.
 # Set these with Wrangler secrets for the prod environment:
 #   wrangler secret put GOOGLE_CLIENT_SECRET --env prod

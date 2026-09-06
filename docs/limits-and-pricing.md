@@ -149,6 +149,33 @@ description columns will run higher per row.
 
 ---
 
+## Measured latency
+
+Ten sequential 50-row batches against production, 2026-09-06, signed-in tier,
+extracting a city from ~35-character addresses:
+
+| | Seconds per 50-row batch |
+|---|---|
+| Median | 7.4 |
+| Fastest | 3.7 |
+| Slowest | 22.6 |
+
+**500 rows took 81 seconds end to end**, all ten calls returning 200 — no rate
+limiting, which is the thing the per-IP fix was supposed to buy. At this rate a
+full 5,000-row paid run is about **13 minutes**, not the 5 the plan assumed, and
+the tab has to stay open for all of it.
+
+The slowest batch was three times the median, so a progress bar that stalls for
+20 seconds is normal, not a hang. Worth saying so in the UI.
+
+> A real 5,000-row run is still unverified: the per-run cap only lifts to 5,000
+> once an account holds credits, and nothing here has been run on a paid
+> account. The 13-minute figure is extrapolation, and so is the claim that 100
+> calls stay under `RL_PAID` (120/60s) — at this cadence they arrive at roughly
+> 7 per minute, a wide margin, but nobody has watched it happen.
+
+---
+
 ## Packs
 
 `lib/billing/packs.ts`. Prices live in Stripe; the amounts below are display
@@ -228,6 +255,12 @@ comes back in the language the user is reading.
   Same KV key, so on the day of deploy anyone with ≥10 calls already recorded
   was locked out of chat until UTC midnight. Self-healing; noted in case it
   shows up in old logs.
+- **A 10,000-row import is verified, a 10,000-row *scroll* is not.** A 10k × 7
+  sheet parses and renders on production with 30 rows in the DOM and a 28 MB
+  JS heap, and row 10,000 renders correctly. Scroll smoothness was not
+  measured: `requestAnimationFrame` is throttled in an automated background
+  tab, so every frame timing collected was an artifact. Needs a human with the
+  tab in front of them.
 - **`MAX_STYLED_EXPORT_ROWS` (20,000) is currently unreachable** because import
   caps the workbook at 10,000 rows. Kept as a backstop if the import cap is
   ever raised.
