@@ -52,9 +52,16 @@ export const AI_ROWS_PER_REQUEST_LIMIT = TIER_LIMITS.free.aiRowsPerRun;
 export const SITE_NEURON_BUDGET = { anon: 10_000, free: 100_000 } as const;
 
 // --- Batching and measured cost --------------------------------------------
-// Rows per request to /api/process. Every extra call adds the fixed prompt
-// overhead below, so this is the one knob that moves cost per row.
-export const AI_BATCH_ROWS = 50;
+// Rows per request to /api/process. Measured at 50 vs 100 on production
+// (2026-09-06, 200 rows each, identical input): cost fell 68 -> 64 neurons,
+// only 6%, but wall time fell 28.1s -> 17.4s, 38%. Per-call latency barely
+// moves with row count, so halving the number of calls nearly halves the
+// wait. Speed is the reason this is 100, not the cost.
+//
+// What it costs: a failed batch loses 100 rows of work instead of 50, and the
+// progress bar advances half as often — at ~9s per call it still moves about
+// every 9 seconds, which is why this was worth doing.
+export const AI_BATCH_ROWS = 100;
 
 // Measured on production 2026-09-06 against ~35-character addresses, read back
 // from the `x-usage-neurons` header Cloudflare actually billed: 10 rows cost 5

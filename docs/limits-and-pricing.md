@@ -125,22 +125,23 @@ Read from `x-usage-neurons`, which is what Cloudflare actually billed.
 | 50 rows | 17 (measured twice, identical) |
 
 That fits `2 + 0.30 × rows` per call: about **2 neurons of fixed prompt
-overhead per request, plus 0.30 neurons per row**. Both figures, and the
-`AI_BATCH_ROWS = 50` batch size, live in `lib/limits.ts`, so:
+overhead per request, plus 0.30 neurons per row** — confirmed to the neuron by
+the batch-size test below. Both figures, and `AI_BATCH_ROWS`, live in
+`lib/limits.ts`. At 100 rows a call:
 
 | Rows | Calls | Neurons | Credits |
 |---|---|---|---|
-| 500 | 10 | 170 | 5.7 |
-| 1,000 | 20 | 340 | 11.3 |
-| 3,000 | 60 | 1,020 | 34 |
-| 5,000 | 100 | 1,700 | 57 |
+| 500 | 5 | 160 | 5.3 |
+| 1,000 | 10 | 320 | 10.7 |
+| 3,000 | 30 | 960 | 32 |
+| 5,000 | 50 | 1,600 | 53 |
 
 One chat turn ≈ **28 neurons** (~0.9 credits), measured earlier: 10,000 free
 neurons ran about 360 turns.
 
 > **These row numbers are 3x the planning estimate.** The plan assumed ~6
 > neurons per 50-row batch and therefore "1,000 rows ≈ 4 credits". It is
-> actually ~11. Nothing in the code depends on the old figure — deduction reads
+> actually ~11 (10.7 at the current batch size). Nothing in the code depends on the old figure — deduction reads
 > the real header — but any user-facing claim about rows per dollar has to use
 > the numbers above.
 
@@ -173,6 +174,34 @@ The slowest batch was three times the median, so a progress bar that stalls for
 > account. The 13-minute figure is extrapolation, and so is the claim that 100
 > calls stay under `RL_PAID` (120/60s) — at this cadence they arrive at roughly
 > 7 per minute, a wide margin, but nobody has watched it happen.
+
+---
+
+## Batch size
+
+`AI_BATCH_ROWS` is 100. Measured on production 2026-09-06, the same 200 rows
+of addresses run twice, once at 50 rows per call and once at 100:
+
+| Batch | Calls | Neurons | Time in calls | Correct |
+|---|---|---|---|---|
+| 50 | 4 | 68 | 28.1 s | 200/200 |
+| 100 | 2 | 64 | 17.4 s | 200/200 |
+
+Two things come out of this.
+
+**The cost model is exact.** `2 × calls + 0.30 × rows` predicts 68 and 64; the
+counter reported 68 and 64. The fixed overhead really is 2 neurons a call.
+
+**But cost is not why to do it.** Doubling the batch saves 6%, not the 15% an
+earlier note in this file claimed — that figure was simply wrong arithmetic.
+The real win is time: 38% off the same work, because per-call latency hardly
+moves with row count (a 100-row call took about as long as a 50-row one), so
+halving the number of calls nearly halves the wait. A 5,000-row run goes from
+roughly 13 minutes to roughly 7.
+
+The price is that a failed batch loses 100 rows of work instead of 50, and the
+progress bar advances half as often — at ~9 s a call it still moves about every
+9 seconds.
 
 ---
 
@@ -244,12 +273,6 @@ comes back in the language the user is reading.
 
 ## Known gaps
 
-- **Batch size is 50 and untuned** (`AI_BATCH_ROWS`). At 2 neurons fixed
-  overhead per call, going to 100 rows per batch would cut cost per row by
-  roughly 15% — about $0.05 on a $5 pack, against doubling the payload per
-  request, halving the progress-bar resolution, and losing 100 rows instead of
-  50 when a batch fails. Not worth it until compute cost is actually the
-  constraint.
 - **The counter switch is not migrated.** Before this change, `chat:<key>`
   counted model calls against a limit of 100. It now counts turns against 10.
   Same KV key, so on the day of deploy anyone with ≥10 calls already recorded
