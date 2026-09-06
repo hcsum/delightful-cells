@@ -46,6 +46,7 @@ export async function POST(request: Request) {
   try {
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
+      managed_payments: { enabled: false },
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: userId,
       // The webhook credits the account from this metadata, never from
