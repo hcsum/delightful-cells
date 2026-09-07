@@ -10,6 +10,42 @@ import type { Entitlement } from "@/lib/billing/entitlement";
 import { recordUsageFromHeaders } from "@/lib/usage";
 
 /**
+ * What this call cost us, recorded against the site-wide budget. Always do this
+ * once the worker has answered, even if the answer turns out to be unusable:
+ * Cloudflare charged us for the inference either way, and the site budget is
+ * the only thing standing between a misbehaving worker and an open-ended bill.
+ * Returns the neurons the call cost (0 when unmetered).
+ */
+export async function recordSiteUsage(
+  headers: Headers,
+  ent: Entitlement,
+): Promise<number> {
+  return recordUsageFromHeaders(headers, ent.tier);
+}
+
+/**
+ * Deduct an already-measured cost from the user's balance. Split out from
+ * `meterAndCharge` so a caller that can only tell success from failure *after*
+ * reading the body can record the site cost immediately and charge the user
+ * last. Returns the neurons deducted (0 when the call was free).
+ */
+export async function chargeNeurons(
+  ent: Entitlement,
+  neurons: number,
+  reason: LedgerReason,
+  ref: string,
+): Promise<number> {
+  if (ent.tier !== "paid" || !ent.userId || neurons <= 0) return 0;
+  try {
+    return await spendNeurons(ent.userId, neurons, reason, ref);
+  } catch {
+    // Losing a deduction is better than failing a call the user already got the
+    // result of; the site-wide meter still recorded the spend.
+    return 0;
+  }
+}
+
+/**
  * Record site usage and, when this call is billed to credits, deduct it.
  * Returns the neurons deducted (0 when the call was free or unmetered).
  */
@@ -19,13 +55,6 @@ export async function meterAndCharge(
   reason: LedgerReason,
   ref: string,
 ): Promise<number> {
-  const neurons = await recordUsageFromHeaders(headers, ent.tier);
-  if (ent.tier !== "paid" || !ent.userId || neurons <= 0) return 0;
-  try {
-    return await spendNeurons(ent.userId, neurons, reason, ref);
-  } catch {
-    // Losing a deduction is better than failing a call the user already got the
-    // result of; the site-wide meter above still recorded the spend.
-    return 0;
-  }
+  const neurons = await recordSiteUsage(headers, ent);
+  return chargeNeurons(ent, neurons, reason, ref);
 }

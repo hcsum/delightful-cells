@@ -18,8 +18,7 @@ export type Me = {
   limits: {
     chatTurns: number | null;
     rowsPerDay: number | null;
-    aiRowsPerRun: number;
-    paidAiRowsPerRun: number;
+    maxRowsPerRun: number;
   };
   site: {
     date: string;

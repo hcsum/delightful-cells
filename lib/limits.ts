@@ -9,26 +9,24 @@ export type Tier = "anon" | "free" | "paid";
 
 // Everything metered against Cloudflare's AI bill. `paid` spends neurons out of
 // a purchased balance instead of a daily allowance, so its per-day caps are
-// unbounded — only the per-run cap survives, to keep one runaway job finite.
+// unbounded. The workbook import cap keeps one runaway job finite.
 //
 // The two free rows are sized by what they are FOR, not by what we can afford:
 //
-//   anon — see that it works. The demo sheet is 60 rows, so the per-run cap
-//   stays at 100: cutting below that truncates the showcase on the homepage,
-//   which saves nothing and only looks broken. 6 turns covers the four demo
-//   presets plus a couple of the visitor's own questions, and 200 rows a day
-//   is the demo three times over, or one small file of their own.
+//   anon — see that it works. The demo sheet is 60 rows. 6 turns covers the
+//   four demo presets plus a couple of the visitor's own questions, and 200
+//   rows a day is the demo three times over, or one small file of their own.
 //
-//   free — light real use that ends. 1,000 rows a day at 500 per run means a
-//   real file gets processed, twice, and then the day is done. Chat turns
-//   stay at 10 because turns are where the product proves itself; cutting
-//   them reads as broken rather than limited, while running out of rows reads
-//   as "I finished something and want to do the next one".
+//   free — light real use that ends. 1,000 rows a day means a real file gets
+//   processed, and then the day is done. Chat turns stay at 10 because turns
+//   are where the product proves itself; cutting them reads as broken rather
+//   than limited, while running out of rows reads as "I finished something and
+//   want to do the next one".
 export const TIER_LIMITS = {
-  anon: { chatTurns: 6, rowsPerDay: 200, aiRowsPerRun: 100 },
-  free: { chatTurns: 10, rowsPerDay: 1000, aiRowsPerRun: 500 },
-  paid: { chatTurns: Infinity, rowsPerDay: Infinity, aiRowsPerRun: 5000 },
-} as const satisfies Record<Tier, { chatTurns: number; rowsPerDay: number; aiRowsPerRun: number }>;
+  anon: { chatTurns: 6, rowsPerDay: 200 },
+  free: { chatTurns: 10, rowsPerDay: 1000 },
+  paid: { chatTurns: Infinity, rowsPerDay: Infinity },
+} as const satisfies Record<Tier, { chatTurns: number; rowsPerDay: number }>;
 
 // --- Signed-in values, for code that needs a number before /api/me answers.
 // Derived, not repeated: these drifted from TIER_LIMITS once already. Never
@@ -36,7 +34,6 @@ export const TIER_LIMITS = {
 // fraction. Copy written before the tier is known must quote TIER_LIMITS.anon,
 // the floor everyone is guaranteed.
 export const DAILY_ROWS_LIMIT = TIER_LIMITS.free.rowsPerDay;
-export const AI_ROWS_PER_REQUEST_LIMIT = TIER_LIMITS.free.aiRowsPerRun;
 
 // Site-wide daily neuron budget per free tier, so anonymous traffic can never
 // starve signed-in users. Paid traffic is not bucketed — it pays its own way.
@@ -62,6 +59,15 @@ export const SITE_NEURON_BUDGET = { anon: 10_000, free: 100_000 } as const;
 // progress bar advances half as often — at ~9s per call it still moves about
 // every 9 seconds, which is why this was worth doing.
 export const AI_BATCH_ROWS = 100;
+
+// When a batch fails every retry at full size, processRows cuts it into pieces
+// this big and tries again. Two different failures are being answered here:
+// a transient one gets a third and fourth chance, and a batch whose answer was
+// simply too long for the worker's output-token cap only ever succeeds once it
+// is smaller — retrying at 100 would fail identically forever. 20 is small
+// enough to be well under the cap for any realistic column, and large enough
+// that recovering one bad batch costs five calls, not a hundred.
+export const AI_RETRY_SPLIT_ROWS = 20;
 
 // Measured on production 2026-09-06 against ~35-character addresses, read back
 // from the `x-usage-neurons` header Cloudflare actually billed: 10 rows cost 5

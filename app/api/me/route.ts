@@ -3,7 +3,7 @@
 // credit balance, and the site-wide meter. Supersedes GET /api/quota and
 // /api/usage for the Cells UI.
 
-import { NEURONS_PER_CREDIT, SITE_NEURON_BUDGET, TIER_LIMITS } from "@/lib/limits";
+import { MAX_IMPORT_ROWS, NEURONS_PER_CREDIT, SITE_NEURON_BUDGET } from "@/lib/limits";
 import { remainingDaily, resolveEntitlement } from "@/lib/billing/entitlement";
 import { creditsFromNeurons } from "@/lib/billing/credits";
 import { getUsageToday, neuronsFor } from "@/lib/usage";
@@ -53,16 +53,10 @@ export async function GET(request: Request) {
         // Infinity does not survive JSON; null means "no limit".
         chatTurns: finite(ent.limits.chatTurns),
         rowsPerDay: finite(ent.limits.rowsPerDay),
-        // The cap /api/process will actually enforce, which is the paid one as
-        // soon as there is a balance: a run over the free cap is simply billed
-        // to credits. Reporting the free cap here left a paying user unable to
-        // start the big run they had already paid for.
-        aiRowsPerRun:
-          ent.balanceNeurons > 0
-            ? TIER_LIMITS.paid.aiRowsPerRun
-            : ent.limits.aiRowsPerRun,
-        // What they'd get by paying, so the UI can say what a top-up unlocks.
-        paidAiRowsPerRun: TIER_LIMITS.paid.aiRowsPerRun,
+        maxRowsPerRun:
+          ent.balanceNeurons > 0 || daily.rowsLeft === null
+            ? MAX_IMPORT_ROWS
+            : daily.rowsLeft,
       },
       site: {
         date: new Date().toISOString().slice(0, 10),

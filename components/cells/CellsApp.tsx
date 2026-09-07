@@ -26,6 +26,8 @@ import {
   uniquifyHeader,
 } from "@/lib/cells/table-ops";
 import { processRows } from "@/lib/process";
+import type { ProcessResultItem, ProcessStop } from "@/lib/process";
+import PartialResultDialog from "@/components/PartialResultDialog";
 import {
   nextMessageId,
   runAgentTurn,
@@ -38,7 +40,7 @@ import { LocaleContext } from "@/lib/cells/locale";
 import { describeUserChanges, snapshotGrid, type GridSnapshot } from "@/lib/cells/state-diff";
 import { presetsFor } from "@/lib/cells/demo";
 import { t, type Locale } from "@/lib/cells/i18n";
-import { AI_BATCH_ROWS, TIER_LIMITS } from "@/lib/limits";
+import { AI_BATCH_ROWS, MAX_IMPORT_ROWS, minCreditsForRows, TIER_LIMITS } from "@/lib/limits";
 import { useMe } from "@/lib/billing/useMe";
 import AuthPill from "@/components/billing/AuthPill";
 import CreditsBadge from "@/components/billing/CreditsBadge";
@@ -46,6 +48,8 @@ import CreditsBadge from "@/components/billing/CreditsBadge";
 // Rounded system font stack — no build-time font download, fork-friendly.
 const ROUNDED_FONT =
   'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Nunito", "Comic Neue", "Arial Rounded MT Bold", system-ui, sans-serif';
+const LARGE_AI_RUN_ROWS = 1000;
+const MEASURED_SECONDS_PER_BATCH = 10.5;
 
 function gridFromSheet(sheet: ParsedSheet): GridState {
   return {
@@ -77,7 +81,7 @@ export default function CellsApp() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [usageRefresh, setUsageRefresh] = useState(0);
   // Tier, allowance and balance. Re-read after every turn so the meter and the
-  // per-run cap follow a sign-in or a top-up without a reload.
+  // row cap follow a sign-in or a top-up without a reload.
   const { me } = useMe(usageRefresh);
   // The "you're on credits now" note is shown once per session, not per call.
   const creditsNoticeShownRef = useRef(false);
@@ -102,28 +106,128 @@ export default function CellsApp() {
   // the current cap, not the one captured when they were created.
   // Before /api/me answers, assume the anonymous floor: over-guessing means
   // sending a run the server will reject outright.
-  const rowsPerRunRef = useRef<number>(TIER_LIMITS.anon.aiRowsPerRun);
-  rowsPerRunRef.current = me?.limits.aiRowsPerRun ?? TIER_LIMITS.anon.aiRowsPerRun;
+  const maxRowsRef = useRef<number>(TIER_LIMITS.anon.rowsPerDay);
+  maxRowsRef.current = me?.limits.maxRowsPerRun ?? TIER_LIMITS.anon.rowsPerDay;
   const meRef = useRef(me);
   meRef.current = me;
 
-  // Hitting the per-run cap is the main reason to sign in or top up, so say
-  // what the next tier up would allow instead of just refusing.
-  const rowsPerRunError = useCallback(() => {
-    const cap = rowsPerRunRef.current;
+  // True while an AI run is in flight or its result dialog is open. Read
+  // through a ref because the edit handler is memoized.
+  const aiBusyRef = useRef(false);
+
+  const maxRowsError = useCallback((requested: number) => {
+    const cap = maxRowsRef.current;
     const me = meRef.current;
     const tier = me?.tier ?? "anon";
-    // Already on the paid cap: there is no tier above to sell, so state the
-    // limit plainly instead of offering credits they have.
-    if ((me?.credits.neurons ?? 0) > 0)
-      return t(localeRef.current, "rowsPerRunPaid", { n: cap });
+    if ((me?.credits.neurons ?? 0) > 0 || me?.daily.rowsLeft === null)
+      return t(localeRef.current, "maxRowsWorkbookError", {
+        n: requested.toLocaleString(),
+        m: MAX_IMPORT_ROWS.toLocaleString(),
+      });
     return tier === "anon"
-      ? t(localeRef.current, "rowsPerRunAnon", { n: cap, m: TIER_LIMITS.free.aiRowsPerRun })
-      : t(localeRef.current, "rowsPerRunFree", {
-          n: cap,
-          m: me?.limits.paidAiRowsPerRun ?? TIER_LIMITS.paid.aiRowsPerRun,
+      ? t(localeRef.current, "maxRowsAnonDailyError", {
+          n: requested.toLocaleString(),
+          m: cap.toLocaleString(),
+        })
+      : t(localeRef.current, "maxRowsFreeDailyError", {
+          n: requested.toLocaleString(),
+          m: cap.toLocaleString(),
         });
   }, []);
+
+  const confirmLargeAiRun = useCallback((rows: number) => {
+    if (rows <= LARGE_AI_RUN_ROWS) return true;
+    const seconds = Math.ceil(Math.ceil(rows / AI_BATCH_ROWS) * MEASURED_SECONDS_PER_BATCH);
+    const minutes = Math.ceil(seconds / 60);
+    return window.confirm(
+      t(localeRef.current, "largeRunConfirm", {
+        c: Math.ceil(minCreditsForRows(rows)).toLocaleString(),
+        m: minutes.toLocaleString(),
+        s: seconds.toLocaleString(),
+      }),
+    );
+  }, []);
+
+  // A run that came back with holes stops here instead of landing in the sheet:
+  // the user decides whether to retry the rows that failed or take what worked.
+  // Nothing is written to the grid until that choice is made.
+  const [partialPrompt, setPartialPrompt] = useState<{
+    total: number;
+    failed: number;
+    stopped?: ProcessStop;
+  } | null>(null);
+  const partialResolverRef = useRef<((d: "retry" | "apply") => void) | null>(null);
+  const aiBusy = agent.thinking || partialPrompt != null;
+  aiBusyRef.current = aiBusy;
+
+  const resolvePartial = useCallback((decision: "retry" | "apply") => {
+    const resolve = partialResolverRef.current;
+    partialResolverRef.current = null;
+    setPartialPrompt(null);
+    resolve?.(decision);
+  }, []);
+
+  const awaitPartialDecision = useCallback(
+    (prompt: { total: number; failed: number; stopped?: ProcessStop }) =>
+      new Promise<"retry" | "apply">((resolve) => {
+        partialResolverRef.current = resolve;
+        setPartialPrompt(prompt);
+      }),
+    [],
+  );
+
+  /**
+   * Run rows through the AI and, if any come back empty, ask the user before
+   * touching the sheet. Retries loop back through the same dialog, so a run can
+   * be nursed to completion without re-billing the rows that already worked.
+   *
+   * Shared by transform_column and filter_rows_ai — the recovery story is the
+   * same for both; only what they do with the answers differs.
+   */
+  const runRowsWithRecovery = useCallback(
+    async (
+      values: string[],
+      instruction: string,
+      column: string,
+    ): Promise<{ results: ProcessResultItem[]; failedIndices: number[]; stopped?: ProcessStop }> => {
+      const onProgress = (done: number, total: number) =>
+        setAgent((prev) => ({ ...prev, progress: { done, total } }));
+      const run = (rows: string[]) => {
+        onProgress(0, rows.length);
+        return processRows(rows, instruction, column, AI_BATCH_ROWS, undefined, {
+          action: "download",
+          locale: localeRef.current,
+          onProgress,
+        });
+      };
+
+      const first = await run(values);
+      let results = first.results;
+      let failed = first.failedIndices;
+      let stopped = first.stopped;
+
+      while (failed.length > 0 || stopped) {
+        const decision = await awaitPartialDecision({
+          total: values.length,
+          failed: failed.length,
+          stopped,
+        });
+        // "apply" is also the only option the dialog offers once the allowance
+        // is gone, so this loop always terminates.
+        if (decision === "apply") break;
+        const idx = failed;
+        const retry = await run(idx.map((i) => values[i]));
+        results = results.slice();
+        retry.results.forEach((r, j) => {
+          results[idx[j]] = r;
+        });
+        failed = retry.failedIndices.map((j) => idx[j]);
+        stopped = retry.stopped;
+      }
+      return { results, failedIndices: failed, stopped };
+    },
+    [awaitPartialDecision],
+  );
 
   // First time a call is billed to credits instead of the free allowance, say
   // so once. Silent after that — the balance in the header is the ongoing cue.
@@ -149,6 +253,7 @@ export default function CellsApp() {
 
   const handleFile = useCallback((file: File) => {
     turnIdRef.current++; // cancel any in-flight agent turn
+    resolvePartial("apply"); // settle a dangling result dialog, if any
     lastTurnSnapshotRef.current = null;
     userEditsRef.current = 0;
     setAgent({ thinking: false, step: 1, progress: null });
@@ -181,6 +286,7 @@ export default function CellsApp() {
 
   const handleSelectSheet = useCallback((index: number) => {
     turnIdRef.current++;
+    resolvePartial("apply");
     lastTurnSnapshotRef.current = null;
     userEditsRef.current = 0;
     setAgent({ thinking: false, step: 1, progress: null });
@@ -190,7 +296,7 @@ export default function CellsApp() {
       gridRef.current = grid;
       return { ...prev, activeSheet: index, grid };
     });
-  }, []);
+  }, [resolvePartial]);
 
   const handleReset = useCallback(() => {
     setWorkbookState((prev) => {
@@ -242,6 +348,10 @@ export default function CellsApp() {
     (rowIdx: number, colIdx: number, value: string) => {
       const grid = gridRef.current;
       if (!grid) return;
+      // Belt to the braces of hiding the affordance below: an AI run computes
+      // its target rows before the await and writes them back after, so an edit
+      // landing in between would put the outputs on the wrong rows.
+      if (aiBusyRef.current) return;
       const rows = grid.rows.slice();
       const row = rows[rowIdx].slice();
       row[colIdx] = value;
@@ -326,43 +436,65 @@ export default function CellsApp() {
       const only = resolveScope(grid, call);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
-      if (values.length > rowsPerRunRef.current) {
+      if (values.length > maxRowsRef.current) {
         return {
           ok: false,
           summary: "too many rows",
-          data: { error: rowsPerRunError() },
+          data: { error: maxRowsError(values.length) },
         };
       }
-      setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
+      if (!confirmLargeAiRun(values.length)) {
+        return {
+          ok: false,
+          summary: "canceled",
+          data: { error: t(localeRef.current, "largeRunCanceled") },
+        };
+      }
+      // `targets` was computed from THIS grid. An AI run takes minutes and now
+      // ends in a dialog the user has to think about, so check the sheet is
+      // still the same one before writing row-indexed outputs back into it.
+      const gridAtStart = grid;
       try {
-        const results = await processRows(
+        const { results, failedIndices } = await runRowsWithRecovery(
           values,
           call.instruction,
           call.column,
-          AI_BATCH_ROWS,
-          undefined,
-          {
-            action: "download",
-            locale: localeRef.current,
-            onProgress: (done, total) =>
-              setAgent((prev) => ({ ...prev, progress: { done, total } })),
-          },
         );
-        const current = gridRef.current!;
+        if (gridRef.current !== gridAtStart) {
+          return {
+            ok: false,
+            summary: "sheet changed",
+            data: { error: t(localeRef.current, "sheetChangedDuringRun") },
+          };
+        }
+        const current = gridAtStart;
         const name = uniquifyHeader(current.headers, call.newColumnName);
         const outputs = new Array<string>(current.rows.length).fill("");
         targets.forEach((rowIdx, j) => (outputs[rowIdx] = results[j]?.output ?? ""));
         const next = appendColumn(current.headers, current.rows, name, outputs);
         setGrid({ ...current, headers: next.headers, rows: next.rows });
+        // Three different empties, and the model needs to tell them apart: a
+        // row the AI answered with nothing, a row we never got an answer for,
+        // and a row outside the scope.
+        const failed = failedIndices.length;
         const filled = results.filter((r) => r.output != null).length;
         return {
           ok: true,
-          summary: `${filled}/${results.length} rows → "${name}"`,
+          summary:
+            failed > 0
+              ? `${filled}/${results.length} rows → "${name}" (${failed} failed)`
+              : `${filled}/${results.length} rows → "${name}"`,
           data: {
             newColumn: name,
             rowsProcessed: results.length,
+            rowsFailed: failed,
             scope: call.scope,
             sampleOutputs: results.slice(0, 3).map((r) => r.output),
+            ...(failed > 0
+              ? {
+                  outcome: `${failed} of ${results.length} rows could not be processed and were left blank in "${name}"; the user chose to keep the ${filled} rows that worked. Say so, and offer to run those ${failed} rows again.`,
+                }
+              : {}),
           },
         };
       } catch (e) {
@@ -375,7 +507,7 @@ export default function CellsApp() {
         setAgent((prev) => ({ ...prev, progress: null }));
       }
     },
-    [setGrid],
+    [confirmLargeAiRun, maxRowsError, setGrid, runRowsWithRecovery],
   );
 
   // filter_rows_ai: ask the model YES/NO per row via the same batched pipeline,
@@ -389,33 +521,39 @@ export default function CellsApp() {
       const only = resolveScope(grid, call);
       const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
-      if (values.length > rowsPerRunRef.current) {
+      if (values.length > maxRowsRef.current) {
         return {
           ok: false,
           summary: "too many rows",
-          data: { error: rowsPerRunError() },
+          data: { error: maxRowsError(values.length) },
         };
       }
-      setAgent((prev) => ({ ...prev, progress: { done: 0, total: values.length } }));
+      if (!confirmLargeAiRun(values.length)) {
+        return {
+          ok: false,
+          summary: "canceled",
+          data: { error: t(localeRef.current, "largeRunCanceled") },
+        };
+      }
+      const gridAtStart = grid;
       try {
-        const results = await processRows(
+        const { results, failedIndices } = await runRowsWithRecovery(
           values,
           `Answer only YES or NO: does this text match the test "${call.criteria}"?`,
           call.column,
-          AI_BATCH_ROWS,
-          undefined,
-          {
-            action: "download",
-            locale: localeRef.current,
-            onProgress: (done, total) =>
-              setAgent((prev) => ({ ...prev, progress: { done, total } })),
-          },
         );
+        if (gridRef.current !== gridAtStart) {
+          return {
+            ok: false,
+            summary: "sheet changed",
+            data: { error: t(localeRef.current, "sheetChangedDuringRun") },
+          };
+        }
         const matched: number[] = [];
         results.forEach((r, j) => {
           if (/^\s*yes\b/i.test(r.output ?? "")) matched.push(targets[j]);
         });
-        const current = gridRef.current!;
+        const current = gridAtStart;
         let next: GridState =
           call.mode === "select"
             ? { ...current, selectedRows: matched.length ? new Set(matched) : null }
@@ -423,13 +561,21 @@ export default function CellsApp() {
         if (call.highlight && matched.length) next = paintRows(next, matched, call.highlight);
         setGrid(next);
         const verb = call.mode === "select" ? "selected" : "kept";
+        // A row we never got an answer for is not a NO. It falls out of the
+        // match set either way, so the model has to say it was undecided
+        // rather than reporting it as "did not match".
+        const failed = failedIndices.length;
         return {
           ok: true,
-          summary: `${matched.length} of ${results.length} rows ${verb}`,
+          summary:
+            failed > 0
+              ? `${matched.length} of ${results.length} rows ${verb} (${failed} undecided)`
+              : `${matched.length} of ${results.length} rows ${verb}`,
           data: {
             rowsMatched: matched.length,
             rowsTotal: results.length,
-            outcome: `${matched.length} of ${results.length} rows${only ? ` (within the ${scopeLabel(call)} rows)` : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table. ${scopeHint(call.mode)}`,
+            rowsFailed: failed,
+            outcome: `${matched.length} of ${results.length} rows${only ? ` (within the ${scopeLabel(call)} rows)` : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table.${failed > 0 ? ` A further ${failed} rows could not be judged at all — they were NOT ${verb}, and that is not the same as not matching. Tell the user, and offer to judge those ${failed} rows again.` : ""} ${scopeHint(call.mode)}`,
           },
         };
       } catch (e) {
@@ -442,7 +588,7 @@ export default function CellsApp() {
         setAgent((prev) => ({ ...prev, progress: null }));
       }
     },
-    [setGrid],
+    [confirmLargeAiRun, maxRowsError, setGrid, runRowsWithRecovery],
   );
 
   const handleSend = useCallback(
@@ -548,7 +694,7 @@ export default function CellsApp() {
             state={workbookState}
             limits={me?.limits}
             onFile={handleFile}
-            onEditCell={handleEditCell}
+            onEditCell={aiBusy ? undefined : handleEditCell}
             onSelectRow={handleSelectRow}
             onClearSelection={handleClearSelection}
             onSelectSheet={handleSelectSheet}
@@ -581,6 +727,16 @@ export default function CellsApp() {
           />
         </div>
       </div>
+      <PartialResultDialog
+        open={partialPrompt != null}
+        locale={locale}
+        total={partialPrompt?.total ?? 0}
+        succeeded={(partialPrompt?.total ?? 0) - (partialPrompt?.failed ?? 0)}
+        failed={partialPrompt?.failed ?? 0}
+        stopped={partialPrompt?.stopped}
+        onRetryFailed={() => resolvePartial("retry")}
+        onApplyPartial={() => resolvePartial("apply")}
+      />
     </div>
     </LocaleContext.Provider>
   );

@@ -133,12 +133,6 @@ export default function PricingClient() {
                 free={TIER_LIMITS.free.rowsPerDay.toLocaleString()}
                 paid={tr("valMetered")}
               />
-              <Row
-                label={tr("rowRowsPerRun")}
-                anon={TIER_LIMITS.anon.aiRowsPerRun.toLocaleString()}
-                free={TIER_LIMITS.free.aiRowsPerRun.toLocaleString()}
-                paid={TIER_LIMITS.paid.aiRowsPerRun.toLocaleString()}
-              />
               {/* Import and the mechanical tools run entirely in the browser,
                   so they cost us nothing and are the same at every tier. */}
               <Row

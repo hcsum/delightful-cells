@@ -35,9 +35,9 @@ export type Billing =
 // quota key (which is the signed-in user's lowercased email). Unset means the
 // set is empty and nothing changes — never let this default to open.
 //
-// It lifts the free allowance and the per-run cap ONLY. The site neuron budget
-// still applies, so an internal account cannot quietly run up the bill, and
-// nothing is deducted from credits because the tier stays `free`.
+// It lifts the free allowance ONLY. The site neuron budget still applies, so
+// an internal account cannot quietly run up the bill, and nothing is deducted
+// from credits because the tier stays `free`.
 function isUnlimitedAccount(quotaKey: string, signedIn: boolean): boolean {
   if (!signedIn) return false;
   const raw = process.env.UNLIMITED_ACCOUNTS;

@@ -5,8 +5,8 @@ import {
   commitRows,
   resolveEntitlement,
 } from "@/lib/billing/entitlement";
-import { TIER_LIMITS } from "@/lib/limits";
-import { meterAndCharge } from "@/lib/billing/meter";
+import { AI_BATCH_ROWS } from "@/lib/limits";
+import { chargeNeurons, recordSiteUsage } from "@/lib/billing/meter";
 import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
 import { getClientIp } from "@/lib/client-ip";
 
@@ -110,26 +110,24 @@ export async function POST(request: Request) {
         toonForWorker = encode({ inputs: rowsArr }, { delimiter: "\t" });
     } catch {}
 
-    // Billing order: today's free rows for this tier, then credits. The
-    // per-run cap moves with the tier too (100 / 1000 / 5000 rows).
+    // Billing order: today's free rows for this tier, then credits.
     const rowsCount = Array.isArray((body as any)?.rows)
       ? (body as any).rows.length
       : 0;
     let ent = await resolveEntitlement(request);
 
-    // Checked before the daily allowance so an oversized batch reports the cap
-    // it actually hit. A user with a balance is measured against the paid cap,
-    // because a run over the free cap is simply billed to credits.
+    // One batch per request, and the batch size is ours to choose: every client
+    // path sends AI_BATCH_ROWS or less (the retry path sends less). The cap is
+    // the batch, not the run, because the worker's output-token budget is what
+    // actually breaks — a hand-crafted 10,000-row POST would be truncated into
+    // silent nulls rather than refused.
     const canPay = ent.balanceNeurons > 0;
-    const runCap = canPay
-      ? TIER_LIMITS.paid.aiRowsPerRun
-      : ent.limits.aiRowsPerRun;
-    if (rowsCount > runCap) {
+    if (rowsCount > AI_BATCH_ROWS) {
       return new Response(
         JSON.stringify({
           error: "rows_per_run_exceeded",
-          message: `This AI action can process up to ${runCap} rows at a time.`,
-          limit: runCap,
+          message: `This AI action can process up to ${AI_BATCH_ROWS} rows per request.`,
+          limit: AI_BATCH_ROWS,
         }),
         {
           status: 400,
@@ -173,9 +171,7 @@ export async function POST(request: Request) {
           },
         );
       }
-      // Either the free allowance ran out, or this run is bigger than the free
-      // per-run cap; both are paid for out of the balance.
-      if (billing.mode === "paid" || rowsCount > ent.limits.aiRowsPerRun) {
+      if (billing.mode === "paid") {
         ent = asPaid(ent);
       }
     }
@@ -216,12 +212,14 @@ export async function POST(request: Request) {
         respPreview: responseBody.slice(0, 1024),
       });
     } catch {}
-    // If worker responded OK, now charge quota and then extract results
+    // If worker responded OK, extract results and only then charge the user.
     if (workerResponse.ok) {
-      await meterAndCharge(workerResponse.headers, ent, "process", requestId);
-      // Charged only on success, so a worker error costs the user nothing. Paid
-      // batches are billed in neurons above and don't touch the daily counter.
-      if (ent.tier !== "paid") await commitRows(ent, rowsCount);
+      // Cloudflare billed us for this call whether or not we can read the
+      // answer, so the site-wide meter records it either way. What the USER
+      // pays waits until we know we have rows to hand back: the client retries
+      // a bad batch several times, and charging each attempt would bill someone
+      // five times over for a column they never received.
+      const neurons = await recordSiteUsage(workerResponse.headers, ent);
       const expected = Array.isArray(body?.rows) ? body.rows.length : 0;
       let decoded: any = null;
       try {
@@ -276,12 +274,20 @@ export async function POST(request: Request) {
         );
       }
       let results: { input: string; output: string | null }[] = [];
+      // Rows the worker never answered for, as opposed to rows it answered with
+      // an explicit null. The two look identical in `results` and mean opposite
+      // things: "the model found nothing" is a finished row, while "the reply
+      // stopped early" is a row still owed to the user. Truncation at the
+      // worker's output-token cap is the common cause, and the client can only
+      // re-run these rows if we say which ones they are.
+      const missing: number[] = [];
       const hasId = items.some(
         (x) => x && Object.prototype.hasOwnProperty.call(x, "id"),
       );
       if (hasId) {
         // Map by id -> original input, fill missing with nulls
         results = new Array(expected);
+        const seen = new Array<boolean>(expected).fill(false);
         for (let i = 0; i < expected; i++) {
           results[i] = { input: String(body.rows[i] ?? ""), output: null };
         }
@@ -290,11 +296,13 @@ export async function POST(request: Request) {
           if (!Number.isFinite(idNum)) continue;
           const idx = idNum - 1;
           if (idx < 0 || idx >= expected) continue;
+          seen[idx] = true;
           results[idx] = {
             input: String(body.rows[idx] ?? ""),
             output: it?.output == null ? null : String(it.output),
           };
         }
+        for (let i = 0; i < expected; i++) if (!seen[i]) missing.push(i);
       } else {
         // Positional mapping; pad/truncate to expected
         results = new Array(expected);
@@ -303,9 +311,24 @@ export async function POST(request: Request) {
           const out = it?.output == null ? null : String(it.output);
           const input = String(it?.input ?? body.rows[i] ?? "");
           results[i] = { input, output: out };
+          if (i >= items.length) missing.push(i);
         }
       }
-      const jsonBody = JSON.stringify({ results });
+      if (missing.length) {
+        console.warn("[api/process] partial results", {
+          rid: requestId,
+          action,
+          expected,
+          missing: missing.length,
+        });
+      }
+      // Billed for what we are actually handing back. The missing rows will be
+      // re-sent by the client, and charging for them here would bill them twice.
+      const delivered = expected - missing.length;
+      await chargeNeurons(ent, neurons, "process", requestId);
+      // Paid batches are billed in neurons above and don't touch the daily counter.
+      if (ent.tier !== "paid") await commitRows(ent, delivered);
+      const jsonBody = JSON.stringify({ results, missing });
       return new Response(jsonBody, {
         status: 200,
         headers: {

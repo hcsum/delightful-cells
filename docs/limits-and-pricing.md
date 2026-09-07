@@ -15,7 +15,7 @@ overcharge someone.
 | Layer | Unit | Where |
 |---|---|---|
 | Free allowance, chat | turns | `TIER_LIMITS[tier].chatTurns` |
-| Free allowance, AI rows | rows | `TIER_LIMITS[tier].rowsPerDay` / `.aiRowsPerRun` |
+| Free allowance, AI rows | rows | `TIER_LIMITS[tier].rowsPerDay` |
 | Paid deduction | neurons | `credit_balance.balance_neurons` |
 | Site-wide backstop | neurons | `SITE_NEURON_BUDGET[tier]` |
 | Displayed / sold | credits | `NEURONS_PER_CREDIT = 30` |
@@ -39,7 +39,6 @@ allowance. `MAX_CALLS_PER_TURN = 8` bounds a forged id.
 |---|---|---|---|
 | Chat turns / day | 6 | 10 | metered |
 | AI rows / day | 200 | 1,000 | metered |
-| AI rows / run | 100 | 500 | 5,000 |
 | Site neuron budget / day | 10,000 | 100,000 | not bucketed |
 | Import (whole workbook) | 10,000 rows / 20 MB | same | same |
 | Filter, replace, compute, delete | unlimited | same | same |
@@ -47,21 +46,17 @@ allowance. `MAX_CALLS_PER_TURN = 8` bounds a forged id.
 The two free rows are sized by what they are *for*.
 
 **Anonymous is a demo.** Enough to watch it work, not to get work done. The
-demo sheet is 60 rows, which is why the per-run cap stays at 100 — going below
-that truncates the showcase on the homepage, and a broken-looking demo saves no
-money. Six turns covers the four demo presets plus a couple of the visitor's
-own questions; 200 rows a day is the demo three times, or one small file of
-their own.
+demo sheet is 60 rows. Six turns covers the four demo presets plus a couple of
+the visitor's own questions; 200 rows a day is the demo three times, or one
+small file of their own.
 
-**Signed in is light real use that ends.** 1,000 rows a day at 500 per run gets
-a real file processed, twice, and then the day is over. Chat turns stay at 10
-because turns are where the product proves itself: cutting them reads as
-broken, while running out of rows reads as "I finished something and want to do
-the next one."
+**Signed in is light real use that ends.** 1,000 rows a day gets a real file
+processed, and then the day is over. Chat turns stay at 10 because turns are
+where the product proves itself: cutting them reads as broken, while running
+out of rows reads as "I finished something and want to do the next one."
 
-Signing in buys four things: the 100k site budget instead of the shared
-anonymous 10k, 200 → 1,000 rows a day, 100 → 500 rows per run, and 6 → 10 chat
-turns.
+Signing in buys three things: the 100k site budget instead of the shared
+anonymous 10k, 200 → 1,000 rows a day, and 6 → 10 chat turns.
 
 Import and the mechanical tools run entirely in the browser
 (`lib/cells/workbook.ts`, `lib/cells/table-ops.ts`). They cost nothing to
@@ -104,8 +99,28 @@ Where this is enforced:
 | `/pricing` comparison table | `TIER_LIMITS`, all three columns shown side by side |
 
 The same rule applies to client-side fallbacks, not just copy: when `/api/me`
-is unreachable, `CustomToolClient` and `CellsApp` assume the anonymous per-run
-cap. Guessing high only produces a run the server rejects.
+is unreachable, `CustomToolClient` and `CellsApp` assume the anonymous daily
+floor. Guessing high only produces a run the server rejects.
+
+### Why there is no single-run row cap
+
+The old single-run cap duplicated the daily allowance for free users: anonymous
+visitors had 100 rows per run and 200 per day, while signed-in users had 500
+per run and 1,000 per day. That forced users to reason about two numbers when
+the real limit was simply today's remaining allowance.
+
+Now `/api/me` reports one client-facing number: `limits.maxRowsPerRun`. For
+free users it is `daily.rowsLeft`; for users with credits it is
+`MAX_IMPORT_ROWS`, currently 10,000 rows. `/api/process` caps one *request* at
+`AI_BATCH_ROWS`, because that is the size the worker's output-token budget can
+actually answer: a larger request would come back truncated rather than
+refused. The whole run is controlled by `billRows`, batch by batch.
+
+Large paid runs are handled with a confirmation dialog instead of a hard stop.
+The dialog appears over 1,000 selected rows and uses the measured production
+median of 10.5 seconds per 100-row batch. A full 10,000-row workbook is about
+100 calls, ~1,050 seconds (18 minutes when rounded up for the UI), and about
+107 credits on short text.
 
 Row *cost* gets the same treatment for a different reason: the bill follows
 input length, so `minCreditsForRows()` in `lib/limits.ts` is a **floor**, valid
@@ -135,6 +150,7 @@ the batch-size test below. Both figures, and `AI_BATCH_ROWS`, live in
 | 1,000 | 10 | 320 | 10.7 |
 | 3,000 | 30 | 960 | 32 |
 | 5,000 | 50 | 1,600 | 53 |
+| 10,000 | 100 | 3,200 | 106.7 |
 
 One chat turn ≈ **28 neurons** (~0.9 credits), measured earlier: 10,000 free
 neurons ran about 360 turns.
@@ -193,16 +209,15 @@ so.
 
 `UNLIMITED_ACCOUNTS` is a comma-separated list of emails, set as a Wrangler
 secret on prod. A signed-in user whose email is in it gets `TIER_LIMITS.paid`
-— no daily allowance, the 5,000-row per-run cap — so a load test on production
-is not fought by the same limits it is trying to measure.
+— no daily allowance — so a load test on production is not fought by the same
+limits it is trying to measure.
 
 Deliberately narrow:
 
 - Unset means the list is empty. It never defaults to open.
 - Anonymous requests are never matched, whatever the list says.
-- It lifts the free allowance and the per-run cap, nothing else. **The site
-  neuron budget still applies**, so an internal account cannot quietly run up
-  the bill.
+- It lifts the free allowance, nothing else. **The site neuron budget still
+  applies**, so an internal account cannot quietly run up the bill.
 - The tier stays `free`, so no credits are deducted and no ledger row is
   written. Usage still lands in the site counter, so a test run is visible in
   what the day cost.

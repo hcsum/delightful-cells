@@ -24,7 +24,6 @@ export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }:
         <h3 className="text-lg font-extrabold">Sign in to keep going</h3>
         <ul className="mt-3 space-y-1.5 text-sm text-black/65">
           <li>· {TIER_LIMITS.free.rowsPerDay.toLocaleString()} AI rows a day instead of {TIER_LIMITS.anon.rowsPerDay.toLocaleString()}</li>
-          <li>· Up to {TIER_LIMITS.free.aiRowsPerRun.toLocaleString()} rows per run instead of {TIER_LIMITS.anon.aiRowsPerRun.toLocaleString()}</li>
           <li>· Your own daily AI budget, not the shared one</li>
         </ul>
         <button

@@ -10,9 +10,9 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     dropTitle: "Drop your spreadsheet here",
     dropDesc1: ".xlsx, .xls, or .csv — it opens instantly, right in your browser.",
     dropDesc2: "Nothing is uploaded until you talk to the AI.",
-    limitsHint: "Loads up to {i} rows per workbook. AI can process up to {r} rows per run, {d} rows per day.",
+    limitsHint: "Loads up to {i} rows per workbook. AI can process up to {d} rows per day.",
     limitsHintMetered:
-      "Loads up to {i} rows per workbook. AI runs up to {r} rows at a time, billed to your credits — no daily cap.",
+      "Loads up to {i} rows per workbook. AI rows are billed to your credits — no daily cap.",
     chooseFile: "Choose a file",
     or: "or",
     tryDemo: "try with demo data",
@@ -41,6 +41,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     sheetIn: "Your sheet is in! Try one of these:",
     uploadFirstPanel: "Upload a spreadsheet on the left, then boss it around in plain English right here. ✨",
     processing: "processing rows… {d}/{t}",
+    processingBatchHint: "Large files may wait up to 20 seconds between batches.",
     thinkingStep: "thinking… step {s} (max {m})",
     stepCap: "up to {m} steps per turn",
     placeholder: "e.g. summarize the Customer Feedback column",
@@ -95,14 +96,36 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     meterFreeUnlimited: "unlimited",
     meterCreditsTitle: "⚡ Credits",
     meterCreditsDetail: "Free allowance is used up — AI now runs on credits.",
-    meterSignInHint: "Sign in for a bigger daily allowance and 1,000-row AI runs.",
+    meterSignInHint: "Sign in for a bigger daily allowance: 1,000 AI rows a day.",
     // --- conversion prompts ---
-    rowsPerRunAnon:
-      "Anonymous runs are capped at {n} rows at a time. Sign in to process {m} rows per run.",
-    rowsPerRunFree:
-      "This AI action can process up to {n} rows at a time. Get credits to run {m} rows at once.",
-    rowsPerRunPaid:
-      "This AI action can process up to {n} rows at a time. Split the sheet and run it in parts.",
+    maxRowsAnonDailyError:
+      "This AI action has {n} rows selected, but today's anonymous allowance has {m} AI rows left.",
+    maxRowsFreeDailyError:
+      "This AI action has {n} rows selected, but your daily allowance has {m} AI rows left.",
+    maxRowsWorkbookError:
+      "This AI action has {n} rows selected, but this workbook can load at most {m} rows.",
+    largeRunConfirm:
+      "This will use about {c} credits and take around {m} minutes ({s} seconds). Keep this tab open until it finishes.",
+    largeRunCanceled: "Canceled before starting the AI run.",
+
+    // Shown after a run that did not come back whole. The numbers are the whole
+    // point: "some rows failed" is useless, "1,180 of 1,200 came back" tells the
+    // reader whether to retry or just take it.
+    partialTitle: "{f} of {n} rows didn't come back",
+    partialBody:
+      "{s} rows came through. The other {f} failed after we retried them and split them into smaller batches. Retrying just those {f} costs only those rows.",
+    partialFatalBody:
+      "{s} rows came through before the run had to stop: {m}",
+    partialAbortedBody:
+      "You stopped the run after {s} of {n} rows. Nothing is lost — apply what finished, or run the remaining {f} rows now.",
+    partialRetryFailed: "Retry the {f} failed rows",
+    partialApplyPartial: "Apply the {s} rows that worked",
+    partialRetrying: "Retrying {f} rows…",
+    // A run that stopped mid-way still wrote the rows it finished; a filter that
+    // could not judge a row leaves it out, which is not the same as "no match".
+    partialUndecided: "{f} rows could not be judged and were left out.",
+    sheetChangedDuringRun:
+      "The sheet changed while the AI was running, so the results were discarded rather than written to the wrong rows. Nothing was applied — run it again.",
     switchedToCredits:
       "Today's free allowance is used up — from here the AI runs on your credits. ⚡",
     // Shown when the SITE-WIDE budget for the tier is gone, not the user's own
@@ -132,7 +155,6 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     pricingColPaid: "With credits",
     rowChatTurns: "Chat turns per day",
     rowRowsPerDay: "AI rows per day",
-    rowRowsPerRun: "AI rows per run",
     rowImport: "Import / parse",
     rowMechanical: "Filter, replace, compute, delete",
     valUnlimited: "Unlimited",
@@ -157,9 +179,9 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     dropTitle: "把表格拖到这里",
     dropDesc1: "支持 .xlsx、.xls、.csv —— 秒开，就在你的浏览器里。",
     dropDesc2: "在你和 AI 说话之前，数据不会离开本机。",
-    limitsHint: "整个工作簿最多载入 {i} 行；AI 每次最多处理 {r} 行，每天最多 {d} 行。",
+    limitsHint: "整个工作簿最多载入 {i} 行；AI 每天最多处理 {d} 行。",
     limitsHintMetered:
-      "整个工作簿最多载入 {i} 行；AI 每次最多处理 {r} 行，按点数扣费，没有每日上限。",
+      "整个工作簿最多载入 {i} 行；AI 按点数扣费，没有每日上限。",
     chooseFile: "选择文件",
     or: "或者",
     tryDemo: "用演示数据试试",
@@ -187,6 +209,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     sheetIn: "表格就位！试试这些：",
     uploadFirstPanel: "先在左边上传表格，然后在这里用大白话指挥它。✨",
     processing: "正在处理行… {d}/{t}",
+    processingBatchHint: "大文件每批可能要等 20 秒。",
     thinkingStep: "思考中… 第 {s} 步（最多 {m} 步）",
     stepCap: "每轮最多 {m} 步",
     placeholder: "例如：总结 Customer Feedback 这一列",
@@ -241,11 +264,27 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     meterFreeUnlimited: "不限",
     meterCreditsTitle: "⚡ 点数",
     meterCreditsDetail: "免费额度已用完 —— 现在按点数扣。",
-    meterSignInHint: "登录后每天额度更多，AI 单次可处理 1000 行。",
+    meterSignInHint: "登录后每天额度更多：每天可处理 1000 行。",
     // --- conversion prompts ---
-    rowsPerRunAnon: "未登录时每次最多处理 {n} 行。登录后每次可以处理 {m} 行。",
-    rowsPerRunFree: "这个 AI 操作每次最多处理 {n} 行。有点数后每次可以跑 {m} 行。",
-    rowsPerRunPaid: "这个 AI 操作每次最多处理 {n} 行。拆成几次跑就行。",
+    maxRowsAnonDailyError: "这个 AI 操作选了 {n} 行，但今天访客额度只剩 {m} 行。",
+    maxRowsFreeDailyError: "这个 AI 操作选了 {n} 行，但你今天的额度只剩 {m} 行。",
+    maxRowsWorkbookError: "这个 AI 操作选了 {n} 行，但整个工作簿最多载入 {m} 行。",
+    largeRunConfirm:
+      "这次预计消耗约 {c} 点，耗时约 {m} 分钟（{s} 秒）。中途请勿关闭页面。",
+    largeRunCanceled: "已取消，AI 处理尚未开始。",
+
+    partialTitle: "{n} 行里有 {f} 行没跑出来",
+    partialBody:
+      "{s} 行成功了。另外 {f} 行在重试并拆成小批之后仍然失败。只重试这 {f} 行，也只按这些行计费。",
+    partialFatalBody: "在不得不停下之前，{s} 行已经成功了：{m}",
+    partialAbortedBody:
+      "你在 {n} 行中的第 {s} 行处停了下来。已完成的部分不会丢失 —— 可以直接应用，也可以现在把剩下的 {f} 行跑完。",
+    partialRetryFailed: "重试失败的 {f} 行",
+    partialApplyPartial: "只应用成功的 {s} 行",
+    partialRetrying: "正在重试 {f} 行…",
+    partialUndecided: "另有 {f} 行无法判定，未被选中。",
+    sheetChangedDuringRun:
+      "AI 运行期间表格变了，结果没有写入，以免落到错误的行上。什么都没有应用 —— 请重新运行一次。",
     switchedToCredits: "今天的免费额度用完了 —— 接下来 AI 按点数扣。⚡",
     siteQuotaAnon:
       "访客共用的 AI 额度今天用完了。登录就能继续 —— 登录用户用的是另一个大得多的额度。UTC 零点重置。🍃",
@@ -269,7 +308,6 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     pricingColPaid: "有点数",
     rowChatTurns: "每天对话轮数",
     rowRowsPerDay: "每天 AI 处理行数",
-    rowRowsPerRun: "AI 单次处理行数",
     rowImport: "导入 / 解析",
     rowMechanical: "筛选、替换、公式计算、删除列",
     valUnlimited: "不限",

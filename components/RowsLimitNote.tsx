@@ -10,10 +10,8 @@ export default function RowsLimitNote({ className = "" }: { className?: string }
   return (
     <p className={`text-white/60 max-w-2xl text-sm ${className}`}>
       Note: without signing in, AI processing is capped at{" "}
-      {anon.rowsPerDay.toLocaleString()} rows a day and{" "}
-      {anon.aiRowsPerRun.toLocaleString()} per run. Signing in raises that to{" "}
-      {free.rowsPerDay.toLocaleString()} a day and{" "}
-      {free.aiRowsPerRun.toLocaleString()} per run; credits lift both.
+      {anon.rowsPerDay.toLocaleString()} rows a day. Signing in raises that to{" "}
+      {free.rowsPerDay.toLocaleString()} rows a day; credits remove the daily cap.
     </p>
   );
 }

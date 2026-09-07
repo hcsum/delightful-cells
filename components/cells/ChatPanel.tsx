@@ -104,15 +104,22 @@ export default function ChatPanel({
         })}
 
         {thinking && (
-          <div className="flex items-center gap-2 px-1 text-xs font-semibold text-black/45">
-            <span className="inline-flex gap-1">
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#ff0080]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#ffd500] [animation-delay:120ms]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#00b0ff] [animation-delay:240ms]" />
-            </span>
-            {progress
-              ? t("processing", { d: progress.done, t: progress.total })
-              : t("thinkingStep", { s: thinkingStep, m: MAX_STEPS })}
+          <div className="px-1 text-xs font-semibold text-black/45">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex gap-1">
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#ff0080]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#ffd500] [animation-delay:120ms]" />
+                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#00b0ff] [animation-delay:240ms]" />
+              </span>
+              {progress
+                ? t("processing", { d: progress.done, t: progress.total })
+                : t("thinkingStep", { s: thinkingStep, m: MAX_STEPS })}
+            </div>
+            {progress && (
+              <div className="mt-1 pl-8 text-[11px] font-medium text-black/35">
+                {t("processingBatchHint")}
+              </div>
+            )}
           </div>
         )}
       </div>

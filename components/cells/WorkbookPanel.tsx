@@ -39,7 +39,9 @@ export default function WorkbookPanel({
   // whose request failed — both cases fall back to the anonymous floor below.
   limits?: Me["limits"] | null;
   onFile: (file: File) => void;
-  onEditCell: (rowIdx: number, colIdx: number, value: string) => void;
+  // Undefined makes the grid read-only: DataTable drops the double-click
+  // affordance and the hint along with it. Used while an AI run is in flight.
+  onEditCell?: (rowIdx: number, colIdx: number, value: string) => void;
   onSelectRow: (rowIdx: number, mods: { shift: boolean; meta: boolean }) => void;
   onClearSelection: () => void;
   onSelectSheet: (index: number) => void;
@@ -61,11 +63,9 @@ export default function WorkbookPanel({
     eff.rowsPerDay == null
       ? t("limitsHintMetered", {
           i: MAX_IMPORT_ROWS.toLocaleString(),
-          r: eff.aiRowsPerRun.toLocaleString(),
         })
       : t("limitsHint", {
           i: MAX_IMPORT_ROWS.toLocaleString(),
-          r: eff.aiRowsPerRun.toLocaleString(),
           d: eff.rowsPerDay.toLocaleString(),
         });
 

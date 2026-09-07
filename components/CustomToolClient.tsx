@@ -5,7 +5,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { SVGProps } from "react";
 import { useForm } from "react-hook-form";
 import { processRows } from "@/lib/process";
+import type { ProcessResultItem, ProcessStop } from "@/lib/process";
 import { AI_BATCH_ROWS, MAX_FILE_BYTES, TIER_LIMITS } from "@/lib/limits";
+import PartialResultDialog from "@/components/PartialResultDialog";
 
 type FormValues = {
   target: string;
@@ -13,6 +15,19 @@ type FormValues = {
 };
 
 type Row = string[];
+
+/**
+ * A finished run that has not been downloaded yet, because it came back with
+ * holes. `results` is index-aligned with `inputs`, so a retry of the failed
+ * rows can be merged straight back in.
+ */
+type PendingRun = {
+  inputs: string[];
+  results: ProcessResultItem[];
+  failedIndices: number[];
+  stopped?: ProcessStop;
+  finalLabel: string;
+};
 const HARD_LIMITS = { maxFileBytes: MAX_FILE_BYTES, previewRows: 3 } as const;
 
 // Flow: upload first (no prerequisites), see your columns, pick the source
@@ -49,6 +64,11 @@ export default function CustomToolClient({
   const [downloading, setDownloading] = useState(false);
   const [completedCount, setCompletedCount] = useState<number | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+  // A run that came back with holes. Held here instead of downloaded, so the
+  // user decides whether to retry the failed rows or take what worked.
+  const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const headers = uploadRows[0] ?? [];
   const dataRowCount = Math.max(0, uploadRows.length - 1);
@@ -118,16 +138,50 @@ export default function CustomToolClient({
       action: "preview",
     })
       .then((res) => {
-        setPreviewResults(res);
+        // A preview is three rows: anything short of all three is a failure
+        // worth showing, not a partial result worth keeping.
+        if (res.stopped || res.failedIndices.length > 0) {
+          setPreviewError(res.stopped?.message || "Request failed");
+          setPreviewFailed(true);
+          return;
+        }
+        setPreviewResults(res.results);
         setPreviewFailed(false);
       })
       .catch((e) => {
-        if ((e as any)?.name === "AbortError") return;
         setPreviewError(String((e as any)?.message || "Request failed"));
         setPreviewFailed(true);
       })
       .finally(() => setPreviewLoading(false));
   }, [canProcess, uploadRows, sourceIdx, source, target]);
+
+  const downloadRun = useCallback(
+    (run: PendingRun) => {
+      // Bounded by the file, NOT by how many rows the AI got to. A run capped
+      // by the daily allowance, or cut short by a failure, still has to hand
+      // back every original row — dropping them turns a partial extraction into
+      // data loss.
+      const outRows: string[][] = [[...headers, run.finalLabel]];
+      for (let i = 1; i < uploadRows.length; i++) {
+        const orig = uploadRows[i] || [];
+        outRows.push([...orig, run.results[i - 1]?.output ?? ""]);
+      }
+      const csv = Papa.unparse(outRows);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const base = (uploadedFileName || "download.csv").replace(/\.csv$/i, "");
+      a.href = url;
+      a.download = `${base}-with-${kebab(run.finalLabel)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+    },
+    [headers, uploadRows, uploadedFileName],
+  );
 
   const onDownload = useCallback(async () => {
     if (!canProcess) return;
@@ -135,23 +189,19 @@ export default function CustomToolClient({
     setUploadError(null);
     setProcessError(null);
 
-    // Ask the server what this visitor is allowed right now: the per-run cap
-    // and the daily allowance both move with their tier (and with credits).
+    // Ask the server what this visitor is allowed right now. For free users
+    // this is today's remaining allowance; for credits it is the import cap.
     const total = dataRowCount;
-    // Fall back to the anonymous cap, not the signed-in one: if /api/me is
-    // unreachable we would rather truncate the run than have the server
-    // reject it.
-    let perRun: number = TIER_LIMITS.anon.aiRowsPerRun;
-    let allowedRows = Math.min(total, perRun);
+    // Fall back to the anonymous daily floor: if /api/me is unreachable we
+    // would rather truncate the run than have the server reject it.
+    let maxRows: number = TIER_LIMITS.anon.rowsPerDay;
+    let allowedRows = Math.min(total, maxRows);
     try {
       const meRes = await fetch("/api/me");
       if (meRes.ok) {
         const me = await meRes.json();
-        perRun = Number(me?.limits?.aiRowsPerRun) || perRun;
-        // rowsLeft is null when the tier has no daily cap (paying by credits).
-        const rowsLeft = me?.daily?.rowsLeft;
-        const cap = rowsLeft === null ? total : Number(rowsLeft) || 0;
-        allowedRows = Math.max(0, Math.min(total, perRun, cap));
+        maxRows = Number(me?.limits?.maxRowsPerRun) || maxRows;
+        allowedRows = Math.max(0, Math.min(total, maxRows));
         if (allowedRows === 0) {
           setProcessError(
             me?.tier === "anon"
@@ -182,14 +232,16 @@ export default function CustomToolClient({
       .slice(1, 1 + allowedRows)
       .map((r) => (r?.[sourceIdx] ?? "").toString());
 
-    let results: { input: string; output: string | null }[];
+    const ac = new AbortController();
+    abortRef.current = ac;
+    let outcome;
     try {
-      results = await processRows(
+      outcome = await processRows(
         inputs,
         (target || "").trim(),
         (source || "").trim(),
         AI_BATCH_ROWS,
-        undefined,
+        ac.signal,
         {
           action: "download",
           onProgress: (completed) => {
@@ -204,30 +256,77 @@ export default function CustomToolClient({
       setTotalCount(null);
       setProcessError(String((e as any)?.message || "Request failed"));
       return;
+    } finally {
+      abortRef.current = null;
     }
 
-    const outRows: string[][] = [[...headers, finalLabel]];
-    for (let i = 0; i < results.length; i++) {
-      const orig = uploadRows[i + 1] || [];
-      outRows.push([...orig, results[i]?.output ?? ""]);
-    }
-    const csv = Papa.unparse(outRows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const base = (uploadedFileName || "download.csv").replace(/\.csv$/i, "");
-    a.href = url;
-    a.download = `${base}-with-${kebab(finalLabel)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 0);
     setDownloading(false);
     setCompletedCount(null);
     setTotalCount(null);
-  }, [canProcess, dataRowCount, headers, uploadRows, sourceIdx, source, target, uploadedFileName]);
+
+    const run: PendingRun = {
+      inputs,
+      results: outcome.results,
+      failedIndices: outcome.failedIndices,
+      stopped: outcome.stopped,
+      finalLabel,
+    };
+    // A clean run downloads without asking. Anything else is the user's call.
+    if (!run.stopped && run.failedIndices.length === 0) downloadRun(run);
+    else setPendingRun(run);
+  }, [canProcess, dataRowCount, headers, uploadRows, sourceIdx, source, target, downloadRun]);
+
+  const onCancel = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  const onRetryFailed = useCallback(async () => {
+    const run = pendingRun;
+    if (!run || run.failedIndices.length === 0) return;
+    setRetrying(true);
+    const ac = new AbortController();
+    abortRef.current = ac;
+    const idx = run.failedIndices;
+    let outcome;
+    try {
+      outcome = await processRows(
+        idx.map((i) => run.inputs[i]),
+        (target || "").trim(),
+        (source || "").trim(),
+        AI_BATCH_ROWS,
+        ac.signal,
+        { action: "download" },
+      );
+    } catch (e) {
+      setRetrying(false);
+      setProcessError(String((e as any)?.message || "Request failed"));
+      return;
+    } finally {
+      abortRef.current = null;
+      setRetrying(false);
+    }
+    // Merge back at the original positions; the retry only ever saw a subset.
+    const results = run.results.slice();
+    outcome.results.forEach((r, j) => { results[idx[j]] = r; });
+    const next: PendingRun = {
+      ...run,
+      results,
+      failedIndices: outcome.failedIndices.map((j) => idx[j]),
+      stopped: outcome.stopped,
+    };
+    if (!next.stopped && next.failedIndices.length === 0) {
+      setPendingRun(null);
+      downloadRun(next);
+    } else {
+      setPendingRun(next);
+    }
+  }, [pendingRun, source, target, downloadRun]);
+
+  const onApplyPartial = useCallback(() => {
+    if (!pendingRun) return;
+    downloadRun(pendingRun);
+    setPendingRun(null);
+  }, [pendingRun, downloadRun]);
 
   const pill =
     "rounded-full px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
@@ -336,6 +435,14 @@ export default function CustomToolClient({
             {downloading ? <SpinnerIcon className="h-4 w-4" /> : null}
             <span>{downloading ? "Processing…" : "Process & download CSV"}</span>
           </button>
+          {downloading && (
+            <button
+              className={`${pill} border !border-black/15 bg-white text-black hover:bg-black/5`}
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+          )}
           {!canProcess && (
             <span className="text-xs text-black/45">
               {uploadRows.length <= 1
@@ -403,6 +510,9 @@ export default function CustomToolClient({
                 ? `Processing ${completedCount}/${totalCount} rows…`
                 : "Processing…"}
             </div>
+            <div className="text-[11px] font-medium text-black/40">
+              Large files may wait up to 20 seconds between batches.
+            </div>
           </div>
         )}
         {processError && (
@@ -411,12 +521,22 @@ export default function CustomToolClient({
         <p className="mt-3 text-xs text-black/45">
           The download includes all original columns plus the new extracted
           column. Without signing in: {TIER_LIMITS.anon.rowsPerDay} rows a day,{" "}
-          {TIER_LIMITS.anon.aiRowsPerRun} per run. Signed in:{" "}
-          {TIER_LIMITS.free.rowsPerDay.toLocaleString()} a day,{" "}
-          {TIER_LIMITS.free.aiRowsPerRun.toLocaleString()} per run. Credits lift
-          both.
+          signed in: {TIER_LIMITS.free.rowsPerDay.toLocaleString()} a day.
+          Credits remove the daily cap.
         </p>
       </section>
+      <PartialResultDialog
+        open={pendingRun != null}
+        total={pendingRun?.inputs.length ?? 0}
+        succeeded={
+          (pendingRun?.inputs.length ?? 0) - (pendingRun?.failedIndices.length ?? 0)
+        }
+        failed={pendingRun?.failedIndices.length ?? 0}
+        stopped={pendingRun?.stopped}
+        busy={retrying}
+        onRetryFailed={onRetryFailed}
+        onApplyPartial={onApplyPartial}
+      />
     </div>
   );
 }

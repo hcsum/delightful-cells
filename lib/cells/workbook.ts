@@ -22,8 +22,8 @@ export type ParsedWorkbook = {
 };
 
 // Re-exported so callers can import every workbook limit from one place. Note
-// these are browser-memory limits and have nothing to do with how many rows the
-// AI will touch in one run — that is TIER_LIMITS[tier].aiRowsPerRun.
+// these are browser-memory limits and have nothing to do with today's AI row
+// allowance.
 export { MAX_FILE_BYTES, MAX_IMPORT_ROWS, MAX_STYLED_EXPORT_ROWS };
 export const MAX_COLS = 60;
 
