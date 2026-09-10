@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { TIER_LIMITS } from '@/lib/limits';
+import { useT } from '@/lib/cells/locale';
 
 // No sign-in required anymore: /api/quota answers for anonymous visitors too
 // (keyed by IP server-side). Until it answers we show the anonymous cap: the
 // signed-in number would be wrong for most visitors, and wrong in the
 // flattering direction.
 export default function QuotaBanner() {
+  const t = useT();
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limit, setLimit] = useState<number>(TIER_LIMITS.anon.rowsPerDay);
   const [loading, setLoading] = useState<boolean>(false);
@@ -46,12 +48,15 @@ export default function QuotaBanner() {
   return (
     <div className="inline-flex items-center gap-2 text-xs text-black/60 border !border-black/15 bg-white rounded-full px-3 py-1 w-fit font-semibold">
       {loading ? (
-        <span>Checking remaining rows…</span>
+        <span>{t('quotaChecking')}</span>
       ) : (
         <span>
           {metered
-            ? 'Running on credits — no daily row cap'
-            : `Remaining today: ${remaining != null ? remaining : '—'} / ${limit.toLocaleString()} rows`}
+            ? t('quotaMetered')
+            : t('quotaRemaining', {
+                remaining: remaining != null ? remaining : '—',
+                limit: limit.toLocaleString(),
+              })}
         </span>
       )}
     </div>

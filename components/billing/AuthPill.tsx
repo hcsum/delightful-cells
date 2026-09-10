@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/useAuth";
-import { useT } from "@/lib/cells/locale";
+import { useLocale, useT } from "@/lib/cells/locale";
+import { localizePath } from "@/lib/locale-routing";
 
 // Sign in / avatar, styled for the light Cells chrome (HeaderAuth is the dark
 // AppShell version). Signed in, the avatar links to the account page.
 export default function AuthPill() {
   const { user, isAuthenticated, isLoading, signInWithGoogle } = useAuth();
+  const locale = useLocale();
   const t = useT();
 
   if (isLoading) {
@@ -29,7 +31,7 @@ export default function AuthPill() {
   const name = (user?.name || user?.email || "You") as string;
   const img = (user as any)?.image as string | undefined;
   return (
-    <Link href="/account" title={name} className="shrink-0">
+    <Link href={localizePath("/account", locale)} title={name} className="shrink-0">
       {img ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

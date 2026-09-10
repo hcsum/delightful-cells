@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import PricingClient from "@/components/billing/PricingClient";
+import { DEFAULT_LOCALE, isAppLocale } from "@/lib/locale-routing";
 
 export const metadata: Metadata = {
   title: "Credits — Delightful Cells",
@@ -8,5 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default function PricingPage() {
-  return <PricingClient />;
+  const localeHeader = headers().get("x-locale");
+  const locale = isAppLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
+  return <PricingClient initialLocale={locale} />;
 }

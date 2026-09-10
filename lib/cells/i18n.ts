@@ -13,6 +13,11 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     limitsHint: "Loads up to {i} rows per workbook. AI can process up to {d} rows per day.",
     limitsHintMetered:
       "Loads up to {i} rows per workbook. AI rows are billed to your credits — no daily cap.",
+    rowsLimitNote:
+      "Note: without signing in, AI processing is capped at {anon} rows a day. Signing in raises that to {free} rows a day; credits remove the daily cap.",
+    quotaChecking: "Checking remaining rows…",
+    quotaMetered: "Running on credits — no daily row cap",
+    quotaRemaining: "Remaining today: {remaining} / {limit} rows",
     chooseFile: "Choose a file",
     or: "or",
     tryDemo: "try with demo data",
@@ -182,6 +187,11 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     limitsHint: "整个工作簿最多载入 {i} 行；AI 每天最多处理 {d} 行。",
     limitsHintMetered:
       "整个工作簿最多载入 {i} 行；AI 按点数扣费，没有每日上限。",
+    rowsLimitNote:
+      "提示：未登录时，AI 处理每天最多 {anon} 行。登录后每天最多 {free} 行；使用点数可移除每日上限。",
+    quotaChecking: "正在检查剩余行数…",
+    quotaMetered: "正在使用点数处理，没有每日行数上限",
+    quotaRemaining: "今日剩余：{remaining} / {limit} 行",
     chooseFile: "选择文件",
     or: "或者",
     tryDemo: "用演示数据试试",

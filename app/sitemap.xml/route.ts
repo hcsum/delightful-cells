@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { USE_CASES, STATIC_ROUTES } from '@/lib/routes'
+import { SUPPORTED_LOCALES, localizePath } from '@/lib/locale-routing'
 
 type RouteEntry = { path: string; priority: string; changefreq: string }
 
@@ -28,15 +29,25 @@ export async function GET() {
     .map(prioritize)
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${routes
-  .map(
-    (route) => `  <url>
-    <loc>${baseUrl}${route.path}</loc>
+  .flatMap((route) =>
+    SUPPORTED_LOCALES.map((locale) => {
+      const path = localizePath(route.path, locale)
+      const alternates = SUPPORTED_LOCALES.map((alternateLocale) => {
+        const href = `${baseUrl}${localizePath(route.path, alternateLocale)}`
+        const hreflang = alternateLocale === 'zh' ? 'zh-CN' : 'en'
+        return `    <xhtml:link rel="alternate" hreflang="${hreflang}" href="${href}" />`
+      }).join('\n')
+      return `  <url>
+    <loc>${baseUrl}${path}</loc>
+${alternates}
+    <xhtml:link rel="alternate" hreflang="x-default" href="${baseUrl}${localizePath(route.path, 'en')}" />
     <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
     <changefreq>${route.changefreq}</changefreq>
     <priority>${route.priority}</priority>
   </url>`
+    })
   )
   .join('\n')}
 </urlset>`

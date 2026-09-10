@@ -1,6 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import AppShell from "@/components/AppShell";
+import { DEFAULT_LOCALE, isAppLocale } from "@/lib/locale-routing";
 
 // Use default runtime; OpenNext will generate the Worker wrapper
 
@@ -47,10 +49,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const localeHeader = headers().get("x-locale");
+  const locale = isAppLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
   return (
-    <html lang="en">
+    <html lang={locale === "zh" ? "zh-CN" : "en"}>
       <body>
-        <AppShell>{children}</AppShell>
+        <AppShell initialLocale={locale}>{children}</AppShell>
       </body>
     </html>
   );

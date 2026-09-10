@@ -3,19 +3,46 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import HeaderAuth from "@/components/HeaderAuth";
+import { LocaleContext, useStoredLocale } from "@/lib/cells/locale";
+import { localizePath, stripLocalePrefix, type AppLocale } from "@/lib/locale-routing";
 
 // Site chrome (header/main.container/footer) extracted from the root layout.
 // Full-bleed experiences (the Delightful Cells homepage) opt out entirely.
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({
+  children,
+  initialLocale = "en",
+}: {
+  children: React.ReactNode;
+  initialLocale?: AppLocale;
+}) {
   const pathname = usePathname();
-  if (pathname === "/" || pathname?.startsWith("/cells")) {
-    return <>{children}</>;
+  const [locale, setLocale] = useStoredLocale(initialLocale);
+  const barePathname = stripLocalePrefix(pathname || "/");
+  const labels = locale === "zh"
+    ? {
+        extractText: "提取文本",
+        compare: "比较列",
+        duplicates: "找重复",
+        credits: "额度",
+        terms: "服务条款",
+      }
+    : {
+        extractText: "Extract Text",
+        compare: "Compare columns",
+        duplicates: "Find duplicates",
+        credits: "Credits",
+        terms: "Terms of Service",
+      };
+
+  if (barePathname === "/" || barePathname.startsWith("/cells")) {
+    return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
   }
+
   return (
-    <>
+    <LocaleContext.Provider value={locale}>
       <header className="border-b border-black/10 bg-[#fffaf0]">
         <div className="container flex items-center justify-between">
-          <Link href="/" title="Delightful Cells" className="font-extrabold !text-black">
+          <Link href={localizePath("/", locale)} title="Delightful Cells" className="font-extrabold !text-black">
             Delightful{" "}
             <span className="bg-gradient-to-r from-[#ff0080] via-[#ff8c00] to-[#7c4dff] bg-clip-text text-transparent">
               Cells
@@ -23,33 +50,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="flex items-center gap-2 text-sm">
             <Link
-              href="/extract-text-from-cell-excel"
-              title="Extract Text"
+              href={localizePath("/extract-text-from-cell-excel", locale)}
+              title={labels.extractText}
               className="hidden md:inline rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
             >
-              Extract Text
+              {labels.extractText}
             </Link>
             <Link
-              href="/compare-two-columns-in-excel"
-              title="Compare columns"
+              href={localizePath("/compare-two-columns-in-excel", locale)}
+              title={labels.compare}
               className="hidden md:inline rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
             >
-              Compare columns
+              {labels.compare}
             </Link>
             <Link
-              href="/find-duplicates-in-excel"
-              title="Find duplicates"
+              href={localizePath("/find-duplicates-in-excel", locale)}
+              title={labels.duplicates}
               className="hidden md:inline rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
             >
-              Find duplicates
+              {labels.duplicates}
             </Link>
             <Link
-              href="/pricing"
-              title="Credits"
+              href={localizePath("/pricing", locale)}
+              title={labels.credits}
               className="rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
             >
-              Credits
+              {labels.credits}
             </Link>
+            <button
+              type="button"
+              onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
+              className="rounded-full border !border-black/15 bg-white px-3 py-1 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
+            >
+              {locale === "zh" ? "EN" : "中文"}
+            </button>
             <HeaderAuth />
           </nav>
         </div>
@@ -58,21 +92,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <footer className="container text-xs text-black/50 py-8 border-t border-black/10">
         <div className="flex flex-wrap items-center justify-end gap-4">
           <Link
-            href="/pricing"
-            title="Credits"
+            href={localizePath("/pricing", locale)}
+            title={labels.credits}
             className="underline hover:no-underline !text-black/50"
           >
-            Credits
+            {labels.credits}
           </Link>
           <Link
-            href="/terms"
-            title="Terms of Service"
+            href={localizePath("/terms", locale)}
+            title={labels.terms}
             className="underline hover:no-underline !text-black/50"
           >
-            Terms of Service
+            {labels.terms}
           </Link>
         </div>
       </footer>
-    </>
+    </LocaleContext.Provider>
   );
 }

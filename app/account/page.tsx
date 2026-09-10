@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { getUserIdFromRequest } from "@/lib/auth/session";
 import { getBalanceNeurons, listLedger, type LedgerEntry } from "@/lib/billing/credits";
 import { getDb } from "@/lib/billing/db";
 import AccountClient, { type PurchaseRow } from "@/components/billing/AccountClient";
+import { DEFAULT_LOCALE, isAppLocale } from "@/lib/locale-routing";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +14,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AccountPage() {
+  const localeHeader = headers().get("x-locale");
+  const locale = isAppLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
   const userId = await getUserIdFromRequest();
-  if (!userId) return <AccountClient signedIn={false} />;
+  if (!userId) return <AccountClient signedIn={false} initialLocale={locale} />;
 
   // Read the three tables directly: this page is server-rendered per request,
   // so there is nothing to gain from bouncing through an API route.
@@ -41,6 +45,7 @@ export default async function AccountPage() {
   return (
     <AccountClient
       signedIn
+      initialLocale={locale}
       balanceNeurons={balanceNeurons}
       ledger={ledger}
       purchases={purchases}

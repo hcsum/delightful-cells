@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LocaleContext, useStoredLocale } from "@/lib/cells/locale";
-import { t } from "@/lib/cells/i18n";
+import { t, type Locale } from "@/lib/cells/i18n";
 import { PACKS, PACK_ORDER, type PackId } from "@/lib/billing/packs";
 import {
   MAX_FILE_BYTES,
@@ -14,8 +14,8 @@ import { useAuth } from "@/lib/auth/useAuth";
 import LoginPromptDialog from "@/components/LoginPromptDialog";
 import { currentPath } from "@/components/billing/AuthPill";
 
-export default function PricingClient() {
-  const [locale, setLocale] = useStoredLocale();
+export default function PricingClient({ initialLocale = "en" }: { initialLocale?: Locale }) {
+  const [locale, setLocale] = useStoredLocale(initialLocale);
   const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const { isAuthenticated, signInWithGoogle } = useAuth();
   const [busy, setBusy] = useState<PackId | null>(null);

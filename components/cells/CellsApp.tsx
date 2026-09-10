@@ -36,7 +36,7 @@ import {
 import WorkbookPanel, { type WorkbookState } from "./WorkbookPanel";
 import ChatPanel from "./ChatPanel";
 import UsageMeter from "./UsageMeter";
-import { LocaleContext } from "@/lib/cells/locale";
+import { LocaleContext, useStoredLocale } from "@/lib/cells/locale";
 import { describeUserChanges, snapshotGrid, type GridSnapshot } from "@/lib/cells/state-diff";
 import { presetsFor } from "@/lib/cells/demo";
 import { t, type Locale } from "@/lib/cells/i18n";
@@ -61,19 +61,8 @@ function gridFromSheet(sheet: ParsedSheet): GridState {
   };
 }
 
-export default function CellsApp() {
-  // Locale: saved choice wins, otherwise follow the browser's language.
-  const [locale, setLocale] = useState<Locale>("en");
-  useEffect(() => {
-    let saved: string | null = null;
-    try { saved = localStorage.getItem("cells-locale"); } catch {}
-    if (saved === "zh" || saved === "en") setLocale(saved);
-    else if (navigator.language?.toLowerCase().startsWith("zh")) setLocale("zh");
-  }, []);
-  const switchLocale = (next: Locale) => {
-    setLocale(next);
-    try { localStorage.setItem("cells-locale", next); } catch {}
-  };
+export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Locale }) {
+  const [locale, switchLocale] = useStoredLocale(initialLocale);
 
   const [workbookState, setWorkbookState] = useState<WorkbookState>({
     status: "idle",

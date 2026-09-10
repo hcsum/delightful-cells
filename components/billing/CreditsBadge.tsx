@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useT } from "@/lib/cells/locale";
+import { useLocale, useT } from "@/lib/cells/locale";
 import type { Me } from "@/lib/billing/useMe";
+import { localizePath } from "@/lib/locale-routing";
 
 // Balance pill + the way in to buying more. Shows "Get credits" until there is
 // a balance to show, so the entry point exists before the first purchase.
 export default function CreditsBadge({ me }: { me: Me | null }) {
+  const locale = useLocale();
   const t = useT();
   const credits = me?.credits.credits ?? 0;
   const pill =
@@ -14,13 +16,13 @@ export default function CreditsBadge({ me }: { me: Me | null }) {
 
   if (credits <= 0) {
     return (
-      <Link href="/pricing" className={pill}>
+      <Link href={localizePath("/pricing", locale)} className={pill}>
         {t("buyCredits")}
       </Link>
     );
   }
   return (
-    <Link href="/account" className={`${pill} !text-black`}>
+    <Link href={localizePath("/account", locale)} className={`${pill} !text-black`}>
       ⚡ {t("creditsBalance", { n: credits.toLocaleString() })}
     </Link>
   );

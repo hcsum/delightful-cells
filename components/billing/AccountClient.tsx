@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { LocaleContext, useStoredLocale } from "@/lib/cells/locale";
-import { t } from "@/lib/cells/i18n";
+import { t, type Locale } from "@/lib/cells/i18n";
+import { localizePath } from "@/lib/locale-routing";
 import { NEURONS_PER_CREDIT } from "@/lib/limits";
 import type { LedgerEntry } from "@/lib/billing/credits";
 import { useAuth } from "@/lib/auth/useAuth";
@@ -22,6 +23,7 @@ export type PurchaseRow = {
 
 export default function AccountClient(props: {
   signedIn: boolean;
+  initialLocale?: Locale;
   balanceNeurons?: number;
   ledger?: LedgerEntry[];
   purchases?: PurchaseRow[];
@@ -35,16 +37,18 @@ export default function AccountClient(props: {
 
 function AccountBody({
   signedIn,
+  initialLocale = "en",
   balanceNeurons = 0,
   ledger = [],
   purchases = [],
 }: {
   signedIn: boolean;
+  initialLocale?: Locale;
   balanceNeurons?: number;
   ledger?: LedgerEntry[];
   purchases?: PurchaseRow[];
 }) {
-  const [locale, setLocale] = useStoredLocale();
+  const [locale, setLocale] = useStoredLocale(initialLocale);
   const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const { signInWithGoogle, signOut } = useAuth();
   const justPaid = useSearchParams().get("purchase") === "success";
@@ -118,7 +122,7 @@ function AccountBody({
             {tr("pricingPerCredit", { n: credits.toLocaleString() })}
           </div>
           <Link
-            href="/pricing"
+            href={localizePath("/pricing", locale)}
             className="mt-4 inline-flex rounded-full bg-black px-4 py-2 text-sm font-bold !text-[#fffdf8] hover:opacity-85"
           >
             {tr("buyCredits")}

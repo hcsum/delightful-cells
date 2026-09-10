@@ -1,5 +1,7 @@
 import CellsApp from "@/components/cells/CellsApp";
 import ClassicTools from "@/components/cells/ClassicTools";
+import { headers } from "next/headers";
+import { DEFAULT_LOCALE, isAppLocale } from "@/lib/locale-routing";
 
 export const metadata = {
   title: "Delightful Cells — chat with your Excel spreadsheet",
@@ -24,9 +26,11 @@ export const metadata = {
 };
 
 export default function HomePage() {
+  const localeHeader = headers().get("x-locale");
+  const locale = isAppLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
   return (
     <>
-      <CellsApp />
+      <CellsApp initialLocale={locale} />
       <ClassicTools />
     </>
   );
