@@ -111,6 +111,7 @@ export async function processRows(
 
   // eslint-disable-next-line no-console
   console.debug('[processRows] begin', { rid, action, total: rows.length, batchSize });
+  beginInjection(rows.length, batchSize);
 
   for (let i = 0; i < rows.length; i += batchSize) {
     if (signal?.aborted) {
@@ -146,6 +147,7 @@ export async function processRows(
     rid, action, total: rows.length, failed: failedIndices.length,
     stopped: stopped?.reason, ms: (nowMs() - started).toFixed(0),
   });
+  endInjection();
   return { results, failedIndices, ...(stopped ? { stopped } : {}) };
 }
 
@@ -338,38 +340,48 @@ function sleep(ms: number, signal?: AbortSignal): Promise<boolean> {
 }
 
 /**
- * Dev-only fault injection. There is no test framework here, and a failure that
- * only happens on batch 37 of a nine-minute run is otherwise unreproducible.
+ * One-shot fault injection for local testing, because a failure that only shows
+ * up on batch 37 of a nine-minute run is otherwise unreproducible and there is
+ * no test framework here.
  *
- *   localStorage.__failBatches = '3,5'   // batch indices, 0-based
- *   localStorage.__failMode    = '500' | 'toon' | 'network' | 'quota'
- *   localStorage.__failTimes   = '2'     // fail this many attempts, then pass
- *                                        // (omit for "always", which is what
- *                                        //  exercises the split-and-give-up path)
+ * Set NEXT_PUBLIC_MOCK_BATCH_FAILURE=1 in .env.local. The first run after a page
+ * load loses its LAST batch — the short final batch is where real failures
+ * cluster, and failing it leaves the earlier rows answered, which is what makes
+ * the partial-result dialog appear at all. Every run after that is clean, so
+ * retrying from the dialog succeeds and the run can be nursed to completion.
+ * Reload the page to arm it again.
  */
-const injectedAttempts = new Map<number, number>();
+let injectionArmed =
+  process.env.NODE_ENV !== 'production' &&
+  process.env.NEXT_PUBLIC_MOCK_BATCH_FAILURE === '1';
+
+/** Which batch of the current run to fail, or null for a run that should pass. */
+let injectedBatch: number | null = null;
+
+/** Claim the page's one injected failure, if it is still going. */
+function beginInjection(totalRows: number, batchSize: number): void {
+  injectedBatch = null;
+  if (!injectionArmed) return;
+  injectionArmed = false;
+  injectedBatch = Math.max(0, Math.ceil(totalRows / batchSize) - 1);
+  // eslint-disable-next-line no-console
+  console.warn('[processRows] fault injection armed for this run', { batch: injectedBatch });
+}
+
+function endInjection(): void {
+  injectedBatch = null;
+}
 
 function injectedFailure(batchIndex: number): BatchError | null {
-  if (process.env.NODE_ENV === 'production') return null;
-  try {
-    const raw = window.localStorage.getItem('__failBatches');
-    if (!raw) return null;
-    const hit = raw.split(',').map((s) => Number(s.trim())).includes(batchIndex);
-    if (!hit) return null;
-    const limit = Number(window.localStorage.getItem('__failTimes') || 0);
-    const seen = (injectedAttempts.get(batchIndex) ?? 0) + 1;
-    injectedAttempts.set(batchIndex, seen);
-    if (limit > 0 && seen > limit) return null;
-    const mode = window.localStorage.getItem('__failMode') || '500';
-    // eslint-disable-next-line no-console
-    console.warn('[processRows] INJECTED FAILURE', { batchIndex, mode, attempt: seen });
-    if (mode === 'network') return { message: 'Injected network error', fatal: false, aborted: false };
-    if (mode === 'toon') return { message: 'Worker returned invalid TOON', code: 'invalid_toon', status: 502, fatal: false, aborted: false };
-    if (mode === 'quota') return { message: 'Daily row limit reached', code: 'quota_exceeded', status: 429, fatal: true, aborted: false };
-    return { message: 'Injected API error 500', status: 500, fatal: false, aborted: false };
-  } catch {
-    return null;
-  }
+  if (injectedBatch === null || batchIndex !== injectedBatch) return null;
+  // eslint-disable-next-line no-console
+  console.warn('[processRows] INJECTED FAILURE', { batchIndex });
+  return {
+    message: 'Injected failure (NEXT_PUBLIC_MOCK_BATCH_FAILURE)',
+    status: 500,
+    fatal: false,
+    aborted: false,
+  };
 }
 
 function nowMs(): number { try { return performance.now(); } catch { return Date.now(); } }
