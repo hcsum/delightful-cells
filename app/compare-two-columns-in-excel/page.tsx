@@ -2,9 +2,9 @@ import CompareColumnsClient from "@/components/CompareColumnsClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Compare Two Columns in Excel",
+  title: "Compare Two Columns in Excel (Excel & CSV Tool)",
   description:
-    "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload a CSV and download results fast.",
+    "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload an Excel file or CSV and download results fast.",
   alternates: { canonical: "/compare-two-columns-in-excel" },
   keywords: [
     "compare 2 columns in excel",
@@ -17,14 +17,14 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Compare Two Columns in Excel",
     description:
-      "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload a CSV and download results fast.",
+      "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload an Excel file or CSV and download results fast.",
     type: "article",
   },
   twitter: {
     card: "summary",
     title: "Compare Two Columns in Excel",
     description:
-      "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload a CSV and download results fast.",
+      "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload an Excel file or CSV and download results fast.",
   },
   robots: { index: true, follow: true },
 };
@@ -75,8 +75,13 @@ export default function Page() {
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
             <li>
-              <strong>Enter Column A and Column B:</strong> Type the header
-              names you want to compare.
+              <strong>Upload your file:</strong> Select an .xlsx, .xls, or .csv
+              file (up to 20 MB). All processing happens in your browser. If the
+              workbook has several sheets, pick the one you want.
+            </li>
+            <li>
+              <strong>Pick Column A and Column B:</strong> Both dropdowns are
+              filled from your file&apos;s own headers — nothing to type.
             </li>
             <li>
               <strong>Choose comparison type:</strong> Select{" "}
@@ -88,12 +93,8 @@ export default function Page() {
               case-sensitive.
             </li>
             <li>
-              <strong>Upload CSV:</strong> Select your .csv file (up to 20 MB
-              and 5,000 data rows). All processing happens in your browser.
-            </li>
-            <li>
-              <strong>Process and download:</strong> Click Process CSV to
-              download a copy with a new comparison column appended.
+              <strong>Process and download:</strong> You get a copy in the same
+              format you uploaded, with a new comparison column appended.
             </li>
           </ol>
         </section>

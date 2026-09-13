@@ -1,111 +1,79 @@
 "use client";
 
-import Papa from "papaparse";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { MAX_FILE_BYTES } from "@/lib/limits";
-
-type Row = string[];
-
-const HARD_LIMITS = {
-  maxFileBytes: MAX_FILE_BYTES,
-  maxRows: 5001, // 5000 data rows + 1 header row
-} as const;
+import { useCallback, useMemo, useState } from "react";
+import FilePicker from "@/components/tools/FilePicker";
+import SheetSelect from "@/components/tools/SheetSelect";
+import ColumnSelect from "@/components/tools/ColumnSelect";
+import {
+  parseToolFile,
+  downloadSheet,
+  findColumnIndex,
+  kindLabel,
+  truncationNote,
+  WorkbookError,
+  type ToolWorkbook,
+} from "@/lib/tools/workbook";
 
 type Mode = "duplicates" | "missing" | "matches";
 
+// Upload first, then pick both columns from the file's own headers.
 export default function CompareColumnsClient() {
-  // Form controls
   const [colA, setColA] = useState("");
   const [colB, setColB] = useState("");
   const [mode, setMode] = useState<Mode>("duplicates");
   const [caseSensitive, setCaseSensitive] = useState(false); // default off
 
-  // Upload/parse state
-  const [uploadRows, setUploadRows] = useState<Row[]>([]);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(
-    null,
-  );
+  const [workbook, setWorkbook] = useState<ToolWorkbook | null>(null);
+  const [sheetIndex, setSheetIndex] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  // Helpers
-  const canProcess = useMemo(() => {
-    if (!uploadRows.length) return false;
-    if (!colA.trim() || !colB.trim()) return false;
-    const header = uploadRows[0] || [];
-    const iA = findColumnIndex(header, colA);
-    const iB = findColumnIndex(header, colB);
-    return iA >= 0 && iB >= 0;
-  }, [uploadRows, colA, colB]);
+  const sheet = workbook?.sheets[sheetIndex];
+  const headers = useMemo(() => sheet?.headers ?? [], [sheet]);
+  const rows = useMemo(() => sheet?.rows ?? [], [sheet]);
+  const iA = findColumnIndex(headers, colA);
+  const iB = findColumnIndex(headers, colB);
+  const canProcess = rows.length > 0 && iA >= 0 && iB >= 0;
+
+  // Two columns are being compared, so default to the first two the file has.
+  const pickDefaults = useCallback((nextHeaders: string[]) => {
+    setColA(nextHeaders[0] ?? "");
+    setColB(nextHeaders[1] ?? nextHeaders[0] ?? "");
+  }, []);
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       setUploadError(null);
-      if (!colA.trim() || !colB.trim()) {
+      setDownloadError(null);
+      try {
+        const wb = await parseToolFile(file);
+        setWorkbook(wb);
+        setSheetIndex(0);
+        pickDefaults(wb.sheets[0]?.headers ?? []);
+      } catch (e) {
+        setWorkbook(null);
         setUploadError(
-          "Please fill 'Column A', 'Column B', and 'Comparison Type' before selecting a CSV file.",
+          e instanceof WorkbookError
+            ? e.message
+            : `Couldn't read that file: ${String((e as any)?.message || e)}`,
         );
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
       }
-      const nameOK = file.name.toLowerCase().endsWith(".csv");
-      const typeOK = !file.type || file.type.includes("csv");
-      if (!(nameOK || typeOK)) {
-        setUploadError("Please upload a .csv file.");
-        return;
-      }
-      if (file.size > HARD_LIMITS.maxFileBytes) {
-        setUploadError("File too large. Max 20 MB.");
-        return;
-      }
-      setUploadedFileName(file.name);
-      Papa.parse<string[]>(file, {
-        delimiter: ",",
-        skipEmptyLines: true,
-        dynamicTyping: false,
-        complete: (res) => {
-          const raw = (res.data as unknown as string[][]) || [];
-          const sanitized = raw.map((r) => (Array.isArray(r) ? r : []));
-          if (sanitized.length === 0) {
-            setUploadError("CSV appears empty.");
-            setUploadRows([]);
-            return;
-          }
-          if (sanitized.length > HARD_LIMITS.maxRows) {
-            setUploadError(
-              `Too many rows. Max supported is ${HARD_LIMITS.maxRows - 1} data rows plus 1 header row.`,
-            );
-            setUploadRows([]);
-            return;
-          }
-          const header = sanitized[0] || [];
-          const iA = findColumnIndex(header, colA);
-          const iB = findColumnIndex(header, colB);
-          if (iA < 0 || iB < 0) {
-            const list = header.join(", ") || "(none)";
-            setUploadError(
-              `Column not found. Available columns: ${list}. Ensure both column names match the CSV header exactly (case-insensitive).`,
-            );
-            setUploadRows([]);
-            return;
-          }
-          setUploadRows(sanitized);
-        },
-        error: (err) => {
-          setUploadError(`Failed to parse CSV: ${err.message || String(err)}`);
-        },
-      });
     },
-    [colA, colB],
+    [pickDefaults],
   );
 
-  const onDownload = useCallback(() => {
-    if (!canProcess) return;
-    const header = uploadRows[0] || [];
-    const rows = uploadRows.slice(1);
-    const iA = findColumnIndex(header, colA);
-    const iB = findColumnIndex(header, colB);
-    if (iA < 0 || iB < 0) return;
+  const onSheetChange = useCallback(
+    (index: number) => {
+      setSheetIndex(index);
+      setDownloadError(null);
+      pickDefaults(workbook?.sheets[index]?.headers ?? []);
+    },
+    [workbook, pickDefaults],
+  );
+
+  const onDownload = useCallback(async () => {
+    if (!canProcess || !workbook || !sheet) return;
+    setDownloadError(null);
 
     // Normalizer: trim and optionally lowercase depending on case sensitivity
     const norm = (v: unknown) => {
@@ -118,15 +86,11 @@ export default function CompareColumnsClient() {
     for (const r of rows) {
       const v = norm(r?.[iB] ?? "");
       if (v === "") continue; // ignore empty values in Column B for comparisons
-      if (!bCounts.has(v)) bCounts.set(v, 1);
-      else bCounts.set(v, (bCounts.get(v) || 0) + 1);
+      bCounts.set(v, (bCounts.get(v) || 0) + 1);
     }
 
     const newHeaderLabel = makeNewHeaderLabel(mode, colA.trim(), colB.trim());
-    const out: string[][] = [];
-    out.push([...header, newHeaderLabel]);
-
-    for (const r of rows) {
+    const out = rows.map((r) => {
       const aVal = norm(r?.[iA] ?? "");
       let mark = "";
       if (mode === "missing") {
@@ -141,49 +105,88 @@ export default function CompareColumnsClient() {
         const count = bCounts.get(aVal) || 0;
         if (count >= 1) mark = "True";
       }
-      out.push([...r, mark]);
+      return [...r, mark];
+    });
+
+    try {
+      await downloadSheet(
+        workbook,
+        sheet.name,
+        [...headers, newHeaderLabel],
+        out,
+        newHeaderLabel,
+      );
+    } catch (e) {
+      setDownloadError(
+        `Couldn't write the file: ${String((e as any)?.message || e)}`,
+      );
     }
+  }, [canProcess, workbook, sheet, rows, headers, iA, iB, colA, colB, mode, caseSensitive]);
 
-    const csv = Papa.unparse(out);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const base = (uploadedFileName || "download.csv").replace(/\.csv$/i, "");
-    a.href = url;
-    a.download = `${base}-with-${kebab(newHeaderLabel)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 0);
-  }, [canProcess, uploadRows, colA, colB, mode, uploadedFileName, caseSensitive]);
-
+  const field =
+    "bg-transparent border border-white/10 rounded px-3 py-2 text-base md:text-lg disabled:opacity-60";
+  const truncated = truncationNote(sheet);
 
   return (
     <div className="space-y-6">
-      {/* Input pattern: Compare [A] to [B] for [Type] */}
+      {/* Upload first */}
       <section className="space-y-2 mt-4 md:mt-6">
+        <h3 className="text-lg font-semibold">Upload your Excel file</h3>
+        <div className="text-sm text-white/90 space-y-1">
+          <div>Drop in an .xlsx, .xls, or .csv — no converting needed.</div>
+          <div>All processing happens in your browser. No data is sent to a server.</div>
+        </div>
+        <FilePicker
+          tone="dark"
+          onFile={handleFile}
+          hint="Excel or CSV. Max 20 MB."
+          info={
+            workbook && sheet
+              ? `${workbook.fileName} · ${rows.length.toLocaleString()} rows · ${headers.length} columns`
+              : null
+          }
+        />
+        {workbook && workbook.sheets.length > 1 ? (
+          <div className="pt-2">
+            <SheetSelect
+              sheetNames={workbook.sheets.map((s) => s.name)}
+              value={sheetIndex}
+              onChange={onSheetChange}
+              className={field}
+              labelClassName="text-base md:text-lg font-medium"
+            />
+          </div>
+        ) : null}
+        {truncated ? <p className="text-xs text-white/60">{truncated}</p> : null}
+        {uploadError ? (
+          <p className="text-sm text-red-400">{uploadError}</p>
+        ) : null}
+      </section>
+
+      {/* Then: Compare [A] to [B] for [Type] */}
+      <section className="space-y-2 pt-2">
         <div className="flex flex-wrap gap-3 md:gap-4 items-center">
           <label className="text-base md:text-lg font-medium">Compare</label>
-          <input
+          <ColumnSelect
+            headers={headers}
             value={colA}
-            onChange={(e) => setColA(e.target.value)}
-            className="bg-transparent border border-white/10 rounded px-3 py-2 text-base md:text-lg"
-            placeholder="Column A (header name)"
+            onChange={setColA}
+            className={field}
+            emptyLabel="upload a file to pick a column"
           />
           <label className="text-base md:text-lg font-medium">to</label>
-          <input
+          <ColumnSelect
+            headers={headers}
             value={colB}
-            onChange={(e) => setColB(e.target.value)}
-            className="bg-transparent border border-white/10 rounded px-3 py-2 text-base md:text-lg"
-            placeholder="Column B (header name)"
+            onChange={setColB}
+            className={field}
+            emptyLabel="upload a file to pick a column"
           />
           <label className="text-base md:text-lg font-medium">for</label>
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as Mode)}
-            className="bg-transparent border border-white/10 rounded px-3 py-2 text-base md:text-lg"
+            className={field}
           >
             <option value="duplicates">duplicates</option>
             <option value="matches">matches</option>
@@ -199,38 +202,10 @@ export default function CompareColumnsClient() {
           />
           <label htmlFor="caseSensitiveToggle" className="text-sm md:text-base">Case sensitive</label>
         </div>
-        {uploadError ? (
-          <p className="text-sm text-red-400">{uploadError}</p>
-        ) : null}
-      </section>
-
-      {/* Upload CSV */}
-      <section className="space-y-2 pt-2">
-        <h3 className="text-lg font-semibold">Upload CSV</h3>
-        <div className="text-sm text-white/90 space-y-1">
-          <div>1. Export or save your Excel file as CSV.</div>
-          <div>2. Select the CSV file.</div>
-          <div>All processing happens in your browser. No data is sent to a server.</div>
-        </div>
-        <div className="space-y-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            onClick={(e) => {
-              (e.currentTarget as HTMLInputElement).value = "";
-            }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-            }}
-          />
-          <p className="text-xs text-white/60">CSV only. Max 20 MB. Max 5000 data rows.</p>
-        </div>
       </section>
 
       {/* Process / Download */}
-      {uploadRows.length > 0 && canProcess ? (
+      {canProcess ? (
         <section className="space-y-3">
           <div className="flex flex-col gap-2 pt-2">
             <div className="flex items-center gap-3">
@@ -238,12 +213,15 @@ export default function CompareColumnsClient() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-white text-black font-semibold shadow-md hover:bg-white/90 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
                 onClick={onDownload}
               >
-                <span>Process CSV</span>
+                <span>Process &amp; download {kindLabel(workbook!.kind)}</span>
               </button>
               <span className="text-xs text-white/60">
                 Download includes all original columns plus one new comparison column.
               </span>
             </div>
+            {downloadError ? (
+              <p className="text-sm text-red-400">{downloadError}</p>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -251,27 +229,8 @@ export default function CompareColumnsClient() {
   );
 }
 
-// Helper: case-insensitive exact header match (trimmed)
-function findColumnIndex(header: string[], name: string): number {
-  if (!name) return -1;
-  const norm = (s: string) => s?.toString().trim().toLowerCase();
-  const target = norm(name);
-  for (let i = 0; i < header.length; i++) {
-    if (norm(header[i]) === target) return i;
-  }
-  return -1;
-}
-
 function makeNewHeaderLabel(m: Mode, a: string, b: string): string {
   if (m === "missing") return `missing_items_${a}_${b}`;
   if (m === "matches") return `matches_${a}_${b}`;
   return `duplicates_${a}_${b}`;
-}
-
-function kebab(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
 }

@@ -4,19 +4,19 @@ import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Excel: Extract Year from Date (CSV Tool)',
+  title: 'Excel: Extract Year from Date (Excel & CSV Tool)',
   description:
     'Extract the year from a date column in your Excel or CSV file. Ideal for grouping, filtering, or summarizing by year. Preview results, then process the full file.',
   alternates: { canonical: '/excel-extract-year-from-date' },
   openGraph: {
     title: 'Excel: Extract Year from Date',
-    description: 'Pull 4-digit years from a date column in Excel/CSV — with a preview before full processing.',
+    description: 'Pull 4-digit years from a date column in Excel (.xlsx) or CSV — with a preview before full processing.',
     type: 'article',
   },
   twitter: {
     card: 'summary',
     title: 'Excel: Extract Year from Date',
-    description: 'Extract year values from a date column in Excel/CSV quickly and reliably.',
+    description: 'Extract year values from a date column in Excel (.xlsx) or CSV quickly and reliably.',
   },
   robots: { index: true, follow: true },
 }
@@ -42,9 +42,10 @@ export default function Page() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
-            <li>Choose the <strong>Source column</strong> with dates (Excel or text-formatted).</li>
+            <li><strong>Upload your Excel file</strong> — .xlsx, .xls, or .csv.</li>
+            <li>Pick the <strong>Source column</strong> with dates (Excel or text-formatted).</li>
             <li>Set <strong>Target</strong> to “year”.</li>
-            <li><strong>Upload CSV</strong> and preview to verify the 4-digit year output.</li>
+            <li><strong>Preview</strong> to verify the 4-digit year output.</li>
             <li><strong>Process full file</strong> to download a copy with a new year column.</li>
           </ol>
         </section>

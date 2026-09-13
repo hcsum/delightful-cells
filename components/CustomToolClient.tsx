@@ -1,20 +1,29 @@
 "use client";
 
-import Papa from "papaparse";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { SVGProps } from "react";
 import { useForm } from "react-hook-form";
 import { processRows } from "@/lib/process";
 import type { ProcessResultItem, ProcessStop } from "@/lib/process";
-import { AI_BATCH_ROWS, MAX_FILE_BYTES, TIER_LIMITS } from "@/lib/limits";
+import { AI_BATCH_ROWS, TIER_LIMITS } from "@/lib/limits";
 import PartialResultDialog from "@/components/PartialResultDialog";
+import FilePicker from "@/components/tools/FilePicker";
+import SheetSelect from "@/components/tools/SheetSelect";
+import ColumnSelect from "@/components/tools/ColumnSelect";
+import {
+  parseToolFile,
+  downloadSheet,
+  findColumnIndex,
+  kindLabel,
+  truncationNote,
+  WorkbookError,
+  type ToolWorkbook,
+} from "@/lib/tools/workbook";
 
 type FormValues = {
   target: string;
   source: string;
 };
-
-type Row = string[];
 
 /**
  * A finished run that has not been downloaded yet, because it came back with
@@ -28,7 +37,8 @@ type PendingRun = {
   stopped?: ProcessStop;
   finalLabel: string;
 };
-const HARD_LIMITS = { maxFileBytes: MAX_FILE_BYTES, previewRows: 3 } as const;
+
+const PREVIEW_ROWS = 3;
 
 // Flow: upload first (no prerequisites), see your columns, pick the source
 // column from a dropdown, say what to extract, preview 3 rows, process.
@@ -49,10 +59,9 @@ export default function CustomToolClient({
   const target = watch("target");
   const source = watch("source");
 
-  const [uploadRows, setUploadRows] = useState<Row[]>([]);
+  const [workbook, setWorkbook] = useState<ToolWorkbook | null>(null);
+  const [sheetIndex, setSheetIndex] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [processError, setProcessError] = useState<string | null>(null);
   const [previewResults, setPreviewResults] = useState<
     { input: string; output: string | null }[]
@@ -70,58 +79,62 @@ export default function CustomToolClient({
   const [retrying, setRetrying] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const headers = uploadRows[0] ?? [];
-  const dataRowCount = Math.max(0, uploadRows.length - 1);
+  const sheet = workbook?.sheets[sheetIndex];
+  const headers = sheet?.headers ?? [];
+  const dataRows = sheet?.rows ?? [];
+  const dataRowCount = dataRows.length;
   const sourceIdx = findColumnIndex(headers, source || "");
   const canProcess =
-    uploadRows.length > 1 &&
-    (target || "").trim() !== "" &&
-    sourceIdx >= 0;
+    dataRowCount > 0 && (target || "").trim() !== "" && sourceIdx >= 0;
+  const outputKind = workbook?.kind ?? "xlsx";
 
-  const handleFile = useCallback(
-    (file: File) => {
-      setUploadError(null);
-      setProcessError(null);
-      setPreviewResults([]);
-      setPreviewInputsSnap([]);
-      setPreviewError(null);
-      setPreviewFailed(false);
-      const nameOK = file.name.toLowerCase().endsWith(".csv");
-      const typeOK = !file.type || file.type.includes("csv");
-      if (!(nameOK || typeOK)) {
-        setUploadError("Please upload a .csv file.");
-        return;
+  const clearResults = useCallback(() => {
+    setProcessError(null);
+    setPreviewResults([]);
+    setPreviewInputsSnap([]);
+    setPreviewError(null);
+    setPreviewFailed(false);
+  }, []);
+
+  // Keep a prefilled source column if the file happens to have it; otherwise
+  // fall back to the first column so the dropdown always holds a valid pick.
+  const ensureValidSource = useCallback(
+    (nextHeaders: string[]) => {
+      if (findColumnIndex(nextHeaders, source || "") < 0) {
+        setValue("source", nextHeaders[0] ?? "");
       }
-      if (file.size > HARD_LIMITS.maxFileBytes) {
-        setUploadError("File too large. Max 20 MB.");
-        return;
-      }
-      setUploadedFileName(file.name);
-      Papa.parse<string[]>(file, {
-        delimiter: ",",
-        skipEmptyLines: true,
-        dynamicTyping: false,
-        complete: (res) => {
-          const raw = (res.data as unknown as string[][]) || [];
-          const sanitized = raw.map((r) => (Array.isArray(r) ? r : []));
-          if (sanitized.length < 2) {
-            setUploadError("That CSV looks empty — no data rows found.");
-            return;
-          }
-          setUploadRows(sanitized);
-          // Keep a prefilled source column if it exists; otherwise default
-          // to the first column so the dropdown always holds a valid pick.
-          const header = sanitized[0] ?? [];
-          if (findColumnIndex(header, source || "") < 0) {
-            setValue("source", header[0] ?? "");
-          }
-        },
-        error: (err) => {
-          setUploadError(`Failed to parse CSV: ${err.message || String(err)}`);
-        },
-      });
     },
     [source, setValue],
+  );
+
+  const handleFile = useCallback(
+    async (file: File) => {
+      setUploadError(null);
+      clearResults();
+      try {
+        const wb = await parseToolFile(file);
+        setWorkbook(wb);
+        setSheetIndex(0);
+        ensureValidSource(wb.sheets[0]?.headers ?? []);
+      } catch (e) {
+        setWorkbook(null);
+        setUploadError(
+          e instanceof WorkbookError
+            ? e.message
+            : `Couldn't read that file: ${String((e as any)?.message || e)}`,
+        );
+      }
+    },
+    [clearResults, ensureValidSource],
+  );
+
+  const onSheetChange = useCallback(
+    (index: number) => {
+      setSheetIndex(index);
+      clearResults();
+      ensureValidSource(workbook?.sheets[index]?.headers ?? []);
+    },
+    [workbook, clearResults, ensureValidSource],
   );
 
   const runPreviewFromUpload = useCallback(() => {
@@ -129,8 +142,9 @@ export default function CustomToolClient({
     setPreviewError(null);
     setPreviewFailed(false);
     if (!canProcess) return;
-    const sample = uploadRows.slice(1, 1 + HARD_LIMITS.previewRows);
-    const inputs = sample.map((r) => (r?.[sourceIdx] ?? "").toString());
+    const inputs = dataRows
+      .slice(0, PREVIEW_ROWS)
+      .map((r) => (r?.[sourceIdx] ?? "").toString());
     setPreviewInputsSnap(inputs);
     if (inputs.length === 0) return;
     setPreviewLoading(true);
@@ -153,34 +167,34 @@ export default function CustomToolClient({
         setPreviewFailed(true);
       })
       .finally(() => setPreviewLoading(false));
-  }, [canProcess, uploadRows, sourceIdx, source, target]);
+  }, [canProcess, dataRows, sourceIdx, source, target]);
 
   const downloadRun = useCallback(
-    (run: PendingRun) => {
+    async (run: PendingRun) => {
+      if (!workbook || !sheet) return;
       // Bounded by the file, NOT by how many rows the AI got to. A run capped
       // by the daily allowance, or cut short by a failure, still has to hand
       // back every original row — dropping them turns a partial extraction into
       // data loss.
-      const outRows: string[][] = [[...headers, run.finalLabel]];
-      for (let i = 1; i < uploadRows.length; i++) {
-        const orig = uploadRows[i] || [];
-        outRows.push([...orig, run.results[i - 1]?.output ?? ""]);
+      const outRows = dataRows.map((r, i) => [
+        ...r,
+        run.results[i]?.output ?? "",
+      ]);
+      try {
+        await downloadSheet(
+          workbook,
+          sheet.name,
+          [...headers, run.finalLabel],
+          outRows,
+          run.finalLabel,
+        );
+      } catch (e) {
+        setProcessError(
+          `Couldn't write the file: ${String((e as any)?.message || e)}`,
+        );
       }
-      const csv = Papa.unparse(outRows);
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const base = (uploadedFileName || "download.csv").replace(/\.csv$/i, "");
-      a.href = url;
-      a.download = `${base}-with-${kebab(run.finalLabel)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 0);
     },
-    [headers, uploadRows, uploadedFileName],
+    [workbook, sheet, dataRows, headers],
   );
 
   const onDownload = useCallback(async () => {
@@ -228,8 +242,8 @@ export default function CustomToolClient({
 
     const desiredLabel = (target || "").trim() || "Extracted";
     const finalLabel = uniquifyHeaderLabel(headers, desiredLabel);
-    const inputs = uploadRows
-      .slice(1, 1 + allowedRows)
+    const inputs = dataRows
+      .slice(0, allowedRows)
       .map((r) => (r?.[sourceIdx] ?? "").toString());
 
     const ac = new AbortController();
@@ -272,9 +286,9 @@ export default function CustomToolClient({
       finalLabel,
     };
     // A clean run downloads without asking. Anything else is the user's call.
-    if (!run.stopped && run.failedIndices.length === 0) downloadRun(run);
+    if (!run.stopped && run.failedIndices.length === 0) void downloadRun(run);
     else setPendingRun(run);
-  }, [canProcess, dataRowCount, headers, uploadRows, sourceIdx, source, target, downloadRun]);
+  }, [canProcess, dataRowCount, headers, dataRows, sourceIdx, source, target, downloadRun]);
 
   const onCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -316,7 +330,7 @@ export default function CustomToolClient({
     };
     if (!next.stopped && next.failedIndices.length === 0) {
       setPendingRun(null);
-      downloadRun(next);
+      void downloadRun(next);
     } else {
       setPendingRun(next);
     }
@@ -324,53 +338,49 @@ export default function CustomToolClient({
 
   const onApplyPartial = useCallback(() => {
     if (!pendingRun) return;
-    downloadRun(pendingRun);
+    void downloadRun(pendingRun);
     setPendingRun(null);
   }, [pendingRun, downloadRun]);
 
   const pill =
     "rounded-full px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  const field =
+    "rounded-full border !border-black/15 bg-white px-4 py-2 text-sm text-black placeholder:text-black/35 focus:!border-black/40 focus:outline-none disabled:opacity-60";
+  const truncated = truncationNote(sheet);
 
   return (
     <div className="space-y-6 mt-4 md:mt-6">
       {/* 1. Upload — no prerequisites */}
       <section className="rounded-[28px] border !border-black/10 bg-[#fffaf0] p-5">
-        <h3 className="text-lg font-extrabold">1. Upload your CSV 📄</h3>
+        <h3 className="text-lg font-extrabold">1. Upload your Excel file 📊</h3>
         <p className="mt-1 text-sm text-black/55">
-          Export your Excel sheet as CSV, then drop it here. Max 20 MB. We don't
-          store your file.
+          Drop in an .xlsx, .xls, or .csv — no need to convert anything first.
+          Max 20 MB. We don&apos;t store your file.
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="sr-only"
-            onClick={(e) => {
-              (e.currentTarget as HTMLInputElement).value = "";
-            }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-            }}
+        <div className="mt-3">
+          <FilePicker
+            onFile={handleFile}
+            info={
+              workbook && sheet
+                ? `${workbook.fileName} · ${dataRowCount.toLocaleString()} rows · ${headers.length} columns`
+                : null
+            }
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className={`${pill} text-black`}
-            style={{
-              border: "3px solid transparent",
-              background:
-                "linear-gradient(#fffaf0,#fffaf0) padding-box, linear-gradient(90deg,#ff0080,#ff8c00,#ffd500,#00c853,#00b0ff,#7c4dff,#ff0080) border-box",
-            }}
-          >
-            Choose a file
-          </button>
-          {uploadedFileName && uploadRows.length > 1 && (
-            <span className="text-sm font-semibold text-black/70">
-              {uploadedFileName} · {dataRowCount} rows · {headers.length} columns
-            </span>
-          )}
         </div>
+        {workbook && workbook.sheets.length > 1 && (
+          <div className="mt-3">
+            <SheetSelect
+              sheetNames={workbook.sheets.map((s) => s.name)}
+              value={sheetIndex}
+              onChange={onSheetChange}
+              className={field}
+              labelClassName="text-sm font-bold"
+            />
+          </div>
+        )}
+        {truncated && (
+          <p className="mt-3 text-xs text-black/45">{truncated}</p>
+        )}
         {uploadError && (
           <p className="mt-3 rounded-2xl bg-[#ffe6ef] px-4 py-2 text-sm font-semibold text-[#b3003c]">
             {uploadError}
@@ -385,30 +395,19 @@ export default function CustomToolClient({
           <label className="text-sm font-bold">Extract</label>
           <input
             {...register("target")}
-            className="rounded-full border !border-black/15 bg-white px-4 py-2 text-sm text-black placeholder:text-black/35 focus:!border-black/40 focus:outline-none"
+            className={field}
             placeholder="e.g. state, SKU, email"
           />
           <label className="text-sm font-bold">from column</label>
-          {uploadRows.length > 1 ? (
-            <select
-              {...register("source")}
-              className="rounded-full border !border-black/15 bg-white px-4 py-2 text-sm text-black focus:!border-black/40 focus:outline-none"
-            >
-              {headers.map((h, i) => (
-                <option key={i} value={h}>
-                  {h || `(column ${i + 1})`}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              {...register("source")}
-              className="rounded-full border !border-black/15 bg-white px-4 py-2 text-sm text-black placeholder:text-black/35 focus:!border-black/40 focus:outline-none"
-              placeholder="upload a file to pick a column"
-            />
-          )}
+          <ColumnSelect
+            headers={headers}
+            value={source || ""}
+            onChange={(v) => setValue("source", v)}
+            className={field}
+            emptyLabel="upload a file to pick a column"
+          />
         </div>
-        {uploadRows.length <= 1 && (
+        {headers.length === 0 && (
           <p className="mt-2 text-xs text-black/45">
             Upload a file above and this becomes a dropdown of your actual columns.
           </p>
@@ -433,7 +432,11 @@ export default function CustomToolClient({
             disabled={downloading || !canProcess}
           >
             {downloading ? <SpinnerIcon className="h-4 w-4" /> : null}
-            <span>{downloading ? "Processing…" : "Process & download CSV"}</span>
+            <span>
+              {downloading
+                ? "Processing…"
+                : `Process & download ${kindLabel(outputKind)}`}
+            </span>
           </button>
           {downloading && (
             <button
@@ -445,8 +448,8 @@ export default function CustomToolClient({
           )}
           {!canProcess && (
             <span className="text-xs text-black/45">
-              {uploadRows.length <= 1
-                ? "Upload a CSV to get started."
+              {dataRowCount === 0
+                ? "Upload an Excel file or CSV to get started."
                 : !(target || "").trim()
                   ? "Tell the AI what to extract."
                   : "Pick a source column."}
@@ -519,10 +522,11 @@ export default function CustomToolClient({
           <p className="mt-3 text-sm font-semibold text-[#b3003c]">{processError}</p>
         )}
         <p className="mt-3 text-xs text-black/45">
-          The download includes all original columns plus the new extracted
-          column. Without signing in: {TIER_LIMITS.anon.rowsPerDay} rows a day,{" "}
-          signed in: {TIER_LIMITS.free.rowsPerDay.toLocaleString()} a day.
-          Credits remove the daily cap.
+          The download keeps every original column and adds the new extracted one,
+          in the same format you uploaded. Without signing in:{" "}
+          {TIER_LIMITS.anon.rowsPerDay} rows a day, signed in:{" "}
+          {TIER_LIMITS.free.rowsPerDay.toLocaleString()} a day. Credits remove the
+          daily cap.
         </p>
       </section>
       <PartialResultDialog
@@ -539,17 +543,6 @@ export default function CustomToolClient({
       />
     </div>
   );
-}
-
-// Helper: case-insensitive exact header match
-function findColumnIndex(header: string[], name: string): number {
-  if (!name) return -1;
-  const norm = (s: string) => s?.toString().trim().toLowerCase();
-  const target = norm(name);
-  for (let i = 0; i < header.length; i++) {
-    if (norm(header[i]) === target) return i;
-  }
-  return -1;
 }
 
 function SpinnerIcon(props: SVGProps<SVGSVGElement>) {
@@ -599,12 +592,4 @@ function uniquifyHeaderLabel(header: string[], desired: string): string {
     return `${desired} (Extracted ${i})`;
   }
   return desired;
-}
-
-function kebab(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
 }

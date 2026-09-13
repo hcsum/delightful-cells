@@ -4,8 +4,8 @@ import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Extract City from Address in Excel (CSV Upload Tool)',
-  description: 'Upload a CSV file and automatically extract city names from address columns using AI.',
+  title: 'Extract City from Address in Excel (Excel & CSV Tool)',
+  description: 'Upload an Excel file or CSV and automatically extract city names from address columns using AI.',
 };
 
 export default function Page() {
@@ -25,9 +25,10 @@ export default function Page() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
+            <li><strong>Upload your Excel file</strong> — .xlsx, .xls, or .csv.</li>
             <li>Pick the <strong>Source column</strong> that contains full mailing addresses.</li>
             <li>Set the <strong>Target</strong> to “city name”.</li>
-            <li><strong>Upload CSV</strong> and preview a few rows to verify the city output.</li>
+            <li><strong>Preview</strong> a few rows to verify the city output.</li>
             <li><strong>Process full file</strong> to download your results with a new city column.</li>
           </ol>
         </section>

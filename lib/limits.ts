@@ -95,3 +95,12 @@ export const MAX_FILE_BYTES = 20 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 10_000;
 // exceljs builds a styled object per cell; past this a highlighted export OOMs.
 export const MAX_STYLED_EXPORT_ROWS = 20_000;
+
+// The single-use tools get their own, much larger budget. They render no grid —
+// the file goes in, one column is appended, the file comes back out — so the
+// only thing bounding them is browser memory, and MAX_FILE_BYTES already does
+// that. This is deliberately high rather than absent so a pathological file
+// still fails loudly instead of hanging the tab. It is NOT an AI allowance:
+// how many rows the model actually processes is decided per tier, server-side.
+export const MAX_TOOL_IMPORT_ROWS = 100_000;
+export const MAX_TOOL_COLS = 1_000;

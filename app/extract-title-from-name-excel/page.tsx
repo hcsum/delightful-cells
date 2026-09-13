@@ -4,8 +4,8 @@ import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Extract Title from Name (Excel CSV Upload Tool)',
-  description: 'Upload a CSV and extract titles (Mr, Ms, Dr, etc.) from a name column.',
+  title: 'Extract Title from Name (Excel & CSV Tool)',
+  description: 'Upload an Excel file (.xlsx) or CSV and extract titles (Mr, Ms, Dr, etc.) from a name column.',
 };
 
 export default function Page() {
@@ -27,9 +27,10 @@ export default function Page() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
-            <li>Select the <strong>Source column</strong> with full names (e.g., “name”).</li>
+            <li><strong>Upload your Excel file</strong> — .xlsx, .xls, or .csv.</li>
+            <li>Pick the <strong>Source column</strong> with full names (e.g., “name”).</li>
             <li>Set <strong>Target</strong> to “title”.</li>
-            <li><strong>Upload CSV</strong> and preview to validate titles (Mr, Ms, Mrs, Dr, Prof, etc.).</li>
+            <li><strong>Preview</strong> to validate titles (Mr, Ms, Mrs, Dr, Prof, etc.).</li>
             <li><strong>Process full file</strong> to download a file with a new title column.</li>
           </ol>
         </section>

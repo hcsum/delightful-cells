@@ -4,8 +4,8 @@ import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Extract Last Name from Full Name (Excel CSV Upload Tool)',
-  description: 'Upload a CSV and extract last names from a full name column.',
+  title: 'Extract Last Name from Full Name (Excel & CSV Tool)',
+  description: 'Upload an Excel file (.xlsx) or CSV and extract last names from a full name column.',
 };
 
 export default function Page() {
@@ -27,9 +27,10 @@ export default function Page() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
-            <li>Select the <strong>Source column</strong> that contains full names.</li>
+            <li><strong>Upload your Excel file</strong> — .xlsx, .xls, or .csv.</li>
+            <li>Pick the <strong>Source column</strong> that contains full names.</li>
             <li>Set <strong>Target</strong> to “last name”.</li>
-            <li><strong>Upload CSV</strong> and preview a few rows (supports middle names and multi-word surnames).</li>
+            <li><strong>Preview</strong> a few rows (supports middle names and multi-word surnames).</li>
             <li><strong>Process full file</strong> to download a copy with a new last-name column.</li>
           </ol>
         </section>

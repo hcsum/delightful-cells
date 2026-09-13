@@ -2,20 +2,20 @@ import DuplicateFinderClient from "@/components/DuplicateFinderClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Find Duplicates in Excel (CSV Tool)",
+  title: "Find Duplicates in Excel (Excel & CSV Tool)",
   description:
-    "Upload a CSV and flag duplicate values within a single column. Supports up to 20 MB and 5,000 rows.",
+    "Upload an Excel file (.xlsx) or CSV and flag duplicate values within a single column. Supports files up to 20 MB.",
   alternates: { canonical: "/find-duplicates-in-excel" },
   openGraph: {
     title: "Find Duplicates in Excel",
     description:
-      "Detect duplicate values in a chosen column of your CSV/Excel file.",
+      "Detect duplicate values in a chosen column of your Excel or CSV file.",
     type: "article",
   },
   twitter: {
     card: "summary",
     title: "Find Duplicates in Excel",
-    description: "Flag duplicate values within one column of a CSV/Excel file.",
+    description: "Flag duplicate values within one column of an Excel or CSV file.",
   },
   robots: { index: true, follow: true },
 };
@@ -26,7 +26,7 @@ export default function Page() {
       <h1 className="text-2xl font-semibold">Find Duplicates in Excel</h1>
       <p className="text-white/80 max-w-2xl text-muted">
         Choose a column and flag duplicate values within that column. By default
-        comparisons are case-insensitive. Upload a CSV and download the result
+        comparisons are case-insensitive. Upload an Excel file and download the result
         with one extra column.
       </p>
       <DuplicateFinderClient />
@@ -39,8 +39,13 @@ export default function Page() {
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
             <li>
-              <strong>Enter the column name:</strong> Type the header of the
-              column you want to check for duplicates.
+              <strong>Upload your file:</strong> Select an .xlsx, .xls, or .csv
+              file — no need to convert it first. If the workbook has several
+              sheets, pick the one you want.
+            </li>
+            <li>
+              <strong>Pick the column:</strong> Choose it from the dropdown of
+              your file&apos;s own headers — nothing to type.
             </li>
             <li>
               <strong>Choose case sensitivity (optional):</strong> Leave off to
@@ -48,12 +53,8 @@ export default function Page() {
               case-sensitive.
             </li>
             <li>
-              <strong>Upload CSV:</strong> Select the CSV file so the tool can
-              read your headers and data.
-            </li>
-            <li>
-              <strong>Process and download:</strong> Click Process CSV to
-              download a copy with a new duplicates column appended.
+              <strong>Process and download:</strong> You get a copy in the same
+              format you uploaded, with a new duplicates column appended.
             </li>
           </ol>
         </section>

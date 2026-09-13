@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Extract Text from Cell (Excel CSV Extraction Tool)",
+  title: "Extract Text from Cell (Excel & CSV Tool)",
   description:
     "Describe what to extract and select the source column. Preview a few sample rows to check the result, or process the full file right away.",
 };
@@ -35,8 +35,8 @@ export default function Page() {
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
             <li>
-              <strong>Upload CSV:</strong> Select the CSV file so the tool can
-              read your headers and data.
+              <strong>Upload your Excel file:</strong> Select an .xlsx, .xls,
+              or .csv file so the tool can read your headers and data.
             </li>
             <li>
               <strong>Define the Target:</strong> Describe what do you want to
@@ -44,8 +44,8 @@ export default function Page() {
               "Model").
             </li>
             <li>
-              <strong>Choose the Source column:</strong> Type the column that
-              contains the text you want to extract from.
+              <strong>Pick the Source column:</strong> Choose it from the
+              dropdown of your file&apos;s own headers.
             </li>
             <li>
               <strong>Preview sample rows:</strong> Run a short preview to check
@@ -54,15 +54,8 @@ export default function Page() {
             </li>
             <li>
               <strong>Process full file and download results:</strong> When you
-              are happy with the preview, process the full CSV and download the
-              result.
-            </li>
-            <li>
-              <strong>
-                Export the CSV back to Excel or copy the extracted column into
-                your original file
-              </strong>
-              , your choice.
+              are happy with the preview, process the full file and download the
+              result — in the same format you uploaded.
             </li>
           </ol>
         </section>

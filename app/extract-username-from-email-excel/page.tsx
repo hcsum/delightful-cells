@@ -4,8 +4,8 @@ import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Extract Username from Email (Excel CSV Upload Tool)',
-  description: 'Upload a CSV and extract the username (local-part) from an email column.',
+  title: 'Extract Username from Email (Excel & CSV Tool)',
+  description: 'Upload an Excel file (.xlsx) or CSV and extract the username (local-part) from an email column.',
 };
 
 export default function Page() {
@@ -27,9 +27,10 @@ export default function Page() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
-            <li>Choose the <strong>Source column</strong> with email addresses.</li>
+            <li><strong>Upload your Excel file</strong> — .xlsx, .xls, or .csv.</li>
+            <li>Pick the <strong>Source column</strong> with email addresses.</li>
             <li>Set <strong>Target</strong> to “username (local-part before @)”.</li>
-            <li><strong>Upload CSV</strong> and preview; plus-addressing remains in the username.</li>
+            <li><strong>Preview</strong>; plus-addressing remains in the username.</li>
             <li><strong>Process full file</strong> and download with a new username column.</li>
           </ol>
         </section>

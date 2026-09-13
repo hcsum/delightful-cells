@@ -39,10 +39,18 @@ function columnLetter(index: number): string {
   return label;
 }
 
-export async function parseWorkbookFile(file: File): Promise<ParsedWorkbook> {
+// `maxRows` (whole-workbook budget) and `maxCols` default to the Cells
+// playground's caps, which exist to keep the on-screen grid finite. The
+// single-use tools pass their own: their CSV path never had either cap, and
+// silently dropping someone's 20k-th row or 61st column is data loss, not a
+// rendering concern.
+export async function parseWorkbookFile(
+  file: File,
+  opts?: { maxRows?: number; maxCols?: number },
+): Promise<ParsedWorkbook> {
   if (file.size > MAX_FILE_BYTES) {
     throw new WorkbookError(
-      `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — the playground caps out at ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB. Try a smaller sheet!`,
+      `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB — we cap out at ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB. Try a smaller sheet!`,
     );
   }
   const XLSX = await import("xlsx");
@@ -55,11 +63,12 @@ export async function parseWorkbookFile(file: File): Promise<ParsedWorkbook> {
     );
   }
 
+  const maxCols = opts?.maxCols ?? MAX_COLS;
   const sheets: ParsedSheet[] = [];
   // One row budget shared by every sheet. Sheets are filled in workbook order
   // and later ones get whatever is left, so a file cannot multiply the cap by
   // its sheet count.
-  let rowBudget = MAX_IMPORT_ROWS;
+  let rowBudget = opts?.maxRows ?? MAX_IMPORT_ROWS;
   for (const name of wb.SheetNames) {
     const ws = wb.Sheets[name];
     if (!ws) continue;
@@ -74,8 +83,8 @@ export async function parseWorkbookFile(file: File): Promise<ParsedWorkbook> {
 
     const width = Math.max(...aoa.map((r) => r.length));
     if (width === 0) continue;
-    const truncatedCols = width > MAX_COLS;
-    const cols = Math.min(width, MAX_COLS);
+    const truncatedCols = width > maxCols;
+    const cols = Math.min(width, maxCols);
 
     const headerRow = aoa[0].map((c) => String(c ?? "").trim());
     const headers = Array.from({ length: cols }, (_, i) =>

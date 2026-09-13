@@ -4,21 +4,21 @@ import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Excel: Extract Number from String (CSV Tool)',
+  title: 'Excel: Extract Number from String (Excel & CSV Tool)',
   description:
-    'Extract numbers from text strings in an Excel or CSV column. Perfect for pulling prices, IDs, SKUs, and other digits from messy cells. Preview results, then process the full file.',
+    'Extract numbers from text strings in an Excel (.xlsx) or CSV column. Perfect for pulling prices, IDs, SKUs, and other digits from messy cells. Preview results, then process the full file.',
   alternates: { canonical: '/excel-extract-number-from-string' },
   openGraph: {
     title: 'Excel: Extract Number from String',
     description:
-      'Pull numeric values from a text column in Excel/CSV — prices, IDs, SKUs, and more — with a preview before full processing.',
+      'Pull numeric values from a text column in Excel (.xlsx) or CSV — prices, IDs, SKUs, and more — with a preview before full processing.',
     type: 'article',
   },
   twitter: {
     card: 'summary',
     title: 'Excel: Extract Number from String',
     description:
-      'Extract digits from a text column in Excel/CSV — prices, IDs, SKUs, and more — fast and reliably.',
+      'Extract digits from a text column in Excel (.xlsx) or CSV — prices, IDs, SKUs, and more — fast and reliably.',
   },
   robots: { index: true, follow: true },
 }
@@ -45,13 +45,16 @@ export default function Page() {
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
             <li>
-              Select the <strong>Source column</strong> that holds mixed text (e.g., descriptions or notes).
+              <strong>Upload your Excel file</strong> — .xlsx, .xls, or .csv.
+            </li>
+            <li>
+              Pick the <strong>Source column</strong> that holds mixed text (e.g., descriptions or notes).
             </li>
             <li>
               Keep the <strong>Target</strong> as “all numeric values” to pull integers and decimals.
             </li>
             <li>
-              <strong>Upload CSV</strong> and preview a few rows; adjust if needed.
+              <strong>Preview</strong> a few rows; adjust the description if needed.
             </li>
             <li>
               <strong>Process full file</strong> and download a copy with a new numbers column.

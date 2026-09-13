@@ -26,9 +26,9 @@ export default function TermsPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">1. Description of the Service</h2>
         <p>
-          The Service allows users to upload CSV files (typically exported from Excel) or paste sample rows, select one
+          The Service allows users to upload Excel (.xlsx, .xls) or CSV files, or paste sample rows, select one
           or more columns, and use artificial intelligence models to extract structured information (for example, states
-          from addresses or numbers from text). The Service may return a preview and/or a downloadable CSV file with
+          from addresses or numbers from text). The Service may return a preview and/or a downloadable Excel or CSV file with
           additional extracted columns.
         </p>
         <p>The Service is provided on an "as-is" and "as-available" basis and may change over time.</p>
@@ -38,7 +38,7 @@ export default function TermsPage() {
         <h2 className="text-lg font-semibold">2. Data Handling and Privacy</h2>
         <h3 className="font-medium">2.1 No Data Storage</h3>
         <p>
-          We do not store the files or data you upload. Uploaded CSV data and pasted text are processed in memory only
+          We do not store the files or data you upload. Uploaded spreadsheet data and pasted text are processed in memory only
           for the purpose of performing the requested extraction. Once processing is completed or the request ends, the
           data is automatically discarded.
         </p>

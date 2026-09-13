@@ -4,8 +4,8 @@ import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Extract Numbers from Text in Excel (CSV Upload Tool)',
-  description: 'Upload a CSV file and automatically extract numbers from text columns using AI.',
+  title: 'Extract Numbers from Text in Excel (Excel & CSV Tool)',
+  description: 'Upload an Excel file or CSV and automatically extract numbers from text columns using AI.',
 };
 
 export default function Page() {

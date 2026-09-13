@@ -4,8 +4,8 @@ import QuotaBanner from '@/components/QuotaBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Extract State from Address in Excel (CSV Upload Tool)',
-  description: 'Upload a CSV file and automatically extract US states from address columns using AI.',
+  title: 'Extract State from Address in Excel (Excel & CSV Tool)',
+  description: 'Upload an Excel file or CSV and automatically extract US states from address columns using AI.',
 };
 
 export default function Page() {
@@ -27,9 +27,10 @@ export default function Page() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">How to Use This Tool</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
+            <li><strong>Upload your Excel file</strong> — .xlsx, .xls, or .csv.</li>
             <li>Pick the <strong>Source column</strong> with full postal addresses.</li>
             <li>Set <strong>Target</strong> to “US state as a two-letter abbreviation”.</li>
-            <li><strong>Upload CSV</strong> and preview to verify state extraction.</li>
+            <li><strong>Preview</strong> to verify state extraction.</li>
             <li><strong>Process full file</strong> and download with a new state column.</li>
           </ol>
         </section>
