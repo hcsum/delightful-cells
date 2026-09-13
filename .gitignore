@@ -1,5 +1,7 @@
 node_modules
 .env*
+# The one env file with no secrets in it: names every variable the app reads.
+!.env.example
 .next
 .open-next
 .vercel
