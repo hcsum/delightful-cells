@@ -48,7 +48,7 @@ function AccountBody({
   ledger?: LedgerEntry[];
   purchases?: PurchaseRow[];
 }) {
-  const [locale, setLocale] = useStoredLocale(initialLocale);
+  const [locale] = useStoredLocale(initialLocale);
   const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const { signInWithGoogle, signOut } = useAuth();
   const justPaid = useSearchParams().get("purchase") === "success";
@@ -88,13 +88,7 @@ function AccountBody({
           <h1 className="text-3xl font-extrabold">{tr("accountTitle")}</h1>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
-              className="rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
-            >
-              {locale === "zh" ? "EN" : "中文"}
-            </button>
-            <button
-              onClick={() => void signOut()}
+              onClick={() => void signOut(localizePath("/", locale))}
               className="rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
             >
               {tr("signOut")}

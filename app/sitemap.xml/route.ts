@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { USE_CASES, STATIC_ROUTES } from '@/lib/routes'
+import { USE_CASES, STATIC_ROUTES, EN_ONLY_ROUTES } from '@/lib/routes'
 import { SUPPORTED_LOCALES, localizePath } from '@/lib/locale-routing'
+import { SITE_URL } from '@/lib/site'
 
 type RouteEntry = { path: string; priority: string; changefreq: string }
 
@@ -11,7 +12,7 @@ function prioritize(path: string): RouteEntry {
 }
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://delightfulcells.com')
+  const baseUrl = SITE_URL
   // Registry-driven list
   const paths: string[] = Array.from(new Set<string>([
     ...STATIC_ROUTES,
@@ -31,14 +32,17 @@ export async function GET() {
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${routes
-  .flatMap((route) =>
-    SUPPORTED_LOCALES.map((locale) => {
+  .flatMap((route) => {
+    const locales = EN_ONLY_ROUTES.has(route.path) ? (['en'] as const) : SUPPORTED_LOCALES
+    return locales.map((locale) => {
       const path = localizePath(route.path, locale)
-      const alternates = SUPPORTED_LOCALES.map((alternateLocale) => {
-        const href = `${baseUrl}${localizePath(route.path, alternateLocale)}`
-        const hreflang = alternateLocale === 'zh' ? 'zh-CN' : 'en'
-        return `    <xhtml:link rel="alternate" hreflang="${hreflang}" href="${href}" />`
-      }).join('\n')
+      const alternates = locales
+        .map((alternateLocale) => {
+          const href = `${baseUrl}${localizePath(route.path, alternateLocale)}`
+          const hreflang = alternateLocale === 'zh' ? 'zh-CN' : 'en'
+          return `    <xhtml:link rel="alternate" hreflang="${hreflang}" href="${href}" />`
+        })
+        .join('\n')
       return `  <url>
     <loc>${baseUrl}${path}</loc>
 ${alternates}
@@ -48,7 +52,7 @@ ${alternates}
     <priority>${route.priority}</priority>
   </url>`
     })
-  )
+  })
   .join('\n')}
 </urlset>`
 

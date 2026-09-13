@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { getUserIdFromRequest } from "@/lib/auth/session";
 import { getBalanceNeurons, listLedger, type LedgerEntry } from "@/lib/billing/credits";
 import { getDb } from "@/lib/billing/db";
 import AccountClient, { type PurchaseRow } from "@/components/billing/AccountClient";
-import { DEFAULT_LOCALE, isAppLocale } from "@/lib/locale-routing";
+import { serverLocale } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Account — Delightful Cells",
-  robots: { index: false, follow: false },
-};
+// Signed-in only, so there is nothing here to index in either language.
+export function generateMetadata(): Metadata {
+  return {
+    title: serverLocale() === "zh" ? "我的账户 —— Delightful Cells" : "Account — Delightful Cells",
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function AccountPage() {
-  const localeHeader = headers().get("x-locale");
-  const locale = isAppLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
+  const locale = serverLocale();
   const userId = await getUserIdFromRequest();
   if (!userId) return <AccountClient signedIn={false} initialLocale={locale} />;
 

@@ -3,7 +3,7 @@
 // Client-side locale context. CellsApp provides it; every cells component
 // reads it through useT(). Server components use t() from i18n.ts directly.
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { t, type Locale } from "./i18n";
 import {
@@ -21,9 +21,14 @@ export function useLocale(): Locale {
   return useContext(LocaleContext);
 }
 
+// Stable per locale: the tool clients hold this inside useCallback deps, and a
+// fresh function every render would rebuild every one of those callbacks.
 export function useT() {
   const locale = useContext(LocaleContext);
-  return (key: string, vars?: Record<string, string | number>) => t(locale, key, vars);
+  return useCallback(
+    (key: string, vars?: Record<string, string | number>) => t(locale, key, vars),
+    [locale],
+  );
 }
 
 // Same rule CellsApp uses: a saved choice wins, otherwise follow the browser.

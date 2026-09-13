@@ -6,8 +6,8 @@ import {
   localeFromPathname,
   stripLocalePrefix,
 } from "@/lib/locale-routing";
+import { PRIMARY_HOST } from "@/lib/site";
 
-const PRIMARY_HOST = "delightfulcells.com";
 const REDIRECT_HOSTS = new Set([
   "www.delightfulcells.com",
   "extractfromexcel.com",

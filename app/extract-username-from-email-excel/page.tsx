@@ -1,79 +1,76 @@
-import CustomToolClient from '@/components/CustomToolClient'
-import RowsLimitNote from '@/components/RowsLimitNote'
-import QuotaBanner from '@/components/QuotaBanner'
-import type { Metadata } from 'next'
+import CustomToolClient from "@/components/CustomToolClient";
+import ToolLanding from "@/components/ToolLanding";
+import type { LandingEntry } from "@/lib/landing-copy";
+import { localizedMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: 'Extract Username from Email (Excel & CSV Tool)',
-  description: 'Upload an Excel file (.xlsx) or CSV and extract the username (local-part) from an email column.',
+const PATH = "/extract-username-from-email-excel";
+
+const COPY: LandingEntry = {
+  en: {
+    title: "Extract Username from Email (Excel & CSV Tool)",
+    description:
+      "Upload an Excel file (.xlsx) or CSV and extract the username (local-part) from an email column.",
+    h1: "Extract Username from Email",
+    intro:
+      "Extract the username (local-part before @) of email addresses from a column in your Excel file. Preview a few sample rows to check the result, or process the full file right away.",
+    steps: [
+      "**Upload your Excel file** — .xlsx, .xls, or .csv.",
+      "Pick the **Source column** with email addresses.",
+      "Set **Target** to “username (local-part before @)”.",
+      "**Preview**; plus-addressing remains in the username.",
+      "**Process full file** and download with a new username column.",
+    ],
+  },
+  zh: {
+    title: "Excel 从邮箱提取用户名（Excel 和 CSV 工具）",
+    description:
+      "上传 Excel（.xlsx）或 CSV 文件，从邮箱列里提取 @ 之前的用户名部分，预览确认后一次处理整份文件。",
+    h1: "从邮箱地址提取用户名",
+    intro:
+      "从 Excel 文件的邮箱列里提取 @ 之前的用户名部分。可以先预览几行确认效果，也可以直接处理整个文件。",
+    steps: [
+      "**上传 Excel 文件** —— 支持 .xlsx、.xls、.csv。",
+      "选择包含邮箱地址的**来源列**。",
+      "把**目标**设为「username (local-part before @)」（@ 之前的用户名）。",
+      "**预览**几行；带 + 号的部分会保留在用户名里。",
+      "**处理整个文件**，下载带有用户名新列的副本。",
+    ],
+  },
 };
+
+export function generateMetadata() {
+  return localizedMetadata(PATH, COPY);
+}
 
 export default function Page() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Extract Username from Email</h1>
-      <p className="text-white/80 max-w-2xl text-muted">Extract the username (local-part before @) of email addresses from a column in your Excel file. Preview a few sample rows to check the result, or process the full file right away.</p>
-      <div className="space-y-1">
-        <div className="flex items-center gap-3">
-          <QuotaBanner />
-        </div>
-      <RowsLimitNote />
-      </div>
-      <CustomToolClient initialTarget="username (local-part before @)" initialSource="email address" />
-
-      {/* How to Use + Examples */}
-      <div className="space-y-8 pt-12">
-        <hr />
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">How to Use This Tool</h2>
-          <ol className="list-decimal pl-6 space-y-2 text-white/80">
-            <li><strong>Upload your Excel file</strong> — .xlsx, .xls, or .csv.</li>
-            <li>Pick the <strong>Source column</strong> with email addresses.</li>
-            <li>Set <strong>Target</strong> to “username (local-part before @)”.</li>
-            <li><strong>Preview</strong>; plus-addressing remains in the username.</li>
-            <li><strong>Process full file</strong> and download with a new username column.</li>
-          </ol>
-        </section>
-
-        {/* Examples */}
-        <h2 className="text-xl font-semibold">Examples</h2>
-      </div>
-      <section className="space-y-12">
-        <article className="space-y-3">
-          <h3 className="text-lg font-medium">Example — Extract username from email</h3>
-          <ul className="text-white/80 text-sm space-y-1">
-            <li><strong>Target:</strong> username (local-part before @)</li>
-            <li><strong>Source:</strong> email address</li>
-          </ul>
-          <div className="space-y-2">
-            <div>Expected output:</div>
-            <div className="overflow-auto">
-              <table className="mt-1 w-full text-sm border-collapse">
-                <thead>
-                  <tr className="text-left">
-                    <th className="border-b border-white/10 py-1 pr-4">email address</th>
-                    <th className="border-b border-white/10 py-1">username</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="align-top pr-4 py-1">alice@example.com</td>
-                    <td className="align-top py-1">alice</td>
-                  </tr>
-                  <tr>
-                    <td className="align-top pr-4 py-1">bob@company.co.uk</td>
-                    <td className="align-top py-1">bob</td>
-                  </tr>
-                  <tr>
-                    <td className="align-top pr-4 py-1">carol+sales@my-site.io</td>
-                    <td className="align-top py-1">carol+sales</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </article>
-      </section>
-    </div>
-  )
+    <ToolLanding
+      copy={COPY}
+      tool={
+        <CustomToolClient
+          initialTarget="username (local-part before @)"
+          initialSource="email address"
+        />
+      }
+      examples={[
+        {
+          heading: {
+            en: "Example — Extract username from email",
+            zh: "示例 —— 从邮箱提取用户名",
+          },
+          target: {
+            en: "username (local-part before @)",
+            zh: "用户名（@ 之前的部分）",
+          },
+          source: { en: "email address", zh: "email address（邮箱地址）" },
+          columns: ["email address", "username"],
+          rows: [
+            ["alice@example.com", "alice"],
+            ["bob@company.co.uk", "bob"],
+            ["carol+sales@my-site.io", "carol+sales"],
+          ],
+        },
+      ]}
+    />
+  );
 }

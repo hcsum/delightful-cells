@@ -23,6 +23,10 @@ export function useCaseTitle(useCase: UseCase, locale: AppLocale) {
   return locale === 'zh' ? useCase.titleZh : useCase.title
 }
 
+// Pages that exist only in English. Claiming a zh-CN alternate for a page whose
+// body never got translated is a hreflang that does not match what is served.
+export const EN_ONLY_ROUTES: ReadonlySet<string> = new Set(['/terms'])
+
 // Additional static pages to include in the sitemap
 export const STATIC_ROUTES: Route[] = [
   '/',

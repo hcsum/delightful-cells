@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/cells/locale";
+
 /**
  * Column picker fed by the uploaded file's own headers. Before a file is
  * uploaded there is nothing true to offer, so it renders a disabled select
@@ -10,7 +12,7 @@ export default function ColumnSelect({
   value,
   onChange,
   className = "",
-  emptyLabel = "upload a file first",
+  emptyLabel,
   id,
 }: {
   headers: string[];
@@ -20,10 +22,11 @@ export default function ColumnSelect({
   emptyLabel?: string;
   id?: string;
 }) {
+  const t = useT();
   if (!headers.length) {
     return (
       <select id={id} className={className} disabled>
-        <option>{emptyLabel}</option>
+        <option>{emptyLabel ?? t("ctPickColumnEmpty")}</option>
       </select>
     );
   }
@@ -36,7 +39,7 @@ export default function ColumnSelect({
     >
       {headers.map((h, i) => (
         <option key={i} value={h}>
-          {h || `(column ${i + 1})`}
+          {h || t("ctColumnFallback", { n: i + 1 })}
         </option>
       ))}
     </select>

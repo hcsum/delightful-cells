@@ -1,16 +1,28 @@
-import type { Metadata } from "next";
-import { headers } from "next/headers";
 import PricingClient from "@/components/billing/PricingClient";
-import { DEFAULT_LOCALE, isAppLocale } from "@/lib/locale-routing";
+import { localizedMetadata, serverLocale } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Credits — Delightful Cells",
-  description:
-    "Buy credits for Delightful Cells. One-time payment, never expires, roughly one credit per chat turn.",
+const PATH = "/pricing";
+
+const COPY = {
+  en: {
+    title: "Credits — Delightful Cells",
+    description:
+      "Buy credits for Delightful Cells. One-time payment, never expires, roughly one credit per chat turn.",
+  },
+  zh: {
+    title: "点数 —— Delightful Cells",
+    description:
+      "购买 Delightful Cells 的点数。一次性付款，永不过期，1 点大约够一轮对话。",
+  },
 };
 
+export function generateMetadata() {
+  const c = COPY[serverLocale()];
+  return localizedMetadata(PATH, COPY, {
+    openGraph: { title: c.title, description: c.description, type: "website" },
+  });
+}
+
 export default function PricingPage() {
-  const localeHeader = headers().get("x-locale");
-  const locale = isAppLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
-  return <PricingClient initialLocale={locale} />;
+  return <PricingClient initialLocale={serverLocale()} />;
 }

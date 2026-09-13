@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useId, useRef, useState } from "react";
+import { useT } from "@/lib/cells/locale";
 
 /**
  * The upload control every single-use tool shares: a real button, drag & drop,
@@ -13,7 +14,7 @@ import { useCallback, useId, useRef, useState } from "react";
 export default function FilePicker({
   onFile,
   tone = "light",
-  label = "Choose a file",
+  label,
   hint,
   info,
 }: {
@@ -23,6 +24,7 @@ export default function FilePicker({
   hint?: string;
   info?: string | null;
 }) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
   const inputId = useId();
@@ -82,7 +84,7 @@ export default function FilePicker({
               : undefined
           }
         >
-          {label}
+          {label ?? t("chooseFile")}
         </button>
         {info && (
           <span

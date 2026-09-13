@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import FilePicker from "@/components/tools/FilePicker";
 import SheetSelect from "@/components/tools/SheetSelect";
 import ColumnSelect from "@/components/tools/ColumnSelect";
+import { useT } from "@/lib/cells/locale";
 import {
   parseToolFile,
   downloadSheet,
@@ -18,6 +19,7 @@ import {
 // column name before the file is uploaded means guessing at a header we are
 // about to read anyway.
 export default function DuplicateFinderClient() {
+  const t = useT();
   const [columnName, setColumnName] = useState("");
   // Align with compare-two-columns UI: expose a "Case sensitive" toggle (default off)
   const [caseSensitive, setCaseSensitive] = useState(false);
@@ -93,10 +95,10 @@ export default function DuplicateFinderClient() {
       );
     } catch (e) {
       setDownloadError(
-        `Couldn't write the file: ${String((e as any)?.message || e)}`,
+        t("ctWriteFailed", { msg: String((e as any)?.message || e) }),
       );
     }
-  }, [canProcess, workbook, sheet, rows, headers, idx, columnName, caseSensitive]);
+  }, [canProcess, workbook, sheet, rows, headers, idx, columnName, caseSensitive, t]);
 
   const field =
     "bg-transparent border border-white/10 rounded px-3 py-2 text-base md:text-lg disabled:opacity-60";
@@ -106,18 +108,22 @@ export default function DuplicateFinderClient() {
     <div className="space-y-6">
       {/* Upload first */}
       <section className="space-y-2 mt-4 md:mt-6">
-        <h3 className="text-lg font-semibold">Upload your Excel file</h3>
+        <h3 className="text-lg font-semibold">{t("ctUploadTitle")}</h3>
         <div className="text-sm text-white/90 space-y-1">
-          <div>Drop in an .xlsx, .xls, or .csv — no converting needed.</div>
-          <div>All processing happens in your browser. No data is sent to a server.</div>
+          <div>{t("ctUploadDropLine")}</div>
+          <div>{t("ctUploadLocalLine")}</div>
         </div>
         <FilePicker
           tone="dark"
           onFile={handleFile}
-          hint="Excel or CSV. Max 20 MB."
+          hint={t("ctUploadHint")}
           info={
             workbook && sheet
-              ? `${workbook.fileName} · ${rows.length.toLocaleString()} rows · ${headers.length} columns`
+              ? t("ctFileInfo", {
+                  name: workbook.fileName,
+                  rows: rows.length.toLocaleString(),
+                  cols: headers.length,
+                })
               : null
           }
         />
@@ -141,15 +147,13 @@ export default function DuplicateFinderClient() {
       {/* Then pick the column */}
       <section className="space-y-2 pt-2">
         <div className="flex flex-wrap gap-3 md:gap-4 items-center">
-          <label className="text-base md:text-lg font-medium">
-            Find duplicates in
-          </label>
+          <label className="text-base md:text-lg font-medium">{t("dfFindIn")}</label>
           <ColumnSelect
             headers={headers}
             value={columnName}
             onChange={setColumnName}
             className={field}
-            emptyLabel="upload a file to pick a column"
+            emptyLabel={t("ctPickColumnEmpty")}
           />
         </div>
         <div className="flex items-center gap-2 pt-2">
@@ -159,7 +163,7 @@ export default function DuplicateFinderClient() {
             checked={caseSensitive}
             onChange={(e) => setCaseSensitive(e.target.checked)}
           />
-          <label htmlFor="caseSensitiveDupToggle" className="text-sm md:text-base">Case sensitive</label>
+          <label htmlFor="caseSensitiveDupToggle" className="text-sm md:text-base">{t("ctCaseSensitive")}</label>
         </div>
       </section>
 
@@ -172,10 +176,10 @@ export default function DuplicateFinderClient() {
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-white text-black font-semibold shadow-md hover:bg-white/90 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
                 onClick={onDownload}
               >
-                <span>Process &amp; download {kindLabel(workbook!.kind)}</span>
+                <span>{t("ctProcessDownload", { kind: kindLabel(workbook!.kind) })}</span>
               </button>
               <span className="text-xs text-white/60">
-                Download includes all original columns plus one new duplicates column.
+                {t("dfDownloadNote")}
               </span>
             </div>
             {downloadError ? (

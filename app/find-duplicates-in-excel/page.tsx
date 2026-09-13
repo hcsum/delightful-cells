@@ -1,115 +1,108 @@
 import DuplicateFinderClient from "@/components/DuplicateFinderClient";
-import type { Metadata } from "next";
+import { rich, shared } from "@/lib/landing-copy";
+import { localizedMetadata, serverLocale } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Find Duplicates in Excel (Excel & CSV Tool)",
-  description:
-    "Upload an Excel file (.xlsx) or CSV and flag duplicate values within a single column. Supports files up to 20 MB.",
-  alternates: { canonical: "/find-duplicates-in-excel" },
-  openGraph: {
-    title: "Find Duplicates in Excel",
+const PATH = "/find-duplicates-in-excel";
+
+const COPY = {
+  en: {
+    title: "Find Duplicates in Excel (Excel & CSV Tool)",
     description:
-      "Detect duplicate values in a chosen column of your Excel or CSV file.",
-    type: "article",
+      "Upload an Excel file (.xlsx) or CSV and flag duplicate values within a single column. Supports files up to 20 MB.",
+    h1: "Find Duplicates in Excel",
+    intro:
+      "Choose a column and flag duplicate values within that column. By default comparisons are case-insensitive. Upload an Excel file and download the result with one extra column.",
+    steps: [
+      "**Upload your file:** Select an .xlsx, .xls, or .csv file — no need to convert it first. If the workbook has several sheets, pick the one you want.",
+      "**Pick the column:** Choose it from the dropdown of your file’s own headers — nothing to type.",
+      "**Choose case sensitivity (optional):** Leave off to compare case-insensitively; turn on to make comparisons case-sensitive.",
+      "**Process and download:** You get a copy in the same format you uploaded, with a new duplicates column appended.",
+    ],
+    exampleHeading: "Example — Find duplicate emails",
+    exampleTarget:
+      "duplicates flag (True when the normalized value occurs more than once)",
+    exampleSource: "email",
   },
-  twitter: {
-    card: "summary",
-    title: "Find Duplicates in Excel",
-    description: "Flag duplicate values within one column of an Excel or CSV file.",
+  zh: {
+    title: "Excel 查找重复值（Excel 和 CSV 工具）",
+    description:
+      "上传 Excel（.xlsx）或 CSV 文件，标记出某一列里重复出现的值。单个文件最大 20 MB。",
+    h1: "Excel 查找重复值",
+    intro:
+      "选一列，把这一列里重复出现的值标记出来。默认比较时不区分大小写。上传 Excel 文件，下载时会多出一列结果。",
+    steps: [
+      "**上传文件：**选一个 .xlsx、.xls 或 .csv 文件，不需要先转格式。工作簿有多个工作表时，挑你要的那个。",
+      "**选择要检查的列：**从下拉框里挑，选项就是你自己文件的表头，不用手打。",
+      "**要不要区分大小写（可选）：**关着就不区分大小写；打开则严格区分。",
+      "**处理并下载：**得到一份格式和上传时一致的副本，末尾多一列重复标记。",
+    ],
+    exampleHeading: "示例 —— 找出重复的邮箱",
+    exampleTarget: "重复标记（同一个值出现超过一次时为 True）",
+    exampleSource: "email（邮箱）",
   },
-  robots: { index: true, follow: true },
-};
+} as const;
+
+const EXAMPLE_ROWS = [
+  ["alice@example.com", "True"],
+  ["bob@example.com", "True"],
+  ["alice@example.com", "True"],
+  ["carol@company.co", ""],
+  ["BOB@example.com", "True"],
+];
+
+export function generateMetadata() {
+  return localizedMetadata(PATH, COPY);
+}
 
 export default function Page() {
+  const locale = serverLocale();
+  const c = COPY[locale];
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Find Duplicates in Excel</h1>
-      <p className="text-white/80 max-w-2xl text-muted">
-        Choose a column and flag duplicate values within that column. By default
-        comparisons are case-insensitive. Upload an Excel file and download the result
-        with one extra column.
-      </p>
+      <h1 className="text-2xl font-semibold">{c.h1}</h1>
+      <p className="text-white/80 max-w-2xl text-muted">{c.intro}</p>
       <DuplicateFinderClient />
 
-      {/* Usage guide, following the pattern used on the Extract page */}
       <div className="space-y-8 pt-12">
         <hr />
-        {/* How to Use */}
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold">How to Use This Tool</h2>
+          <h2 className="text-xl font-semibold">{shared(locale, "howTo")}</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
-            <li>
-              <strong>Upload your file:</strong> Select an .xlsx, .xls, or .csv
-              file — no need to convert it first. If the workbook has several
-              sheets, pick the one you want.
-            </li>
-            <li>
-              <strong>Pick the column:</strong> Choose it from the dropdown of
-              your file&apos;s own headers — nothing to type.
-            </li>
-            <li>
-              <strong>Choose case sensitivity (optional):</strong> Leave off to
-              compare case-insensitively; turn on to make comparisons
-              case-sensitive.
-            </li>
-            <li>
-              <strong>Process and download:</strong> You get a copy in the same
-              format you uploaded, with a new duplicates column appended.
-            </li>
+            {c.steps.map((step, i) => (
+              <li key={i}>{rich(step)}</li>
+            ))}
           </ol>
         </section>
 
-        {/* Examples */}
-        <h2 className="text-xl font-semibold">Examples</h2>
+        <h2 className="text-xl font-semibold">{shared(locale, "examples")}</h2>
         <section className="space-y-12">
           <article className="space-y-3">
-            <h3 className="text-lg font-medium">
-              Example — Find duplicate emails
-            </h3>
+            <h3 className="text-lg font-medium">{c.exampleHeading}</h3>
             <ul className="text-white/80 text-sm space-y-1">
               <li>
-                <strong>Target:</strong> duplicates flag (True when the
-                normalized value occurs more than once)
+                <strong>{shared(locale, "target")}</strong> {c.exampleTarget}
               </li>
               <li>
-                <strong>Source:</strong> email
+                <strong>{shared(locale, "source")}</strong> {c.exampleSource}
               </li>
             </ul>
             <div className="space-y-2">
-              <div>Expected output:</div>
+              <div>{shared(locale, "expected")}</div>
               <div className="overflow-auto">
                 <table className="mt-1 w-full text-sm border-collapse">
                   <thead>
                     <tr className="text-left">
-                      <th className="border-b border-white/10 py-1 pr-4">
-                        email
-                      </th>
-                      <th className="border-b border-white/10 py-1">
-                        duplicates_email
-                      </th>
+                      <th className="border-b border-white/10 py-1 pr-4">email</th>
+                      <th className="border-b border-white/10 py-1">duplicates_email</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="align-top pr-4 py-1">alice@example.com</td>
-                      <td className="align-top py-1">True</td>
-                    </tr>
-                    <tr>
-                      <td className="align-top pr-4 py-1">bob@example.com</td>
-                      <td className="align-top py-1">True</td>
-                    </tr>
-                    <tr>
-                      <td className="align-top pr-4 py-1">alice@example.com</td>
-                      <td className="align-top py-1">True</td>
-                    </tr>
-                    <tr>
-                      <td className="align-top pr-4 py-1">carol@company.co</td>
-                      <td className="align-top py-1"></td>
-                    </tr>
-                    <tr>
-                      <td className="align-top pr-4 py-1">BOB@example.com</td>
-                      <td className="align-top py-1">True</td>
-                    </tr>
+                    {EXAMPLE_ROWS.map(([email, flag], i) => (
+                      <tr key={i}>
+                        <td className="align-top pr-4 py-1">{email}</td>
+                        <td className="align-top py-1">{flag}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

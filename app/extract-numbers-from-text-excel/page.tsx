@@ -1,25 +1,40 @@
-import CustomToolClient from '@/components/CustomToolClient'
-import RowsLimitNote from '@/components/RowsLimitNote'
-import QuotaBanner from '@/components/QuotaBanner'
-import type { Metadata } from 'next'
+import CustomToolClient from "@/components/CustomToolClient";
+import ToolLanding from "@/components/ToolLanding";
+import type { LandingEntry } from "@/lib/landing-copy";
+import { localizedMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: 'Extract Numbers from Text in Excel (Excel & CSV Tool)',
-  description: 'Upload an Excel file or CSV and automatically extract numbers from text columns using AI.',
+const PATH = "/extract-numbers-from-text-excel";
+
+const COPY: LandingEntry = {
+  en: {
+    title: "Extract Numbers from Text in Excel (Excel & CSV Tool)",
+    description:
+      "Upload an Excel file or CSV and automatically extract numbers from text columns using AI.",
+    h1: "Extract Numbers from Text",
+    intro:
+      "Extract numbers from a text column in your Excel file. Preview a few sample rows to check the result, or process the full file right away.",
+    steps: [],
+  },
+  zh: {
+    title: "Excel 从文本提取数字（Excel 和 CSV 工具）",
+    description:
+      "上传 Excel 或 CSV 文件，用 AI 自动从文本列里提取数字，预览确认后一次处理整份文件。",
+    h1: "从文本提取数字",
+    intro:
+      "从 Excel 文件的文本列里提取数字。可以先预览几行确认效果，也可以直接处理整个文件。",
+    steps: [],
+  },
 };
+
+export function generateMetadata() {
+  return localizedMetadata(PATH, COPY);
+}
 
 export default function Page() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Extract Numbers from Text</h1>
-      <p className="text-white/80 max-w-2xl text-muted">Extract numbers from a text column in your Excel file. Preview a few sample rows to check the result, or process the full file right away.</p>
-      <div className="space-y-1">
-        <div className="flex items-center gap-3">
-          <QuotaBanner />
-        </div>
-      <RowsLimitNote />
-      </div>
-      <CustomToolClient initialTarget="all numbers" initialSource="text" />
-    </div>
-  )
+    <ToolLanding
+      copy={COPY}
+      tool={<CustomToolClient initialTarget="all numbers" initialSource="text" />}
+    />
+  );
 }

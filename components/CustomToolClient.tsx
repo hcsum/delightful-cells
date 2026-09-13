@@ -10,6 +10,7 @@ import PartialResultDialog from "@/components/PartialResultDialog";
 import FilePicker from "@/components/tools/FilePicker";
 import SheetSelect from "@/components/tools/SheetSelect";
 import ColumnSelect from "@/components/tools/ColumnSelect";
+import { useT } from "@/lib/cells/locale";
 import {
   parseToolFile,
   downloadSheet,
@@ -55,6 +56,7 @@ export default function CustomToolClient({
     reValidateMode: "onSubmit",
   });
   const { register, watch, setValue } = form;
+  const t = useT();
 
   const target = watch("target");
   const source = watch("source");
@@ -155,7 +157,7 @@ export default function CustomToolClient({
         // A preview is three rows: anything short of all three is a failure
         // worth showing, not a partial result worth keeping.
         if (res.stopped || res.failedIndices.length > 0) {
-          setPreviewError(res.stopped?.message || "Request failed");
+          setPreviewError(res.stopped?.message || t("ctRequestFailed"));
           setPreviewFailed(true);
           return;
         }
@@ -163,11 +165,11 @@ export default function CustomToolClient({
         setPreviewFailed(false);
       })
       .catch((e) => {
-        setPreviewError(String((e as any)?.message || "Request failed"));
+        setPreviewError(String((e as any)?.message || t("ctRequestFailed")));
         setPreviewFailed(true);
       })
       .finally(() => setPreviewLoading(false));
-  }, [canProcess, dataRows, sourceIdx, source, target]);
+  }, [canProcess, dataRows, sourceIdx, source, target, t]);
 
   const downloadRun = useCallback(
     async (run: PendingRun) => {
@@ -219,15 +221,15 @@ export default function CustomToolClient({
         if (allowedRows === 0) {
           setProcessError(
             me?.tier === "anon"
-              ? "Daily row limit reached. Sign in for a bigger allowance, or try again tomorrow."
-              : "Daily row limit reached. Get credits to keep going, or try again tomorrow.",
+              ? t("ctDailyLimitAnon")
+              : t("ctDailyLimitFree"),
           );
           setDownloading(false);
           return;
         }
         if (allowedRows < total) {
           const ok2 = window.confirm(
-            `This run can process ${allowedRows} of ${total} rows. Process the first ${allowedRows} rows now?`,
+            t("ctPartialRunConfirm", { allowed: allowedRows, total }),
           );
           if (!ok2) {
             setDownloading(false);
@@ -240,7 +242,7 @@ export default function CustomToolClient({
     setCompletedCount(0);
     setTotalCount(allowedRows);
 
-    const desiredLabel = (target || "").trim() || "Extracted";
+    const desiredLabel = (target || "").trim() || t("ctDefaultColumn");
     const finalLabel = uniquifyHeaderLabel(headers, desiredLabel);
     const inputs = dataRows
       .slice(0, allowedRows)
@@ -268,7 +270,7 @@ export default function CustomToolClient({
       setDownloading(false);
       setCompletedCount(null);
       setTotalCount(null);
-      setProcessError(String((e as any)?.message || "Request failed"));
+      setProcessError(String((e as any)?.message || t("ctRequestFailed")));
       return;
     } finally {
       abortRef.current = null;
@@ -288,7 +290,7 @@ export default function CustomToolClient({
     // A clean run downloads without asking. Anything else is the user's call.
     if (!run.stopped && run.failedIndices.length === 0) void downloadRun(run);
     else setPendingRun(run);
-  }, [canProcess, dataRowCount, headers, dataRows, sourceIdx, source, target, downloadRun]);
+  }, [canProcess, dataRowCount, headers, dataRows, sourceIdx, source, target, downloadRun, t]);
 
   const onCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -313,7 +315,7 @@ export default function CustomToolClient({
       );
     } catch (e) {
       setRetrying(false);
-      setProcessError(String((e as any)?.message || "Request failed"));
+      setProcessError(String((e as any)?.message || t("ctRequestFailed")));
       return;
     } finally {
       abortRef.current = null;
@@ -334,7 +336,7 @@ export default function CustomToolClient({
     } else {
       setPendingRun(next);
     }
-  }, [pendingRun, source, target, downloadRun]);
+  }, [pendingRun, source, target, downloadRun, t]);
 
   const onApplyPartial = useCallback(() => {
     if (!pendingRun) return;
@@ -352,17 +354,18 @@ export default function CustomToolClient({
     <div className="space-y-6 mt-4 md:mt-6">
       {/* 1. Upload — no prerequisites */}
       <section className="rounded-[28px] border !border-black/10 bg-[#fffaf0] p-5">
-        <h3 className="text-lg font-extrabold">1. Upload your Excel file 📊</h3>
-        <p className="mt-1 text-sm text-black/55">
-          Drop in an .xlsx, .xls, or .csv — no need to convert anything first.
-          Max 20 MB. We don&apos;t store your file.
-        </p>
+        <h3 className="text-lg font-extrabold">{t("ctUploadStep")}</h3>
+        <p className="mt-1 text-sm text-black/55">{t("ctUploadDesc")}</p>
         <div className="mt-3">
           <FilePicker
             onFile={handleFile}
             info={
               workbook && sheet
-                ? `${workbook.fileName} · ${dataRowCount.toLocaleString()} rows · ${headers.length} columns`
+                ? t("ctFileInfo", {
+                    name: workbook.fileName,
+                    rows: dataRowCount.toLocaleString(),
+                    cols: headers.length,
+                  })
                 : null
             }
           />
@@ -390,33 +393,31 @@ export default function CustomToolClient({
 
       {/* 2. What to extract — column picker appears once we know the columns */}
       <section className="rounded-[28px] border !border-black/10 bg-[#fffaf0] p-5">
-        <h3 className="text-lg font-extrabold">2. What should the AI extract? 🪄</h3>
+        <h3 className="text-lg font-extrabold">{t("ctExtractStep")}</h3>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-bold">Extract</label>
+          <label className="text-sm font-bold">{t("ctExtractLabel")}</label>
           <input
             {...register("target")}
             className={field}
-            placeholder="e.g. state, SKU, email"
+            placeholder={t("ctTargetPlaceholder")}
           />
-          <label className="text-sm font-bold">from column</label>
+          <label className="text-sm font-bold">{t("ctFromColumn")}</label>
           <ColumnSelect
             headers={headers}
             value={source || ""}
             onChange={(v) => setValue("source", v)}
             className={field}
-            emptyLabel="upload a file to pick a column"
+            emptyLabel={t("ctPickColumnEmpty")}
           />
         </div>
         {headers.length === 0 && (
-          <p className="mt-2 text-xs text-black/45">
-            Upload a file above and this becomes a dropdown of your actual columns.
-          </p>
+          <p className="mt-2 text-xs text-black/45">{t("ctColumnHint")}</p>
         )}
       </section>
 
       {/* 3. Preview & process */}
       <section className="rounded-[28px] border !border-black/10 bg-[#fffaf0] p-5">
-        <h3 className="text-lg font-extrabold">3. Preview, then run ✨</h3>
+        <h3 className="text-lg font-extrabold">{t("ctRunStep")}</h3>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             className={`${pill} bg-[#fff3d6] text-black hover:bg-[#ffe89a] inline-flex items-center gap-2`}
@@ -424,7 +425,7 @@ export default function CustomToolClient({
             disabled={previewLoading || !canProcess}
           >
             {previewLoading ? <SpinnerIcon className="h-4 w-4" /> : null}
-            <span>{previewFailed ? "Retry preview" : "Preview first 3 rows"}</span>
+            <span>{previewFailed ? t("ctRetryPreview") : t("ctPreviewBtn")}</span>
           </button>
           <button
             className={`${pill} bg-black text-[#fffdf8] hover:opacity-80 inline-flex items-center gap-2`}
@@ -434,8 +435,8 @@ export default function CustomToolClient({
             {downloading ? <SpinnerIcon className="h-4 w-4" /> : null}
             <span>
               {downloading
-                ? "Processing…"
-                : `Process & download ${kindLabel(outputKind)}`}
+                ? t("ctProcessing")
+                : t("ctProcessDownload", { kind: kindLabel(outputKind) })}
             </span>
           </button>
           {downloading && (
@@ -443,16 +444,16 @@ export default function CustomToolClient({
               className={`${pill} border !border-black/15 bg-white text-black hover:bg-black/5`}
               onClick={onCancel}
             >
-              Cancel
+              {t("ctCancel")}
             </button>
           )}
           {!canProcess && (
             <span className="text-xs text-black/45">
               {dataRowCount === 0
-                ? "Upload an Excel file or CSV to get started."
+                ? t("ctNeedFile")
                 : !(target || "").trim()
-                  ? "Tell the AI what to extract."
-                  : "Pick a source column."}
+                  ? t("ctNeedTarget")
+                  : t("ctNeedColumn")}
             </span>
           )}
         </div>
@@ -466,10 +467,10 @@ export default function CustomToolClient({
               <thead>
                 <tr>
                   <th className="border-b !border-black/10 bg-[#fff3d6] text-left p-2 font-bold">
-                    Original value
+                    {t("ctOriginalValue")}
                   </th>
                   <th className="border-b !border-black/10 bg-[#fff3d6] text-left p-2 font-bold">
-                    Extracted value
+                    {t("ctExtractedValue")}
                   </th>
                 </tr>
               </thead>
@@ -510,11 +511,11 @@ export default function CustomToolClient({
             </div>
             <div className="text-xs text-black/55">
               {totalCount != null && completedCount != null
-                ? `Processing ${completedCount}/${totalCount} rows…`
-                : "Processing…"}
+                ? t("ctProgressRows", { d: completedCount, t: totalCount })
+                : t("ctProcessing")}
             </div>
             <div className="text-[11px] font-medium text-black/40">
-              Large files may wait up to 20 seconds between batches.
+              {t("processingBatchHint")}
             </div>
           </div>
         )}
@@ -522,11 +523,10 @@ export default function CustomToolClient({
           <p className="mt-3 text-sm font-semibold text-[#b3003c]">{processError}</p>
         )}
         <p className="mt-3 text-xs text-black/45">
-          The download keeps every original column and adds the new extracted one,
-          in the same format you uploaded. Without signing in:{" "}
-          {TIER_LIMITS.anon.rowsPerDay} rows a day, signed in:{" "}
-          {TIER_LIMITS.free.rowsPerDay.toLocaleString()} a day. Credits remove the
-          daily cap.
+          {t("ctDownloadNote", {
+            anon: TIER_LIMITS.anon.rowsPerDay.toLocaleString(),
+            free: TIER_LIMITS.free.rowsPerDay.toLocaleString(),
+          })}
         </p>
       </section>
       <PartialResultDialog

@@ -1,17 +1,28 @@
 import type { Metadata } from 'next'
+import { serverLocale } from '@/lib/seo'
 
+// English is the governing version of these Terms, so there is no Chinese
+// translation to point a hreflang at. Both URLs canonicalize here instead,
+// which is also what keeps /zh/terms from reading as duplicate content.
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description: 'Terms governing the use of this service.',
+  alternates: { canonical: '/terms' },
 }
 
 export default function TermsPage() {
   const today = new Date();
   const lastUpdated = today.toISOString().slice(0, 10); // YYYY-MM-DD
+  const locale = serverLocale();
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Terms of Service</h1>
       <p className="text-subtle">Last updated: {lastUpdated}</p>
+      {locale === 'zh' && (
+        <p className="text-subtle text-sm">
+          本服务条款仅有英文版本，英文版本为准。
+        </p>
+      )}
 
       <section className="space-y-2">
         <p>
