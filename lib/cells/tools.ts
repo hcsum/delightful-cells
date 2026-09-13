@@ -597,6 +597,42 @@ function describeScopes(grid: GridState): string {
   ].join("\n");
 }
 
+/**
+ * Which rows came back unanswered, numbered the way the user sees them in the #
+ * column, so the model can name them instead of only quoting a count. Past the
+ * cap the list is longer than the answer it belongs in, and the model says how
+ * many rather than which.
+ */
+export const MAX_FAILED_ROWS_LISTED = 200;
+
+export function failedRowNumbers(
+  targets: number[],
+  failedIndices: number[],
+): number[] | null {
+  if (failedIndices.length === 0) return null;
+  if (failedIndices.length > MAX_FAILED_ROWS_LISTED) return null;
+  return failedIndices.map((i) => targets[i] + 1).filter((n) => n > 0);
+}
+
+/**
+ * What to tell the model about the rows that failed. The only correct retry is
+ * the one inside the run's own dialog, which merges the new answers into the
+ * ones already paid for before anything reaches the sheet. By the time this
+ * result exists the user has dismissed that dialog and the run is final.
+ *
+ * Calling the tool again cannot stand in for it: transform_column would append
+ * a second column holding only the retried rows, filter_rows_ai would replace
+ * the selection with only the rows matched this time, and both would re-bill
+ * every row in whatever scope they were given. Offering a rerun here is what
+ * put the user in a loop — the rerun fails the same way and asks again.
+ */
+export function retryHint(failedRows: number[] | null): string {
+  const which = failedRows
+    ? `The rows left unanswered are ${failedRows.join(", ")}.`
+    : "There are too many to list individually.";
+  return `${which} This run is finished: do NOT call this tool again to fix them. Re-running would charge for every row in the scope and would not merge with what is already applied. Report which rows are unanswered and let the user decide; if they want another attempt, say that it starts a fresh run over the rows they name.`;
+}
+
 export function scopeHint(mode: "filter" | "select"): string {
   return mode === "select"
     ? 'These rows are now the selection: another tool can target them with "scope":"selection".'

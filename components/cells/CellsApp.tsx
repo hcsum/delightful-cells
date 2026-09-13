@@ -11,9 +11,11 @@ import {
 } from "@/lib/cells/workbook";
 import {
   dispatchTool,
+  failedRowNumbers,
   HIGHLIGHT_HEX,
   paintRows,
   resolveScope,
+  retryHint,
   scopeHint,
   scopeLabel,
   type GridState,
@@ -466,6 +468,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         // row the AI answered with nothing, a row we never got an answer for,
         // and a row outside the scope.
         const failed = failedIndices.length;
+        const failedRows = failedRowNumbers(targets, failedIndices);
         const filled = results.filter((r) => r.output != null).length;
         return {
           ok: true,
@@ -481,7 +484,8 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
             sampleOutputs: results.slice(0, 3).map((r) => r.output),
             ...(failed > 0
               ? {
-                  outcome: `${failed} of ${results.length} rows could not be processed and were left blank in "${name}"; the user chose to keep the ${filled} rows that worked. Say so, and offer to run those ${failed} rows again.`,
+                  ...(failedRows ? { failedRows } : {}),
+                  outcome: `${failed} of ${results.length} rows could not be processed and were left blank in "${name}"; the user chose to keep the ${filled} rows that worked. Say so. ${retryHint(failedRows)}`,
                 }
               : {}),
           },
@@ -554,6 +558,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         // match set either way, so the model has to say it was undecided
         // rather than reporting it as "did not match".
         const failed = failedIndices.length;
+        const failedRows = failedRowNumbers(targets, failedIndices);
         return {
           ok: true,
           summary:
@@ -564,7 +569,8 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
             rowsMatched: matched.length,
             rowsTotal: results.length,
             rowsFailed: failed,
-            outcome: `${matched.length} of ${results.length} rows${only ? ` (within the ${scopeLabel(call)} rows)` : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table.${failed > 0 ? ` A further ${failed} rows could not be judged at all — they were NOT ${verb}, and that is not the same as not matching. Tell the user, and offer to judge those ${failed} rows again.` : ""} ${scopeHint(call.mode)}`,
+            ...(failedRows ? { failedRows } : {}),
+            outcome: `${matched.length} of ${results.length} rows${only ? ` (within the ${scopeLabel(call)} rows)` : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table.${failed > 0 ? ` A further ${failed} rows could not be judged at all — they were NOT ${verb}, and that is not the same as not matching. Tell the user. ${retryHint(failedRows)}` : ""} ${scopeHint(call.mode)}`,
           },
         };
       } catch (e) {
