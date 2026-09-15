@@ -524,6 +524,29 @@ export function dispatchTool(
 
   const scopedRows = only ? grid.rows.filter((_, i) => only.has(i)) : grid.rows;
   const stats = summarizeColumn(scopedRows, colIdx, call.column);
+  // Named rows are a read, not a survey: "what does row 24 say" arrives here
+  // because summarize_column is the only reader, and a distinct-value count is
+  // not an answer to it. Pair each row number with its cell so the model can
+  // quote it back, and say so ahead of the whole-column wording in outcome.
+  if (call.rows?.length) {
+    const cells = call.rows
+      .filter((n) => n >= 1 && n <= grid.rows.length)
+      .map((n) => ({ row: n, value: (grid.rows[n - 1][colIdx] ?? "").trim() }));
+    const quoted = cells.map((c) => `row ${c.row} = "${c.value}"`).join("; ");
+    return {
+      result: {
+        ok: true,
+        summary: `read ${cells.length} row${cells.length === 1 ? "" : "s"} of "${call.column}"`,
+        data: {
+          ...stats,
+          scope: call.scope,
+          cells,
+          outcome: `Read of "${call.column}" at the rows asked for: ${quoted}. These are the cells themselves, unchanged — answer the user with these values. ${stats.outcome}`,
+        },
+      },
+      nextGrid: grid,
+    };
+  }
   return {
     result: {
       ok: true,
@@ -589,13 +612,18 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     '  {"type":"tool_call","tool":"filter_rows","column":"<exact column name>","op":"contains|equals|not_equals|gt|lt|empty|not_empty","value":"...","mode":"select|filter","highlight":"yellow|green|pink|blue (optional: also paint the matches)"}',
     '  {"type":"tool_call","tool":"find_replace","column":"<exact column name>","find":"...","replace":"...","matchCase":false,"scope":"all|selection|visible"}',
     '  {"type":"tool_call","tool":"filter_rows_ai","column":"<exact column name>","criteria":"a semantic yes/no test for each cell, e.g. sounds angry","mode":"select|filter","highlight":"yellow (optional)"}',
-    '  {"type":"tool_call","tool":"summarize_column","column":"<exact column name>","scope":"all|selection|visible"}',
+    '  {"type":"tool_call","tool":"summarize_column","column":"<exact column name>","scope":"all|selection|visible","rows":[46]}   ("rows" READS those cells: their values come back in sampleValues)',
     '  {"type":"tool_call","tool":"transform_column","column":"<exact column name>","instruction":"what to produce from each cell, e.g. extract the main keyword","newColumnName":"...","scope":"all|selection|visible"}',
     '  {"type":"tool_call","tool":"compute_column","formula":"[Column A] / [Column B]","newColumnName":"...","scope":"all|selection|visible"}',
     '  {"type":"tool_call","tool":"remove_column","columns":["<exact column name>", "..."]}   (deletes those columns from the sheet)',
     '  {"type":"tool_call","tool":"highlight_rows","scope":"selection","color":"yellow|green|pink|blue"}   (or "rows":[3,7] for specific row numbers; "clear":true to remove highlights)',
     "Or a final answer to the user:",
     '  {"type":"final","message":"..."}',
+    'That same shape — never a tool call — is also how you turn down what no tool above can do (sorting or reordering rows, adding or deleting rows, charts). Answer in the language the user wrote in, and name the closest thing you can do:',
+    '  {"type":"final","message":"还不能给表格排序 —— 我可以帮你筛选或高亮这些行。"}',
+    '  {"type":"final","message":"I can\'t draw a chart yet — I can summarize that column for you instead."}',
+    '  {"type":"final","message":"删掉整行我还做不到 —— 我可以帮你把那一行选中或高亮出来。"}   (emptying a cell with find_replace is NOT deleting a row)',
+    'Pick ONE of the objects above and send only that: a tool call OR a final, never both in the same reply. After a tool call, wait for its TOOL_RESULT before you say anything to the user.',
     "",
     "Rules:",
     "- column must be one of the exact column names listed above.",
@@ -607,8 +635,8 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     '  current selection ("scope":"selection") or explicit "rows":[3,7]. It can',
     "  NOT take a condition and can NOT paint the whole sheet.",
     '- A request about specific rows ("row 46", "rows 3 and 7", "the last row" only if',
-    '  the number is known) → pass "rows":[46]. To set one cell: find_replace with',
-    '  "find":"","replace":"<new value>","rows":[46].',
+    '  the number is known) → pass "rows":[46]. To READ those cells: summarize_column with',
+    '  "rows":[46]. To SET one: find_replace with "find":"","replace":"<new value>","rows":[46].',
     "- gt/lt compare numerically.",
     "- find_replace matches literal text (no regex, no \"a|b\"). An EMPTY find",
     "  (\"find\":\"\") overwrites the whole cell — use that to SET a column's value,",
@@ -656,10 +684,11 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     "  filter_rows / filter_rows_ai with mode \"select\", then, after its",
     "  TOOL_RESULT, run the action with \"scope\":\"selection\". Never guess the",
     "  answer for the subset from the 5 sample rows.",
-    "- If the request needs something none of the tools above can do (e.g. sort,",
-    "  add/delete rows, charts, formulas, reading a specific row), do NOT improvise",
-    '  a tool call. Reply {"type":"final","message":"I can\'t do that yet — ..."} and',
-    "  name the closest thing you can do.",
+    "- If the request needs something none of the tools above can do (sort/reorder",
+    "  rows, add or delete rows, charts, live formulas), do NOT improvise and do NOT",
+    "  call a tool that does something else instead — filtering or selecting is not",
+    '  sorting. Reply {"type":"final","message":"I can\'t do that yet — ..."} and name',
+    "  the closest thing you can do.",
   ].join("\n");
 }
 

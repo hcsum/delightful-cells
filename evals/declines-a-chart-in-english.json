@@ -1,0 +1,69 @@
+{
+  "name": "declines-a-chart-in-english",
+  "why": "The second half of the decline fix: the prompt teaches declining with two literal {\"type\":\"final\",…} templates, and literal templates get copied verbatim by these models. This case and declines-deleting-a-row exist to catch that — a different unsupported ask, in the other language, so a model reciting the sort template instead of answering the question shows up as wrong content rather than as a pass. Asserted only as a decline; the wording is read with --show.",
+  "baseline": "2026-09-15, 8 runs each: 2026-09-15, after the prompt fix: llama-4-scout 6/6, in English, naming 单价. Minted to check that the decline templates are adapted rather than copied: the templates are a Chinese sort and an English chart, and this case and declines-deleting-a-row are the two that would catch a model reciting one of them at the wrong request.",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "mustBeFinal": true
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Can you make a bar chart of 单价?"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

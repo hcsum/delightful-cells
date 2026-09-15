@@ -1,0 +1,69 @@
+{
+  "name": "declines-deleting-a-row",
+  "why": "No tool deletes rows, and the improvisation here is destructive rather than merely useless: find_replace on that row's 订单号 with an empty replace blanks a cell and leaves the row in place. That call is legal — a non-empty find with an empty replace is how you delete text — so no validator stands between it and the data. Any tool call fails this case.",
+  "baseline": "2026-09-15, 8 runs each: 2026-09-15, before the prompt fix: llama-4-scout 0/4 — it answered with {\"tool\":\"find_replace\",\"column\":\"订单号\",\"find\":\"SO-1005\",\"replace\":\"\"}, blanking one cell of the row instead of deleting the row, every run. That call is legal, so nothing rejects it. After the fix: llama-4-scout 6/6.",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "mustBeFinal": true
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "把第 5 行删掉"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

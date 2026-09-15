@@ -1,9 +1,18 @@
 {
   "name": "read-row-does-not-overwrite",
-  "why": "Reading a cell. find_replace is the only tool whose example shows \"rows\", so it gets reached for as a getter — and find_replace does not read, it writes: with both find and replace empty it erases the cell the user asked about. validateToolCall now rejects that exact shape, so this case is about the decision, not the damage. Deliberately asserted one-sided: summarize_column with \"rows\":[24] answers the question through sampleValues, and a straight decline is defensible too (the prompt lists reading a row among the things to decline), so both pass. Only reaching for the writer fails.",
-  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 0/8, llama-4-scout 0/8 — both emit the identical destructive getter, {\"tool\":\"find_replace\",\"column\":\"原始记录\",\"find\":\"\",\"replace\":\"\",\"rows\":[24]}, on every run. validateToolCall refuses that exact shape, which is the only reason the cell survives; the guard is load-bearing on both models, not a belt-and-braces check for one.",
+  "why": "Reading a cell. find_replace used to be the only tool whose example showed \"rows\", so it got reached for as a getter — and find_replace does not read, it writes: with both find and replace empty it erases the cell the user asked about. validateToolCall rejects that exact shape, so the cell survives, but the user gets a stall instead of an answer. Since 2026-09-15 summarize_column carries \"rows\" in its own signature line and returns the named cells in its result, so the case now asserts the read positively: a decline no longer passes, because there is a tool that answers.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 0/8, llama-4-scout 0/8 — both emit the identical destructive getter, {\"tool\":\"find_replace\",\"column\":\"原始记录\",\"find\":\"\",\"replace\":\"\",\"rows\":[24]}, on every run. validateToolCall refuses that exact shape, which is the only reason the cell survives; the guard is load-bearing on both models, not a belt-and-braces check for one. AFTER the 2026-09-15 prompt fix (summarize_column's signature line carries \"rows\":[46] and the row template names reading before writing): llama-4-scout 8/8, every run {\"tool\":\"summarize_column\",\"column\":\"原始记录\",\"rows\":[24]}. The assertion was tightened at the same time — a decline no longer passes, because there is now a tool that answers.",
   "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
   "assert": {
+    "requireCall": [
+      {
+        "tool": "summarize_column",
+        "column": "原始记录",
+        "rows": [
+          24
+        ]
+      }
+    ],
     "forbidCalls": [
       {
         "tool": "find_replace"

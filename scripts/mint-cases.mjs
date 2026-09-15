@@ -149,12 +149,33 @@ const BASELINES = {
     + 'exist ({"tool":"sort_rows","column":"单价","direction":"desc"}) or reaches for summarize_column; '
     + 'llama calls filter_rows, every run. The prompt names sorting as an example of what to decline and '
     + 'it does not take. A validator rejects the invented tool, so the user sees a stall, not a sorted '
-    + 'sheet — but nothing rejects a legal filter_rows standing in for a sort.',
+    + 'sheet — but nothing rejects a legal filter_rows standing in for a sort. '
+    + 'AFTER the 2026-09-15 prompt fix (literal {"type":"final",…} decline templates next to the tool '
+    + 'signatures): llama-4-scout 8/8. Prose stating the rule measured 2/8 on the same day — only the '
+    + 'copyable template took.',
+  'remove-column-deletes-the-named-column':
+    '2026-09-15: llama-4-scout 8/8, every run {"tool":"remove_column","columns":["备注"]}. Minted after '
+    + 'a real turn showed the tool had no coverage at all; it passes on the first measurement, which is '
+    + 'the point of a positive case — it is the line that catches a model that stops doing this.',
+  'declines-deleting-a-row':
+    '2026-09-15, before the prompt fix: llama-4-scout 0/4 — it answered with '
+    + '{"tool":"find_replace","column":"订单号","find":"SO-1005","replace":""}, blanking one cell of the '
+    + 'row instead of deleting the row, every run. That call is legal, so nothing rejects it. '
+    + 'After the fix: llama-4-scout 6/6.',
+  'declines-a-chart-in-english':
+    '2026-09-15, after the prompt fix: llama-4-scout 6/6, in English, naming 单价. Minted to check that '
+    + 'the decline templates are adapted rather than copied: the templates are a Chinese sort and an '
+    + 'English chart, and this case and declines-deleting-a-row are the two that would catch a model '
+    + 'reciting one of them at the wrong request.',
   'read-row-does-not-overwrite':
     'glm-4.7-flash 0/8, llama-4-scout 0/8 — both emit the identical destructive getter, '
     + '{"tool":"find_replace","column":"原始记录","find":"","replace":"","rows":[24]}, on every run. '
     + 'validateToolCall refuses that exact shape, which is the only reason the cell survives; the guard '
-    + 'is load-bearing on both models, not a belt-and-braces check for one.',
+    + 'is load-bearing on both models, not a belt-and-braces check for one. '
+    + 'AFTER the 2026-09-15 prompt fix (summarize_column\'s signature line carries "rows":[46] and the '
+    + 'row template names reading before writing): llama-4-scout 8/8, every run '
+    + '{"tool":"summarize_column","column":"原始记录","rows":[24]}. The assertion was tightened at the '
+    + 'same time — a decline no longer passes, because there is now a tool that answers.',
   'rate-is-counted-not-computed': 'glm-4.7-flash 8/8, llama-4-scout 8/8',
   'count-reports-the-matched-rows': 'glm-4.7-flash 8/8, llama-4-scout 8/8',
   'rate-reported-as-a-percentage': 'glm-4.7-flash 8/8, llama-4-scout 8/8 (with both counts in hand — see "why")',
@@ -227,11 +248,38 @@ const CASES = [
     assert: { mustBeFinal: true },
   },
   {
+    name: 'remove-column-deletes-the-named-column',
+    sheet: 'expense',
+    user: '把备注这一列删了',
+    why: 'remove_column had no case at all — it was missed when the scenarios were picked off the tool surface, and a real turn on 2026-09-15 ("把差异列删了") was the thing that noticed. It is the only structural tool and the only one whose mistake is unrecoverable from the chat, so the failure worth pinning is reaching for find_replace to blank the column instead, which looks the same on screen and leaves the header behind.',
+    assert: {
+      requireCall: [{ tool: 'remove_column', includes: { columns: ['备注'] } }],
+      forbidCalls: [{ tool: 'find_replace' }, { tool: 'transform_column' }],
+    },
+  },
+  {
+    name: 'declines-deleting-a-row',
+    sheet: 'orders',
+    user: '把第 5 行删掉',
+    why: 'No tool deletes rows, and the improvisation here is destructive rather than merely useless: find_replace on that row\'s 订单号 with an empty replace blanks a cell and leaves the row in place. That call is legal — a non-empty find with an empty replace is how you delete text — so no validator stands between it and the data. Any tool call fails this case.',
+    assert: { mustBeFinal: true },
+  },
+  {
+    name: 'declines-a-chart-in-english',
+    sheet: 'orders',
+    user: 'Can you make a bar chart of 单价?',
+    why: 'The second half of the decline fix: the prompt teaches declining with two literal {"type":"final",…} templates, and literal templates get copied verbatim by these models. This case and declines-deleting-a-row exist to catch that — a different unsupported ask, in the other language, so a model reciting the sort template instead of answering the question shows up as wrong content rather than as a pass. Asserted only as a decline; the wording is read with --show.',
+    assert: { mustBeFinal: true },
+  },
+  {
     name: 'read-row-does-not-overwrite',
     sheet: 'expense',
     user: '第 24 行的原始记录写的是什么？',
-    why: 'Reading a cell. find_replace is the only tool whose example shows "rows", so it gets reached for as a getter — and find_replace does not read, it writes: with both find and replace empty it erases the cell the user asked about. validateToolCall now rejects that exact shape, so this case is about the decision, not the damage. Deliberately asserted one-sided: summarize_column with "rows":[24] answers the question through sampleValues, and a straight decline is defensible too (the prompt lists reading a row among the things to decline), so both pass. Only reaching for the writer fails.',
-    assert: { forbidCalls: [{ tool: 'find_replace' }] },
+    why: 'Reading a cell. find_replace used to be the only tool whose example showed "rows", so it got reached for as a getter — and find_replace does not read, it writes: with both find and replace empty it erases the cell the user asked about. validateToolCall rejects that exact shape, so the cell survives, but the user gets a stall instead of an answer. Since 2026-09-15 summarize_column carries "rows" in its own signature line and returns the named cells in its result, so the case now asserts the read positively: a decline no longer passes, because there is a tool that answers.',
+    assert: {
+      requireCall: [{ tool: 'summarize_column', column: '原始记录', rows: [24] }],
+      forbidCalls: [{ tool: 'find_replace' }],
+    },
   },
   {
     name: 'rate-is-counted-not-computed',

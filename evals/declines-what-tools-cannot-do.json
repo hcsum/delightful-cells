@@ -1,7 +1,7 @@
 {
   "name": "declines-what-tools-cannot-do",
   "why": "There is no sort tool. The prompt asks for a final answer naming the closest thing that exists, and the failure being guarded is improvisation: filter_rows with op gt and an invented threshold looks like progress and reorders nothing. Any tool call fails this case; what the decline says is not asserted, only that it is a decline.",
-  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 0/8, llama-4-scout 0/8 — NEITHER model declines. GLM invents a tool that does not exist ({\"tool\":\"sort_rows\",\"column\":\"单价\",\"direction\":\"desc\"}) or reaches for summarize_column; llama calls filter_rows, every run. The prompt names sorting as an example of what to decline and it does not take. A validator rejects the invented tool, so the user sees a stall, not a sorted sheet — but nothing rejects a legal filter_rows standing in for a sort.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 0/8, llama-4-scout 0/8 — NEITHER model declines. GLM invents a tool that does not exist ({\"tool\":\"sort_rows\",\"column\":\"单价\",\"direction\":\"desc\"}) or reaches for summarize_column; llama calls filter_rows, every run. The prompt names sorting as an example of what to decline and it does not take. A validator rejects the invented tool, so the user sees a stall, not a sorted sheet — but nothing rejects a legal filter_rows standing in for a sort. AFTER the 2026-09-15 prompt fix (literal {\"type\":\"final\",…} decline templates next to the tool signatures): llama-4-scout 8/8. Prose stating the rule measured 2/8 on the same day — only the copyable template took.",
   "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
   "assert": {
     "mustBeFinal": true
