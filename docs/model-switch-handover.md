@@ -9,8 +9,9 @@ estimated.
   book.** 21 cases, 14 of them written rather than recorded, covering the
   ordinary path as well as the known bugs. What is still missing is
   **weighting** — see "Real usage: 6 turns in".
-- **Job 2 (open, now decidable): switch the chat model.** The evidence exists
-  now. It is a cost call, and it is yours to make; the numbers are below.
+- **Job 2 (done 2026-09-15): the model is now
+  `@cf/meta/llama-4-scout-17b-16e-instruct`.** Deployed, verified, and costing
+  ~4.2x per call. See "Job 2 — done" for what was checked.
 
 **Three findings worth reading before anything else:**
 
@@ -301,7 +302,28 @@ or merge where it is thin), re-run both models, and Job 2 answers itself.
 
 ---
 
-## Job 2 — the switch, when you want it
+## Job 2 — done
+
+**Switched 2026-09-15**, commit `579c2c5`, deployed as version
+`476e6dcd-6f85-4ef4-aa30-717a7ee456b0`. What was checked afterwards, against the
+deployed worker:
+
+- `/chat` is answering as llama — `transform-reads-source-column` 4/4, picking
+  原始记录 every time, and the replies carry `"type":"tool_calls"`, which is
+  llama's spelling and not GLM's.
+- `/process` (the batched TOON extraction) works, which nothing in `evals/`
+  covers: 8 rows of real 原始记录 text, all 8 correct including 快递12+12+12=36
+  → 36 and 拼车88+82.9=170.9 → 170.9, fenced ```toon block well-formed, strict
+  decode passes.
+- `enable_thinking` is no longer hardcoded. It is derived from `MODEL`
+  (`MODEL.includes('glm')`), so llama is sent the same arguments the eval
+  measured, and switching back to GLM re-enables the flag on its own.
+
+**What the switch did NOT fix**: the two cases both models fail —
+`read-row-does-not-overwrite` and `declines-what-tools-cannot-do`. Those are
+still live, still unguarded beyond `validateToolCall`, and still prompt work.
+
+### The evidence it was decided on
 
 The state of the evidence: **llama-4-scout passes everything GLM passes, plus
 four of the five cases GLM fails on its own, at 4.2x the cost.** No case
@@ -468,10 +490,12 @@ node scripts/mint-cases.mjs --print                     # ...without writing
 - **Proxy**: ad-hoc node scripts need `NODE_USE_ENV_PROXY=1`, or every fetch dies
   as a bare `fetch failed`. `scripts/eval.mjs` re-execs itself to handle it.
 - **Cloudflare token**: `CLOUDFLARE_API_TOKEN` has *Workers AI Read*, enough for
-  `cf:`. It lacks *Workers Scripts:Edit*, so `wrangler dev` fails with "Could not
-  create remote preview session" — the AI binding needs a remote session in both
-  local and `--remote` mode. `wrangler login` refuses while that env var is set;
-  use `env -u CLOUDFLARE_API_TOKEN`.
+  `cf:`. It was recorded here as lacking *Workers Scripts:Edit* — that is no
+  longer true, `npx wrangler deploy` went through unprompted on 2026-09-15. If
+  `wrangler dev` still fails with "Could not create remote preview session", the
+  AI binding needs a remote session in both local and `--remote` mode, and
+  `wrangler login` refuses while that env var is set; use
+  `env -u CLOUDFLARE_API_TOKEN`.
 - **The account id is hardcoded** in `scripts/eval.mjs` (`CF_ACCOUNT`).
 - A full-suite run is ~152 calls and takes 10–15 minutes per model.
 
