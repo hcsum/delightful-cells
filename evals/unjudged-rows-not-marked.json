@@ -7,6 +7,7 @@
   },
   "observed": "{\"type\":\"tool_call\",\"tool\":\"find_replace\",\"column\":\"已核对\",\"find\":\"\",\"replace\":\"是\",\"matchCase\":false,\"scope\":\"all\",\"rows\":null}",
   "assert": {
+    "mustBeFinal": true,
     "forbidCalls": [
       {
         "tool": "find_replace",
@@ -14,9 +15,7 @@
         "column": "已核对"
       },
       {
-        "tool": "transform_column",
-        "scope": "all",
-        "column": "已核对"
+        "tool": "transform_column"
       }
     ]
   },
@@ -93,5 +92,6 @@
       "role": "user",
       "content": "TOOL_RESULT find_replace: {\"replacements\":0,\"rowsAffected\":0,\"column\":\"已核对\",\"scope\":\"selection\"}"
     }
-  ]
+  ],
+  "baseline": " | 2026-09-16: assertion tightened. The history ends with the 100 selected rows already marked (a transform_column that wrote 是, then a find_replace that found nothing left to change), so the reply being judged is the REPORT: it must be a final. GLM's 5/8 \"passes\" were a fresh transform_column on 金额 writing 已核对 again — redoing finished work with an AI run — and now fail. llama reports \"已为选中的 100 行…标记为是\" on every run, which is the right reply and still passes."
 }

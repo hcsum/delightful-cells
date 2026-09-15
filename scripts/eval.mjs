@@ -71,6 +71,7 @@ function materializeGrid(spec) {
     highlightedRows: spec.highlightedCount
       ? new Map([...range(spec.highlightedCount)].map((i) => [i, 'yellow']))
       : null,
+    ...(spec.lineage ? { lineage: spec.lineage } : {}),
   };
 }
 
@@ -250,11 +251,16 @@ const CHECKS = {
   // that broke something which used to work. This is the check that says what
   // the model was supposed to DO. Several alternatives may be listed when more
   // than one call genuinely answers the request.
+  // An entry { final: true } says a final answer is also an acceptable reply —
+  // for the requests where telling the user something IS the right move (the
+  // comparison they asked for is circular) and a tool call is the other one.
   requireCall(reply, spec) {
+    const calls = spec.filter((s) => !s.final);
     if (!isToolCall(reply)) {
-      return `replied ${reply.type ?? 'final'} instead of calling ${spec.map((s) => s.tool).join(' or ')}`;
+      if (spec.some((s) => s.final)) return null;
+      return `replied ${reply.type ?? 'final'} instead of calling ${calls.map((s) => s.tool).join(' or ')}`;
     }
-    if (spec.some((want) => callMatches(reply, want))) return null;
+    if (calls.some((want) => callMatches(reply, want))) return null;
     return `called ${describeCall(reply)}, none of the ${spec.length} accepted call(s)`;
   },
   // The reply must be a final answer rather than another tool call.
@@ -278,6 +284,17 @@ const CHECKS = {
     const text = String(reply.message ?? reply.raw ?? '');
     const missing = spec.filter((s) => !text.includes(s));
     return missing.length ? `did not mention ${missing.map((s) => JSON.stringify(s)).join(', ')}` : null;
+  },
+  // At least one of these must appear in a final answer. For the case where
+  // the honest reply is a QUALIFICATION — "the zeros show the copies agree, not
+  // that the data is right" — and the false one is the same sentence with the
+  // qualification missing. forbidMention alone cannot tell those apart: 完全一致
+  // is true of two copies and false of the data, in the same characters. A tool
+  // call is not judged here; going back to the source is a legitimate answer.
+  mustMentionAny(reply, spec) {
+    if (isToolCall(reply)) return null;
+    const text = String(reply.message ?? reply.raw ?? '');
+    return spec.some((s) => text.includes(s)) ? null : `said none of ${spec.map((s) => JSON.stringify(s)).join(', ')}`;
   },
   // mustMention inverted: these phrasings must NOT appear in the final answer.
   // For the failures where the model states a conclusion its own numbers

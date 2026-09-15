@@ -7,6 +7,12 @@
   },
   "observed": "{\"type\":\"tool_call\",\"tool\":\"transform_column\",\"column\":\"金额\",\"instruction\":\"Extract the numeric amount from the original record text, e.g. '打车58.27元' -> 58.27, '快递12+12+12=36' -> 36, '住宿347元' -> 347. If the record is just a number or a single amount, return that number. If the record contains multiple amounts separated by + or =, return the total sum. If no amount is found, return 0.\",\"newColumnName\":\"金额_提取\",\"scope\":\"all\"}",
   "assert": {
+    "requireCall": [
+      {
+        "tool": "transform_column",
+        "column": "原始记录"
+      }
+    ],
     "forbidCalls": [
       {
         "tool": "transform_column",
@@ -87,5 +93,6 @@
         "胶装40元"
       ]
     ]
-  }
+  },
+  "baseline": " | 2026-09-16: assertion tightened to requireCall transform_column on 原始记录. The 8/8 GLM read on the forbid-only assert was 3/8 once the replies were read: 4 runs detoured to filter_rows and 1 to a filter_rows_ai the guard blocks. Neither is the work, and neither is a pass any more."
 }

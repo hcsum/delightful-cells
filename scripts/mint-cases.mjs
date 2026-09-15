@@ -355,6 +355,7 @@ function gridSpec(grid, sheetName) {
   if (grid.selectedRows?.size) spec.selectedCount = grid.selectedRows.size;
   if (grid.filterKept) spec.visibleCount = grid.filterKept.length;
   if (grid.highlightedRows?.size) spec.highlightedCount = grid.highlightedRows.size;
+  if (grid.lineage && Object.keys(grid.lineage).length) spec.lineage = grid.lineage;
   return spec;
 }
 

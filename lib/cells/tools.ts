@@ -23,7 +23,128 @@ export type GridState = {
   // The working set: rows the user clicked OR the model selected with
   // filter_rows / filter_rows_ai. This is what "scope":"selection" means.
   selectedRows: Set<number> | null;
+  // Where each column made this session came from. Absent for the user's own
+  // columns. The 核对 bug lives here: a model that re-extracts 金额 from 金额
+  // and subtracts the two gets a column of zeros and reads it as proof. The
+  // sheet cannot tell it otherwise unless something remembers that 金额_核对
+  // is a copy of 金额 — this is that memory. Optional so grids built before
+  // it existed (probes, minted cases) still type-check.
+  lineage?: Record<string, ColumnLineage>;
 };
+
+export type ColumnLineage = {
+  tool: "transform_column" | "compute_column";
+  from: string[]; // the columns it was read or computed from
+  how: string; // the instruction or the formula
+};
+
+// Every column the given one descends from, nearest first: for 差异 =
+// [金额] - [金额_核对] where 金额_核对 came from 金额 and 金额 from 原始记录,
+// that is 金额, 金额_核对, 原始记录.
+export function ancestorsOf(grid: GridState, column: string): string[] {
+  const out: string[] = [];
+  const queue = [...(grid.lineage?.[column]?.from ?? [])];
+  while (queue.length) {
+    const c = queue.shift()!;
+    if (c === column || out.includes(c)) continue;
+    out.push(c);
+    queue.push(...(grid.lineage?.[c]?.from ?? []));
+  }
+  return out;
+}
+
+export function withLineage(grid: GridState, column: string, entry: ColumnLineage): GridState {
+  return { ...grid, lineage: { ...(grid.lineage ?? {}), [column]: entry } };
+}
+
+function dropLineage(grid: GridState, columns: string[]): GridState["lineage"] {
+  if (!grid.lineage) return grid.lineage;
+  const next = { ...grid.lineage };
+  for (const c of columns) delete next[c];
+  return Object.keys(next).length ? next : undefined;
+}
+
+// The prompt's account of the derived columns, so the model deciding what to
+// read next knows 金额 was made from 原始记录 three turns ago. Without this the
+// only record is a TOOL_RESULT far back in the history, and the recorded bug
+// is the model re-extracting 金额 from 金额 to "check it against the source".
+export function describeLineage(grid: GridState): string | null {
+  const entries = Object.entries(grid.lineage ?? {}).filter(([c]) => grid.headers.includes(c));
+  if (!entries.length) return null;
+  const lines = entries.map(([c, l]) => {
+    const how = l.tool === "transform_column" ? `transform_column over "${l.from[0]}"` : `compute_column ${l.how}`;
+    const copy = l.tool === "transform_column" && grid.lineage?.[l.from[0]] ? ` — a copy of a copy; "${l.from[0]}" is itself derived` : "";
+    return `  "${c}" = ${how}${copy}`;
+  });
+  return [
+    "Derived columns (made this session by tools, NOT the user's original data):",
+    ...lines,
+    "To check a derived column against its source, derive a FRESH column from the",
+    "SOURCE and compare those two. Re-deriving from the derived column itself, or",
+    "subtracting a column from its own copy, compares a copy with itself: a",
+    "difference of 0 there proves nothing about the data.",
+  ].join("\n");
+}
+
+// The root a derived column ultimately traces back to — the user's own data.
+function rootOf(grid: GridState, column: string): string {
+  const anc = ancestorsOf(grid, column);
+  return anc.find((c) => !grid.lineage?.[c]) ?? anc[anc.length - 1] ?? column;
+}
+
+// The sentences a TOOL_RESULT carries about a derived column, so the model
+// reading the result knows what it is looking at. Two facts matter and both
+// are stated only when true: what the column was made from, and whether that
+// source was itself derived — because then the column is a copy of a copy and
+// agreement between the two proves nothing about the original.
+export function lineageNote(grid: GridState, column: string): string | null {
+  const l = grid.lineage?.[column];
+  if (!l) return null;
+  const q = (c: string) => `"${c}"`;
+  if (l.tool === "transform_column") {
+    const src = l.from[0];
+    let note = `${q(column)} is derived data, not the user's own: transform_column read ${q(src)} and nothing else, one cell per row.`;
+    if (grid.lineage?.[src]) {
+      const root = rootOf(grid, src);
+      note += ` And ${q(src)} is itself derived from ${q(root)}, so ${q(column)} is a copy of a copy. Comparing ${q(column)} with ${q(src)} can only show whether the two copies agree; it says nothing about whether ${q(src)} matches ${q(root)}. To check ${q(src)}, derive a fresh column from ${q(root)} and compare against that.`;
+    }
+    return note;
+  }
+  // compute_column: name the inputs, and warn when one input is a copy of another.
+  let note = `${q(column)} is derived data: ${l.how}, computed from ${l.from.map(q).join(" and ")}.`;
+  const circular = circularPair(grid, l.from);
+  if (circular) {
+    const [orig, copy] = circular;
+    const root = rootOf(grid, orig);
+    note += ` WARNING: ${q(copy)} was derived from ${q(orig)}, so this formula relates a column to its own copy. Zeros or agreement here show only that the copy matches what it was copied from; they are NOT evidence that ${q(orig)} is correct${root !== orig ? ` or that it matches ${q(root)}` : ""}. To check ${q(orig)}${root !== orig ? ` against ${q(root)}, derive a fresh column from ${q(root)} and compare with that` : ", compare it with a column derived from the original data it should match"} instead.`;
+  }
+  return note;
+}
+
+// Among a formula's inputs, an (original, copy) pair where copy descends from
+// original. That is the one relation that makes a difference of zero worthless.
+export function circularPair(grid: GridState, columns: string[]): [string, string] | null {
+  for (const a of columns) {
+    for (const b of columns) {
+      if (a !== b && ancestorsOf(grid, b).includes(a)) return [a, b];
+    }
+  }
+  return null;
+}
+
+// The result payload transform_column hands back about provenance. Built here
+// rather than in the React layer so the eval's recorded payloads and the app's
+// live ones come out of the same text.
+export function transformProvenance(
+  gridAfter: GridState,
+  newColumn: string,
+): { sourceColumn: string; outcome: string } {
+  const l = gridAfter.lineage?.[newColumn];
+  return {
+    sourceColumn: l?.from[0] ?? "",
+    outcome: lineageNote(gridAfter, newColumn) ?? "",
+  };
+}
 
 export type HighlightColor = "yellow" | "green" | "pink" | "blue";
 export const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "pink", "blue"];
@@ -387,7 +508,7 @@ export function dispatchTool(
           outcome: `Column${call.columns.length === 1 ? "" : "s"} ${list} deleted from the user's table. Remaining columns: ${next.headers.join(" | ")}.`,
         },
       },
-      nextGrid: { ...grid, headers: next.headers, rows: next.rows },
+      nextGrid: { ...grid, headers: next.headers, rows: next.rows, lineage: dropLineage(grid, call.columns) },
     };
   }
 
@@ -454,6 +575,13 @@ export function dispatchTool(
     const name = uniquifyHeader(grid.headers, call.newColumnName);
     const next = appendColumn(grid.headers, grid.rows, name, outputs);
     const total = only ? only.size : grid.rows.length;
+    const inputs = compiled.compiled.colIndexes.map((i) => grid.headers[i]);
+    const nextGrid = withLineage(
+      { ...grid, headers: next.headers, rows: next.rows },
+      name,
+      { tool: "compute_column", from: inputs, how: call.formula },
+    );
+    const circular = circularPair(grid, inputs);
     return {
       result: {
         ok: true,
@@ -461,13 +589,18 @@ export function dispatchTool(
         data: {
           newColumn: name,
           formula: call.formula,
+          inputs,
           rowsComputed: computed,
           rowsSkipped: total - computed,
-          outcome: `Column "${name}" added: ${call.formula} computed for ${computed} of ${total} rows${scopeNote} (rows with non-numeric inputs left blank).`,
+          // A copy-of-itself formula is the one shape whose zeros mean nothing,
+          // and the model reads them as proof. Name it in a field as well as in
+          // the prose so it cannot be missed.
+          ...(circular ? { comparesColumnWithItsOwnCopy: { original: circular[0], copy: circular[1] } } : {}),
+          outcome: `Column "${name}" added: ${call.formula} computed for ${computed} of ${total} rows${scopeNote} (rows with non-numeric inputs left blank). ${lineageNote(nextGrid, name)}`,
           sampleOutputs: outputs.filter((o) => o !== "").slice(0, 3),
         },
       },
-      nextGrid: { ...grid, headers: next.headers, rows: next.rows },
+      nextGrid,
     };
   }
 
@@ -523,7 +656,12 @@ export function dispatchTool(
   }
 
   const scopedRows = only ? grid.rows.filter((_, i) => only.has(i)) : grid.rows;
-  const stats = summarizeColumn(scopedRows, colIdx, call.column);
+  const rawStats = summarizeColumn(scopedRows, colIdx, call.column);
+  // A survey of a derived column is where the false "all correct" gets said:
+  // the model summarizes 差异, sees zeros, and reports the data verified. Say
+  // what the column is right where the zeros are read.
+  const origin = lineageNote(grid, call.column);
+  const stats = origin ? { ...rawStats, outcome: `${rawStats.outcome} ${origin}` } : rawStats;
   // Named rows are a read, not a survey: "what does row 24 say" arrives here
   // because summarize_column is the only reader, and a distinct-value count is
   // not an answer to it. Pair each row number with its cell so the model can
@@ -604,6 +742,7 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     `Spreadsheet: "${sheetName}" — ${grid.rows.length} rows × ${grid.headers.length} columns.`,
     `Columns: ${grid.headers.join(" | ")}`,
     describeScopes(grid),
+    ...(describeLineage(grid) ? [describeLineage(grid)!] : []),
     `Sample rows (tab-separated, ONLY the first 5 of ${grid.rows.length} — a tiny preview, NOT the whole data):`,
     sampleTsv,
     "",

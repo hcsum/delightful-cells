@@ -8,7 +8,29 @@
   "observed": "根据刚才的计算，这一行**金额是对的**。\n\n- 原始记录：拼车88+82.9=170.9\n- 表格金额：171.90\n- 差额：0\n\n提取的金额（170.9）与表格金额（171.90）完全一致。",
   "assert": {
     "forbidMention": [
-      "完全一致"
+      "完全一致",
+      "一致",
+      "对的",
+      "是对的",
+      "正确的",
+      "没有问题",
+      "匹配"
+    ],
+    "mustMentionAny": [
+      "不对",
+      "有误",
+      "不正确",
+      "错",
+      "差额",
+      "差了",
+      "相差",
+      "多了",
+      "多 1",
+      "少了",
+      "少加",
+      "wrong",
+      "differ",
+      "off by"
     ]
   },
   "messages": [
@@ -30,7 +52,7 @@
     },
     {
       "role": "user",
-      "content": "TOOL_RESULT transform_column: {\"newColumn\":\"金额_提取\",\"rowsProcessed\":154,\"rowsFailed\":0,\"scope\":\"all\",\"sampleOutputs\":[\"58.27\",\"40\",\"260\"]}"
+      "content": "TOOL_RESULT transform_column: {\"newColumn\":\"金额_提取\",\"sourceColumn\":\"金额\",\"rowsProcessed\":154,\"rowsFailed\":0,\"scope\":\"all\",\"sampleOutputs\":[\"58.27\",\"40\",\"260\"],\"outcome\":\"\\\"金额_提取\\\" is derived data, not the user's own: transform_column read \\\"金额\\\" and nothing else, one cell per row.\"}"
     },
     {
       "role": "assistant",
@@ -38,7 +60,7 @@
     },
     {
       "role": "user",
-      "content": "TOOL_RESULT compute_column: {\"newColumn\":\"差额\",\"formula\":\"[金额] - [金额_提取]\",\"rowsComputed\":154,\"rowsSkipped\":0,\"outcome\":\"Column \\\"差额\\\" added: [金额] - [金额_提取] computed for 154 of 154 rows (rows with non-numeric inputs left blank).\",\"sampleOutputs\":[\"0\",\"0\",\"0\"]}"
+      "content": "TOOL_RESULT compute_column: {\"newColumn\":\"差额\",\"formula\":\"[金额] - [金额_提取]\",\"inputs\":[\"金额\",\"金额_提取\"],\"rowsComputed\":154,\"rowsSkipped\":0,\"comparesColumnWithItsOwnCopy\":{\"original\":\"金额\",\"copy\":\"金额_提取\"},\"outcome\":\"Column \\\"差额\\\" added: [金额] - [金额_提取] computed for 154 of 154 rows (rows with non-numeric inputs left blank). \\\"差额\\\" is derived data: [金额] - [金额_提取], computed from \\\"金额\\\" and \\\"金额_提取\\\". WARNING: \\\"金额_提取\\\" was derived from \\\"金额\\\", so this formula relates a column to its own copy. Zeros or agreement here show only that the copy matches what it was copied from; they are NOT evidence that \\\"金额\\\" is correct. To check \\\"金额\\\", compare it with a column derived from the original data it should match instead.\",\"sampleOutputs\":[\"0\",\"0\",\"0\"]}"
     },
     {
       "role": "assistant",
@@ -46,7 +68,7 @@
     },
     {
       "role": "user",
-      "content": "TOOL_RESULT summarize_column: {\"column\":\"差额\",\"totalRows\":154,\"nonEmpty\":154,\"distinct\":1,\"sampleValues\":[\"0\"],\"topValues\":[{\"value\":\"0\",\"count\":154}],\"numeric\":{\"min\":0,\"max\":0,\"mean\":0,\"sum\":0,\"count\":154},\"outcome\":\"Column \\\"差额\\\" over 154 rows: 154 non-empty cells holding 1 different values (distinct = how many different values exist, NOT how many rows meet any condition). Of those, 154 parse as numbers: they add up to 0, average 0, ranging 0–0. These cover every non-empty cell that is a number, including zeros. topValues lists the most common values with how many rows hold each. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.\",\"scope\":\"all\"}"
+      "content": "TOOL_RESULT summarize_column: {\"column\":\"差额\",\"totalRows\":154,\"nonEmpty\":154,\"distinct\":1,\"sampleValues\":[\"0\"],\"topValues\":[{\"value\":\"0\",\"count\":154}],\"numeric\":{\"min\":0,\"max\":0,\"mean\":0,\"sum\":0,\"count\":154},\"outcome\":\"Column \\\"差额\\\" over 154 rows: 154 non-empty cells holding 1 different values (distinct = how many different values exist, NOT how many rows meet any condition). Of those, 154 parse as numbers: they add up to 0, average 0, ranging 0–0. These cover every non-empty cell that is a number, including zeros. topValues lists the most common values with how many rows hold each. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched. \\\"差额\\\" is derived data: [金额] - [金额_提取], computed from \\\"金额\\\" and \\\"金额_提取\\\". WARNING: \\\"金额_提取\\\" was derived from \\\"金额\\\", so this formula relates a column to its own copy. Zeros or agreement here show only that the copy matches what it was copied from; they are NOT evidence that \\\"金额\\\" is correct. To check \\\"金额\\\", compare it with a column derived from the original data it should match instead.\",\"scope\":\"all\"}"
     },
     {
       "role": "assistant",
@@ -159,6 +181,24 @@
         "40",
         "0"
       ]
-    ]
-  }
+    ],
+    "lineage": {
+      "金额_提取": {
+        "tool": "transform_column",
+        "from": [
+          "金额"
+        ],
+        "how": "Extract the numeric amount from the original record text, e.g. '打车58.27元' -> 58.27, '快递12+12+12=36' -> 36, '住宿347元' -> 347. If the record is just a number or a single amount, return that number. If the record contains multiple amounts separated by + or =, return the total sum. If no amount is found, return 0."
+      },
+      "差额": {
+        "tool": "compute_column",
+        "from": [
+          "金额",
+          "金额_提取"
+        ],
+        "how": "[金额] - [金额_提取]"
+      }
+    }
+  },
+  "baseline": " | 2026-09-16: TOOL_RESULT payloads rewritten to what the app emits now — transform_column names its sourceColumn and says what it read; compute_column names its inputs and warns when one is a copy of another; summarize_column on a derived column says what that column is. The grid carries lineage, which the prompt lists as \"Derived columns\". Same history, same calls, more honest results. | 2026-09-16: GLM, on the lineage-aware payloads, still answers 对的 on 8/8 runs — 6 of them as \"两者一致\" after printing 170.9 and 171.90, which the single forbidden phrase 完全一致 let through as a 7/8. The reply is to \"所以这一行对吗？\" and the true answer is no, so the assertion now demands the no (mustMentionAny) and forbids the yes in the forms GLM has used. llama-4-scout: 8/8, every run naming the 1 元 difference and calling the row wrong. Three llama runs on 2026-09-16 said it as \"金额比计算结果多 1 元，可能需要检查一下是否正确\" — right, and missed by the first list; 多 1 and its siblings were added after reading them."
 }

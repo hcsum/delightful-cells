@@ -7,6 +7,15 @@
   },
   "observed": "{\"type\":\"tool_call\",\"tool\":\"transform_column\",\"column\":\"金额\",\"instruction\":\"从原始记录中重新提取金额，确保包含所有数字（如'打车58.27元'提取58.27，'快递12+12+12=36'提取36，'机票：3510元'提取3510）\",\"newColumnName\":\"金额_核对\",\"scope\":\"all\",\"rows\":null}",
   "assert": {
+    "requireCall": [
+      {
+        "tool": "transform_column",
+        "column": "原始记录"
+      },
+      {
+        "final": true
+      }
+    ],
     "forbidCalls": [
       {
         "tool": "transform_column",
@@ -25,7 +34,7 @@
     },
     {
       "role": "user",
-      "content": "TOOL_RESULT transform_column: {\"newColumn\":\"金额\",\"rowsProcessed\":154,\"rowsFailed\":0,\"scope\":\"all\",\"sampleOutputs\":[\"58.27\",\"40\",\"260\"]}"
+      "content": "TOOL_RESULT transform_column: {\"newColumn\":\"金额\",\"sourceColumn\":\"原始记录\",\"rowsProcessed\":154,\"rowsFailed\":0,\"scope\":\"all\",\"sampleOutputs\":[\"58.27\",\"40\",\"260\"],\"outcome\":\"\\\"金额\\\" is derived data, not the user's own: transform_column read \\\"原始记录\\\" and nothing else, one cell per row.\"}"
     },
     {
       "role": "assistant",
@@ -41,7 +50,7 @@
     },
     {
       "role": "user",
-      "content": "TOOL_RESULT summarize_column: {\"column\":\"金额\",\"totalRows\":154,\"nonEmpty\":153,\"distinct\":117,\"sampleValues\":[\"58.27\",\"800\",\"45\",\"33\",\"309\",\"199\",\"119.54\",\"129\",\"360\",\"467\",\"157.2\",\"400\",\"48\",\"77.35\",\"34.56\",\"50\",\"69.6\",\"1622.74\",\"5310\",\"16\",\"597\",\"4640\",\"49.9\",\"80.36\",\"276.33\",\"89.13\",\"42.4\",\"70.44\",\"33.03\",\"22.7\",\"121\",\"285\",\"503.34\",\"3510\",\"263\",\"166.06\",\"50.8\",\"101.15\",\"380\"],\"topValues\":[{\"value\":\"300\",\"count\":7},{\"value\":\"200\",\"count\":6},{\"value\":\"500\",\"count\":5},{\"value\":\"100\",\"count\":4},{\"value\":\"16\",\"count\":4},{\"value\":\"400\",\"count\":3},{\"value\":\"10\",\"count\":3},{\"value\":\"12\",\"count\":3},{\"value\":\"40\",\"count\":2},{\"value\":\"45\",\"count\":2}],\"numeric\":{\"min\":6.79,\"max\":8031.5,\"mean\":416.5,\"sum\":63724.57,\"count\":153},\"outcome\":\"Column \\\"金额\\\" over 154 rows: 153 non-empty cells holding 117 different values (distinct = how many different values exist, NOT how many rows meet any condition). Of those, 153 parse as numbers: they add up to 63724.57, average 416.5, ranging 6.79–8031.5. These cover every non-empty cell that is a number, including zeros. topValues lists the most common values with how many rows hold each. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.\",\"scope\":\"all\"}"
+      "content": "TOOL_RESULT summarize_column: {\"column\":\"金额\",\"totalRows\":154,\"nonEmpty\":153,\"distinct\":117,\"sampleValues\":[\"58.27\",\"800\",\"45\",\"33\",\"309\",\"199\",\"119.54\",\"129\",\"360\",\"467\",\"157.2\",\"400\",\"48\",\"77.35\",\"34.56\",\"50\",\"69.6\",\"1622.74\",\"5310\",\"16\",\"597\",\"4640\",\"49.9\",\"80.36\",\"276.33\",\"89.13\",\"42.4\",\"70.44\",\"33.03\",\"22.7\",\"121\",\"285\",\"503.34\",\"3510\",\"263\",\"166.06\",\"50.8\",\"101.15\",\"380\"],\"topValues\":[{\"value\":\"300\",\"count\":7},{\"value\":\"200\",\"count\":6},{\"value\":\"500\",\"count\":5},{\"value\":\"100\",\"count\":4},{\"value\":\"16\",\"count\":4},{\"value\":\"400\",\"count\":3},{\"value\":\"10\",\"count\":3},{\"value\":\"12\",\"count\":3},{\"value\":\"40\",\"count\":2},{\"value\":\"45\",\"count\":2}],\"numeric\":{\"min\":6.79,\"max\":8031.5,\"mean\":416.5,\"sum\":63724.57,\"count\":153},\"outcome\":\"Column \\\"金额\\\" over 154 rows: 153 non-empty cells holding 117 different values (distinct = how many different values exist, NOT how many rows meet any condition). Of those, 153 parse as numbers: they add up to 63724.57, average 416.5, ranging 6.79–8031.5. These cover every non-empty cell that is a number, including zeros. topValues lists the most common values with how many rows hold each. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched. \\\"金额\\\" is derived data, not the user's own: transform_column read \\\"原始记录\\\" and nothing else, one cell per row.\",\"scope\":\"all\"}"
     },
     {
       "role": "assistant",
@@ -118,6 +127,16 @@
         "胶装40元",
         "40"
       ]
-    ]
-  }
+    ],
+    "lineage": {
+      "金额": {
+        "tool": "transform_column",
+        "from": [
+          "原始记录"
+        ],
+        "how": "从文本中提取纯数字金额，例如从'打车58.27元'中提取58.27，从'高铁40元'中提取40"
+      }
+    }
+  },
+  "baseline": " | 2026-09-16: TOOL_RESULT payloads rewritten to what the app emits now — transform_column names its sourceColumn and says what it read; compute_column names its inputs and warns when one is a copy of another; summarize_column on a derived column says what that column is. The grid carries lineage, which the prompt lists as \"Derived columns\". Same history, same calls, more honest results. | 2026-09-16: assertion tightened. Accepted: transform_column on 原始记录, or a final answer (the honest one says 金额 was made from 原始记录, so there is nothing new to compare it with). GLM's 8/8 was 0/8 read: every run a no-op summarize_column on 金额. That now fails."
 }

@@ -15,6 +15,11 @@ estimated.
 - **Job 3 (done 2026-09-15): the two cases both models failed are fixed**, in
   the prompt, and a third failure of the same kind was found and fixed with
   them. 24 cases now, llama 23/24. See "Job 3 — the prompt fix".
+- **Job 4 (done 2026-09-16): the sheet remembers where each column came
+  from.** `zero-difference-is-not-a-check`, 0/8 on both models the day before,
+  reads honest on 8/8 for both. The model-vs-harness question is answered: the
+  核对 chain was the harness, the 对的 about 170.9 vs 171.90 is the model.
+  llama 24/24. Not deployed. See "Job 4 — lineage".
 
 **Three findings worth reading before anything else:**
 
@@ -567,6 +572,127 @@ measured, not guessed — one of the two trims held 8/8 and stayed, the other co
 Final state: **24 cases, llama 23/24**, the one failure being
 `zero-difference-is-not-a-check` at its honest 0/8.
 
+## Job 4 — lineage: the sheet remembers where a column came from
+
+**2026-09-16.** The session opened on the question the last one left: are
+GLM's 核对 failures the model or the harness? The answer is both, in different
+places, and one case separates them cleanly.
+
+**The model part.** `derived-column-is-not-evidence` holds every harness
+variable fixed — same prompt, same history, same payloads — and the last two
+TOOL_RESULTs put `170.9` and `171.90` in front of the model before the user
+asks 所以这一行对吗. GLM answers 对的 on 8/8 runs, six of them as 两者一致 and
+two as 相差 1 元…整体是正确的. llama answers no on 8/8, naming the 1 元. Nothing
+upstream of that reply can change it; no planner reaches it either. This is
+the difference the 3.9x buys, and it is the whole difference.
+
+**The harness part.** `zero-difference-is-not-a-check` was 0/8 on both models,
+and reading the history shows why the model could not have done better:
+`transform_column`'s result named no source column, and nothing in the prompt
+said which columns were made by tools. The one fact that makes the zeros
+worthless — 金额_核对 is a copy of 金额 — existed nowhere the model could read.
+
+The fix is `GridState.lineage`: every column a tool makes records the tool,
+the columns it read, and the instruction or formula. Four places read it:
+
+- `transform_column`'s result carries `sourceColumn` and an `outcome` saying
+  what it read; when the source is itself derived, that 金额_核对 is a copy of
+  a copy and comparing it with 金额 says nothing about 原始记录.
+- `compute_column`'s result carries `inputs`, and when one input descends from
+  another, a `comparesColumnWithItsOwnCopy` field and a WARNING in `outcome`.
+- `summarize_column` on a derived column appends the same note — this is the
+  step where the false sentence was being written.
+- The prompt gets a `Derived columns` block under CURRENT TABLE STATE, present
+  only when a derived column exists, so ordinary turns pay nothing.
+
+Measured on the five 核对 cases, 8 runs each, replies read rather than scored:
+
+| Case | GLM before | GLM after | llama before | llama after |
+|---|---|---|---|---|
+| `zero-difference-is-not-a-check` (honest reply) | 0/8 | 7/8, then 8/8 | 0/8 | **8/8** |
+| `transform-rechecks-its-own-column` (does the work) | 0/8, all no-op summarize | **8/8** transform on 原始记录 | 0/8, all refusals | 0/8, all refusals |
+| `transform-reads-source-column` (does the work) | 3/8 | 4/8 | 8/8 | 8/8 |
+| `derived-column-is-not-evidence` (says the row is wrong) | 0/8 | 0/8 | 8/8 | 8/8 |
+| `unjudged-rows-not-marked` (reports, does not redo) | 0/8 | 0/8 | 8/8 | 8/8 |
+
+The first row is the product's flagship failure, and it is fixed on both
+models by telling them one true fact at the point where they read the zeros.
+GLM's honest replies say it as well as llama's: 由于“金额_核对”是“金额”的副本，
+这个结果只能证明两列数据一致，不能直接证明“金额”与“原始记录”一致 — and two
+of its eight runs went back and derived a fresh column from 原始记录, which is
+the better answer.
+
+The second row is llama's own weakness in this cluster: asked 逐行跟原始数据对比
+it declines every time (逐行对比工作量较大), and the assertion accepts a final,
+so the 8/8 hides it. GLM, given the lineage block, does the work. Neither
+model says the honest thing — 金额 was made from 原始记录 three turns ago, so
+there is nothing new to compare it with.
+
+### Assertions tightened, and one new check
+
+The forbid-only cases had been scoring detours as passes (see "GLM re-measured"
+above). Five assertions changed:
+
+- `transform-reads-source-column` — `requireCall` transform_column on 原始记录.
+  GLM's 8/8 was 3/8 read; now scores 4/8.
+- `transform-rechecks-its-own-column` — `requireCall` transform on 原始记录, or
+  a final (`{ "final": true }` is a new spelling in `requireCall`). GLM's no-op
+  summarize now fails.
+- `unjudged-rows-not-marked` — the history ends with the rows already marked,
+  so the judged reply is the report: `mustBeFinal`, and any `transform_column`
+  is forbidden. GLM redoes the finished write on 8/8, half of them over scope
+  "all"; llama reports.
+- `zero-difference-is-not-a-check` — rebuilt around **`mustMentionAny`**, a new
+  check: a final must contain one of a list of phrases. The honest reply here
+  is a qualification (只能说明 / 不代表 / 并不), and the false one is the same
+  sentence without it. `forbidMention` could not tell them apart because every
+  honest reply says 完全一致 about the two copies, which is true; the old list
+  scored the fixed behaviour 0/8 and 1/8. `forbidMention` is kept for the
+  phrases no honest reply uses (核对无误, 准确无误, 全部正确, 没有问题, 没有错误,
+  核对完成).
+- `derived-column-is-not-evidence` — `mustMentionAny` the no (不对 / 有误 / 差额
+  / 多 1 …), `forbidMention` the yes in the forms GLM has used (对的, 一致,
+  正确的, 匹配). GLM's 7/8 mechanical becomes its honest 0/8. Three llama
+  replies said it as 金额比计算结果多 1 元 and were missed by the first list;
+  widened after reading them.
+
+Still characters, not meaning. `mustMentionAny` makes the case demand a claim
+instead of only avoiding one, which is harder to pass by accident, but the
+argument for a judge that reads meaning stands.
+
+### The suite after
+
+Full run on llama, 24 cases, 8 runs each: **23/24**, the one being
+`derived-column-is-not-evidence` at 5/8 before 多 1 was added; 8/8 on the
+rerun, so effectively 24/24. Every other case 8/8, so the prompt block and the
+payload changes broke nothing on the ordinary path. 12395 neurons over 192
+calls, ~64.6 per call — the lineage block only renders in three cases, so the
+average barely moved.
+
+GLM was measured on the five 核对 cases only, not the full suite.
+
+**Not deployed.** The change is in `lib/cells/tools.ts`, `components/cells/
+CellsApp.tsx`, `scripts/eval.mjs` and `scripts/mint-cases.mjs`; the worker is
+untouched. `pnpm cf` has not been run. The three recorded 核对 cases had their
+TOOL_RESULT payloads rewritten to what the app emits now, through the same
+helpers the app uses (`lineageNote`, `transformProvenance`), and their grids
+carry `lineage`.
+
+### The guardrail question, decided
+
+"Re-decide" is done: **inform, do not block.** The ported foreign-column check
+was the wrong tool — it would refuse `金额` minus a cleaned `金额_去空格`, which is
+how a formatting audit is done. Lineage lets that call run and puts a WARNING
+in its result that the model can weigh. It would have caught both recorded
+samples regardless of the instruction's language, because it reads the sheet's
+memory rather than the instruction's text.
+
+**Model decision, unchanged: llama.** The harness fix landed on both models
+equally; what remains between them is `derived-column-is-not-evidence`, which
+is GLM reading two different numbers and calling them the same, and
+`unjudged-rows-not-marked`, which is GLM rewriting a column that was just
+written. Both are the model.
+
 ## What was measured earlier (keep — this is the before-picture)
 
 ### Model comparison, the original five cases, 8 runs each
@@ -704,11 +830,11 @@ node scripts/mint-cases.mjs --print                     # ...without writing
 
 ## Decisions carried forward
 
-- Guardrails for the transform_column bug: **re-decide**. The reason recorded
-  for skipping them ("the check couldn't match a Chinese header against an
-  English instruction") was disproved by the 09-15 recording, where the
-  instruction was Chinese. The competing objection — it blocks legitimate
-  `金额` vs `金额_去空格` audits — still stands.
+- Guardrails for the transform_column bug: **decided 2026-09-16 — inform, do not
+  block.** `GridState.lineage` records what every tool-made column was read or
+  computed from; results and the prompt say so, and a formula relating a column
+  to its own copy carries a WARNING instead of being refused. The legitimate
+  金额 vs 金额_去空格 audit still runs. See "Job 4 — lineage".
 - Do **not** build a planner/executor pipeline. Reasons above.
 - The `find_replace` empty-find-and-replace refusal and the `filter_rows_ai`
   foreign-column guard both **stay**. The first stopped being the *only* thing
@@ -727,7 +853,8 @@ node scripts/mint-cases.mjs --print                     # ...without writing
 - Baselines in `evals/*.json` are a before-picture: **add** a model's line,
   never overwrite one.
 - `lib/cells/agent.ts` has **not been touched** by any of these sessions.
-  `lib/cells/tools.ts` was, in Job 3: the system prompt, and the `"rows"` branch
+  `components/cells/CellsApp.tsx` was, in Job 4: `transform_column` records
+  lineage and reports its source column. `lib/cells/tools.ts` was, in Job 3: the system prompt, and the `"rows"` branch
   of `summarize_column`'s result. The deliberate exemption of `transform_column`
   from the foreign-column check at `lib/cells/tools.ts:332` still stands.
 - `llm-worker/src/index.ts` briefly had a `CHAT_MODEL` env override, then

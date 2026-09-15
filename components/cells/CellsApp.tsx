@@ -19,6 +19,8 @@ import {
   resolveScope,
   retryHint,
   scopeLabel,
+  transformProvenance,
+  withLineage,
   type GridState,
   type ToolCall,
   type ToolResult,
@@ -464,7 +466,16 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         const outputs = new Array<string>(current.rows.length).fill("");
         targets.forEach((rowIdx, j) => (outputs[rowIdx] = results[j]?.output ?? ""));
         const next = appendColumn(current.headers, current.rows, name, outputs);
-        setGrid({ ...current, headers: next.headers, rows: next.rows });
+        // Remember what the new column was read from. The result below and
+        // every later prompt say so, which is the only way the model can know
+        // a column is a copy when it later tries to check it "against the source".
+        const nextGrid = withLineage(
+          { ...current, headers: next.headers, rows: next.rows },
+          name,
+          { tool: "transform_column", from: [call.column], how: call.instruction },
+        );
+        setGrid(nextGrid);
+        const provenance = transformProvenance(nextGrid, name);
         // Three different empties, and the model needs to tell them apart: a
         // row the AI answered with nothing, a row we never got an answer for,
         // and a row outside the scope.
@@ -479,16 +490,16 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
               : `${filled}/${results.length} rows → "${name}"`,
           data: {
             newColumn: name,
+            sourceColumn: provenance.sourceColumn,
             rowsProcessed: results.length,
             rowsFailed: failed,
             scope: call.scope,
             sampleOutputs: results.slice(0, 3).map((r) => r.output),
-            ...(failed > 0
-              ? {
-                  ...(failedRows ? { failedRows } : {}),
-                  outcome: `${failed} of ${results.length} rows could not be processed and were left blank in "${name}"; the user chose to keep the ${filled} rows that worked. Say so. ${retryHint(failedRows)}`,
-                }
-              : {}),
+            ...(failed > 0 && failedRows ? { failedRows } : {}),
+            outcome:
+              failed > 0
+                ? `${failed} of ${results.length} rows could not be processed and were left blank in "${name}"; the user chose to keep the ${filled} rows that worked. Say so. ${retryHint(failedRows)} ${provenance.outcome}`
+                : provenance.outcome,
           },
         };
       } catch (e) {
