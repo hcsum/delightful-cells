@@ -34,9 +34,26 @@ function extractText(result: any): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*?<\/think>/i, '').trim();
 }
 
-// One model for both endpoints. Alternatives: @cf/meta/llama-4-scout-17b-16e-instruct,
+// One model for both endpoints. Alternatives: @cf/zai-org/glm-4.7-flash,
 // @cf/openai/gpt-oss-20b, @cf/zai-org/glm-5.3-flash (needs a paid billing method).
-const MODEL = '@cf/zai-org/glm-4.7-flash';
+//
+// Switched off glm-4.7-flash on 2026-09-15: it fails 5 of the 21 cases in
+// evals/, all of them in multi-step 核对 — it points transform_column at a
+// derived column, then reads the resulting zeros back as proof the data is
+// correct. llama-4-scout passes four of those five. It costs ~4.2x per call
+// (~58 vs ~14 neurons); see docs/model-switch-handover.md for the measurement
+// and for the two failures neither model fixes.
+const MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+
+// GLM thinks out loud by default: ~10x the output tokens for the same answer,
+// and its <think> text breaks our one-JSON-object contract. The flag is GLM's
+// own, it is not in any other model's schema, and sending it to llama is
+// untested — so derive it from MODEL rather than leaving it hardcoded. This is
+// also exactly what scripts/eval.mjs does, which keeps the call the worker
+// makes identical to the call that was measured.
+const THINKING_OFF = MODEL.includes('glm')
+  ? { chat_template_kwargs: { enable_thinking: false } }
+  : {};
 
 const CHAT_ROLES = new Set(['system', 'user', 'assistant']);
 const CHAT_MAX_MESSAGES = 30;
@@ -146,9 +163,7 @@ export default {
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         max_tokens: 1024,
         temperature: 0,
-        // GLM thinks out loud by default: ~10x the output tokens for the same
-        // answer, and its <think> text breaks our one-JSON-object contract.
-        chat_template_kwargs: { enable_thinking: false },
+        ...THINKING_OFF,
       } as any);
       const chatText = extractText(chatResult);
       log('chat-ok', { ms: Date.now() - t0, bytes: chatText.length, messages: messages.length });
@@ -204,9 +219,7 @@ export default {
       ],
       max_tokens: 2048,
       temperature: 0,
-      // Same as /chat: thinking would eat the token budget before the model
-      // ever emits the TOON block.
-      chat_template_kwargs: { enable_thinking: false },
+      ...THINKING_OFF,
     } as any);
     const text = extractText(result);
     log('ok', { ms: Date.now() - t0, bytes: text.length });
