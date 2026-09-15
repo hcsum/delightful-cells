@@ -1,0 +1,89 @@
+{
+  "name": "rate-reported-as-a-percentage",
+  "why": "The division, once the counting is done: 30 已退款 out of 120 rows is 25%, exact, so a right answer cannot be a rounding coincidence and the wrong readings land nowhere near it. The history deliberately runs BOTH counting routes before the assertion — filter_rows and then summarize_column — even though either one alone carries the two numbers. Measured 2026-09-15: given only one of them, GLM never divides, it calls the other one (8/8 after filter_rows, 4/4 after summarize_column, every single reply a tool call). Given both, it answers 25% every time. So a one-step version of this case would score zero while testing nothing about arithmetic; what it would really be measuring is that the model keeps gathering while any tool is left uncalled. That behaviour costs a round trip and is worth knowing, but it is not this case. Note what is NOT asserted: the wording, or whether the model calls something else first.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8 (with both counts in hand — see \"why\")",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "mustBeFinal": true,
+    "mustMention": [
+      "25"
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "退款率是多少？"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"filter_rows\",\"column\":\"状态\",\"op\":\"equals\",\"value\":\"已退款\",\"mode\":\"select\",\"scope\":\"all\",\"rows\":null,\"highlight\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT filter_rows: {\"rowsMatched\":30,\"rowsTotal\":120,\"outcome\":\"30 of 120 rows matched (状态 equals 已退款) and are now selected in the user's table. These rows are now the selection: another tool can target them with \\\"scope\\\":\\\"selection\\\".\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"summarize_column\",\"column\":\"状态\",\"scope\":\"all\",\"rows\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT summarize_column: {\"column\":\"状态\",\"totalRows\":120,\"nonEmpty\":120,\"distinct\":4,\"sampleValues\":[\"已完成\",\"待付款\",\"已退款\",\"已发货\"],\"topValues\":[{\"value\":\"已完成\",\"count\":45},{\"value\":\"待付款\",\"count\":30},{\"value\":\"已退款\",\"count\":30},{\"value\":\"已发货\",\"count\":15}],\"outcome\":\"Column \\\"状态\\\" over 120 rows: 120 non-empty cells holding 4 different values (distinct = how many different values exist, NOT how many rows meet any condition). The values are not numeric, so there is no sum or average. topValues lists the most common values with how many rows hold each. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.\",\"scope\":\"all\"}"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ],
+    "selectedCount": 30
+  }
+}

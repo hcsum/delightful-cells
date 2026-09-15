@@ -1,0 +1,79 @@
+{
+  "name": "plain-filter-selects",
+  "why": "The plainest thing the tool surface does: one mechanical condition, one filter_rows, mode \"select\" because the user said 选出来. Nothing here is a trap — that is the point. Every other case asserts that a specific mistake did not happen, and a suite of only those cannot tell a model that fixed a bug from a model that broke the basics. equals and contains are both accepted: on this column they select the same 30 rows.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "filter_rows",
+        "column": "状态",
+        "op": [
+          "equals",
+          "contains"
+        ],
+        "mode": "select"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "把状态是已退款的行选出来"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

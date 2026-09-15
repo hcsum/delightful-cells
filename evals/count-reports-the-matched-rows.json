@@ -1,0 +1,81 @@
+{
+  "name": "count-reports-the-matched-rows",
+  "why": "The second half of a count: the number is back, and the job is to say it. rowsMatched is the answer; rowsTotal and the sheet's row count are the numbers it gets confused with, and the 5 sample rows in the prompt are the other place a number can be invented from. Asserting the digits appear in the final message is a low bar deliberately — this case exists to fail when a model stops calling tools and starts estimating.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "mustBeFinal": true,
+    "mustMention": [
+      "51"
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "数量大于 5 的订单有多少个？"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"filter_rows\",\"column\":\"数量\",\"op\":\"gt\",\"value\":\"5\",\"mode\":\"select\",\"scope\":\"all\",\"rows\":null,\"highlight\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT filter_rows: {\"rowsMatched\":51,\"rowsTotal\":120,\"outcome\":\"51 of 120 rows matched (数量 gt 5) and are now selected in the user's table. These rows are now the selection: another tool can target them with \\\"scope\\\":\\\"selection\\\".\"}"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ],
+    "selectedCount": 51
+  }
+}

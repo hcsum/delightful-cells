@@ -1,0 +1,74 @@
+{
+  "name": "most-common-value-uses-summarize",
+  "why": "The mirror of the case above: here summarize_column IS the right call, because its topValues holds every value with its count and answers the question in one step. A model that instead runs filter_rows once per status is not wrong so much as expensive, and it will usually stop after the first one and report that count as the winner.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "summarize_column",
+        "column": "状态"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "哪个状态的订单最多？"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "semantic-filter-uses-ai",
+  "why": "A test no string match can stand in for: anger is in the wording, and none of these cells contains the word 生气. filter_rows with contains would return a tidy, wrong, cheap answer — and a zero-match filter reads as \"no angry customers\", which is worse than an error. This is also the one criteria shape the foreign-column guard must NOT block: it is about the cell it judges and names no other column.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "filter_rows_ai",
+        "column": "反馈内容"
+      }
+    ],
+    "forbidCalls": [
+      {
+        "tool": "filter_rows"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "把语气听起来很生气的反馈挑出来"
+    }
+  ],
+  "grid": {
+    "sheetName": "反馈表",
+    "headers": [
+      "编号",
+      "客户",
+      "渠道",
+      "反馈内容",
+      "处理人"
+    ],
+    "rowCount": 80,
+    "sampleRows": [
+      [
+        "F201",
+        "张伟",
+        "微信",
+        "东西收到了，包装很好，谢谢",
+        "小林"
+      ],
+      [
+        "F202",
+        "李娜",
+        "电话",
+        "等了快两周还没发货，到底还发不发？太离谱了",
+        "小周"
+      ],
+      [
+        "F203",
+        "王强",
+        "邮件",
+        "客服一直不回消息，已经第三次催了，非常失望",
+        "小赵"
+      ],
+      [
+        "F204",
+        "刘洋",
+        "小程序",
+        "价格比上次贵了一些，希望能给个说法",
+        "小林"
+      ],
+      [
+        "F205",
+        "陈静",
+        "微信",
+        "用起来还行，就是说明书有点简单",
+        "小周"
+      ]
+    ]
+  }
+}

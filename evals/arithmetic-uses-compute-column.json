@@ -1,0 +1,84 @@
+{
+  "name": "arithmetic-uses-compute-column",
+  "why": "Arithmetic across two columns is compute_column and nothing else: the formula is evaluated exactly, per row. transform_column is the failure mode worth naming — it can only see one column, so an AI \"multiply these\" instruction would be working from half the inputs and inventing the rest, at a neuron cost per row. The formula must reference both source columns; the new column name is the user's to choose and is not asserted.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "compute_column",
+        "includes": {
+          "formula": [
+            "数量",
+            "单价"
+          ]
+        }
+      }
+    ],
+    "forbidCalls": [
+      {
+        "tool": "transform_column"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "加一列金额，等于数量乘以单价"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

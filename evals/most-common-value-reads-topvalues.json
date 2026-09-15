@@ -1,0 +1,81 @@
+{
+  "name": "most-common-value-reads-topvalues",
+  "why": "topValues is sorted, so the answer is its first entry: 已完成, 45 rows. The failure this catches is reading the summary by field name instead of by its outcome sentence — distinct is 4, and \"4 种状态\" is a fluent answer to a question nobody asked. Both the winning value and its count must appear.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "mustBeFinal": true,
+    "mustMention": [
+      "已完成",
+      "45"
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "哪个状态的订单最多？"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"summarize_column\",\"column\":\"状态\",\"scope\":\"all\",\"rows\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT summarize_column: {\"column\":\"状态\",\"totalRows\":120,\"nonEmpty\":120,\"distinct\":4,\"sampleValues\":[\"已完成\",\"待付款\",\"已退款\",\"已发货\"],\"topValues\":[{\"value\":\"已完成\",\"count\":45},{\"value\":\"待付款\",\"count\":30},{\"value\":\"已退款\",\"count\":30},{\"value\":\"已发货\",\"count\":15}],\"outcome\":\"Column \\\"状态\\\" over 120 rows: 120 non-empty cells holding 4 different values (distinct = how many different values exist, NOT how many rows meet any condition). The values are not numeric, so there is no sum or average. topValues lists the most common values with how many rows hold each. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.\",\"scope\":\"all\"}"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

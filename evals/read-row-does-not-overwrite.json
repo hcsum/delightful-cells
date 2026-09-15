@@ -1,0 +1,79 @@
+{
+  "name": "read-row-does-not-overwrite",
+  "why": "Reading a cell. find_replace is the only tool whose example shows \"rows\", so it gets reached for as a getter — and find_replace does not read, it writes: with both find and replace empty it erases the cell the user asked about. validateToolCall now rejects that exact shape, so this case is about the decision, not the damage. Deliberately asserted one-sided: summarize_column with \"rows\":[24] answers the question through sampleValues, and a straight decline is defensible too (the prompt lists reading a row among the things to decline), so both pass. Only reaching for the writer fails.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 0/8, llama-4-scout 0/8 — both emit the identical destructive getter, {\"tool\":\"find_replace\",\"column\":\"原始记录\",\"find\":\"\",\"replace\":\"\",\"rows\":[24]}, on every run. validateToolCall refuses that exact shape, which is the only reason the cell survives; the guard is load-bearing on both models, not a belt-and-braces check for one.",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "forbidCalls": [
+      {
+        "tool": "find_replace"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "第 24 行的原始记录写的是什么？"
+    }
+  ],
+  "grid": {
+    "sheetName": "明细表",
+    "headers": [
+      "月份",
+      "项目",
+      "金额",
+      "大类",
+      "小类",
+      "备注",
+      "原始记录"
+    ],
+    "rowCount": 154,
+    "sampleRows": [
+      [
+        "1",
+        "打车",
+        "58.27",
+        "差旅费",
+        "市内交通",
+        "",
+        "打车58.27元"
+      ],
+      [
+        "1",
+        "高铁",
+        "40.00",
+        "差旅费",
+        "高铁",
+        "",
+        "高铁40元"
+      ],
+      [
+        "1",
+        "办理CA",
+        "260.00",
+        "投标",
+        "CA证书",
+        "",
+        "办理CA 260元"
+      ],
+      [
+        "1",
+        "办理CA",
+        "800.00",
+        "投标",
+        "CA证书",
+        "",
+        "办理CA 800元"
+      ],
+      [
+        "1",
+        "胶装",
+        "40.00",
+        "投标",
+        "胶装",
+        "",
+        "胶装40元"
+      ]
+    ]
+  }
+}

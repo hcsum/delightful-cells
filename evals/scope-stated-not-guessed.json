@@ -1,0 +1,126 @@
+{
+  "name": "scope-stated-not-guessed",
+  "why": "Real run tmtzh7sv step 2: the model emitted transform_column whose own instruction said \"set it to '是' for all rows\" but carried no \"scope\". 100 rows were selected, so the validator defaulted it to the selection and wrote 100 of 154 — the opposite of what the call said it wanted. The prompt was the cause: its preamble claimed scope defaults to all while the validator defaults acting tools to the selection. With a selection on screen the model must state which set it means. Measured 2026-09-15, 8 runs: glm-4.7-flash 8/8, llama-4-scout 8/8.",
+  "from": {
+    "turn": "tmtzh7svpej080t1i",
+    "step": 2
+  },
+  "observed": "{\"type\":\"tool_call\",\"tool\":\"transform_column\",\"column\":\"金额\",\"instruction\":\"Add a new column named '已核对' and set it to '是' for all rows.\",\"newColumnName\":\"已核对\"}",
+  "grid": {
+    "sheetName": "明细表",
+    "headers": [
+      "月份",
+      "项目",
+      "金额",
+      "大类",
+      "小类",
+      "备注",
+      "原始记录"
+    ],
+    "rowCount": 154,
+    "selectedCount": 100,
+    "highlightedCount": 100,
+    "sampleRows": [
+      [
+        "1",
+        "打车",
+        "58.27",
+        "差旅费",
+        "市内交通",
+        "",
+        "打车58.27元"
+      ],
+      [
+        "1",
+        "高铁",
+        "40.00",
+        "差旅费",
+        "高铁",
+        "",
+        "高铁40元"
+      ],
+      [
+        "1",
+        "办理CA",
+        "260.00",
+        "投标",
+        "CA证书",
+        "",
+        "办理CA 260元"
+      ],
+      [
+        "1",
+        "办理CA",
+        "800.00",
+        "投标",
+        "CA证书",
+        "",
+        "办理CA 800元"
+      ],
+      [
+        "1",
+        "胶装",
+        "40.00",
+        "投标",
+        "胶装",
+        "",
+        "胶装40元"
+      ]
+    ]
+  },
+  "assert": {
+    "requireExplicitScope": [
+      "find_replace",
+      "transform_column",
+      "compute_column",
+      "summarize_column",
+      "highlight_rows"
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "根据原始记录核对金额"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"summarize_column\",\"column\":\"原始记录\",\"scope\":\"all\",\"rows\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT summarize_column: {\"column\":\"原始记录\",\"totalRows\":154,\"nonEmpty\":153,\"distinct\":141,\"sampleValues\":[\"打车58.27元\",\"胶装40元\",\"快递12+12+12=36\",\"打印机硒鼓69\",\"坐垫纸199\",\"聚餐645.1\",\"高铁150+150=300\",\"快递278+21=299\",\"打车 17.13元\",\"办理CA 288元\",\"购买标书700\",\"住宿347元\",\"快递12+10.56+12\",\"文具18.41\",\"咖啡糖35.5\",\"打车17.11元\",\"胶装30元\",\"快递27元\",\"住宿597元\",\"高铁330元\",\"电子钥匙230\",\"打印费 30\",\"喷水壶 自拍杆54.02\",\"餐费140元\",\"胶装费16元\",\"灭火器162\",\"寄快递12元\",\"防蚊喷剂103.92\",\"旅游用品1390.68\",\"交通503.34\",\"机票：3510元\",\"胶装72元\",\"快递12+12\",\"香薰50.8\",\"电费708.95\",\"门票620（无票）\"],\"outcome\":\"Column \\\"原始记录\\\" over 154 rows: 153 non-empty cells holding 141 different values (distinct = how many different values exist, NOT how many rows meet any condition). The values are not numeric, so there is no sum or average. Values are nearly all unique, so no frequency counts are given. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.\",\"scope\":\"all\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"summarize_column\",\"column\":\"金额\",\"scope\":\"all\",\"rows\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT summarize_column: {\"column\":\"金额\",\"totalRows\":154,\"nonEmpty\":154,\"distinct\":119,\"sampleValues\":[\"58.27\",\"800.00\",\"45.00\",\"33.00\",\"309.00\",\"199.00\",\"119.54\",\"129.00\",\"360.00\",\"467.00\",\"157.20\",\"400.00\",\"48.00\",\"77.35\",\"34.56\",\"50.00\",\"69.60\",\"1,622.74\",\"5,310.00\",\"16.00\",\"597.00\",\"4,640.00\",\"49.90\",\"80.36\",\"276.33\",\"89.13\",\"42.40\",\"70.44\",\"33.03\",\"480.75\",\"104.68\",\"1,390.68\",\"658.00\",\"47.30\",\"1,792.40\",\"59.00\",\"68.00\",\"570.00\",\"1,680.71\",\"620.00\"],\"topValues\":[{\"value\":\"300.00\",\"count\":7},{\"value\":\"200.00\",\"count\":6},{\"value\":\"500.00\",\"count\":5},{\"value\":\"100.00\",\"count\":4},{\"value\":\"16.00\",\"count\":4},{\"value\":\"24.00\",\"count\":3},{\"value\":\"400.00\",\"count\":3},{\"value\":\"10.00\",\"count\":3},{\"value\":\"40.00\",\"count\":2},{\"value\":\"45.00\",\"count\":2}],\"numeric\":{\"min\":6.79,\"max\":990,\"mean\":207.94,\"sum\":29111.14,\"count\":140},\"outcome\":\"Column \\\"金额\\\" over 154 rows: 154 non-empty cells holding 119 different values (distinct = how many different values exist, NOT how many rows meet any condition). Of those, 140 parse as numbers: they add up to 29111.14, average 207.94, ranging 6.79–990. These cover every non-empty cell that is a number, including zeros. topValues lists the most common values with how many rows hold each. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.\",\"scope\":\"all\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"filter_rows_ai\",\"column\":\"原始记录\",\"criteria\":\"The amount written in the '原始记录' cell matches the numeric value in the '金额' cell (e.g., '打车58.27元' matches 58.27, '高铁150+150=300' matches 300). If the record contains a sum (like 150+150) or a range, it should match the total or the listed amount.\",\"mode\":\"select\",\"scope\":\"all\",\"rows\":null,\"highlight\":\"yellow\"}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT filter_rows_ai: {\"rowsMatched\":100,\"rowsJudged\":100,\"rowsTotal\":154,\"rowsFailed\":54,\"failedRows\":[101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154],\"outcome\":\"Only 100 of the 154 rows could be judged; 54 rows got no answer at all. 100 of 100 judged rows matched \\\"The amount written in the '原始记录' cell matches the numeric value in the '金额' cell (e.g., '打车58.27元' matches 58.27, '高铁150+150=300' matches 300). If the record contains a sum (like 150+150) or a range, it should match the total or the listed amount.\\\" (judged by AI on 原始记录) and are now selected and highlighted yellow in the user's table. These rows are now the selection: another tool can target them with \\\"scope\\\":\\\"selection\\\". The 54 unjudged rows were NOT selected, and that is not the same as not matching — they are unchecked, so never report them as verified or as agreeing with the test. Tell the user. The rows left unanswered are 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154. This run is finished: do NOT call this tool again to fix them. Re-running would charge for every row in the scope and would not merge with what is already applied. Report which rows are unanswered and let the user decide; if they want another attempt, say that it starts a fresh run over the rows they name.\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "核对结果：在 154 行中，有 100 行的“金额”与“原始记录”一致（已高亮黄色），有 54 行未完成核对（行号 101-154）。您可以查看高亮行，或者让我重新尝试核对剩余的 54 行。"
+    },
+    {
+      "role": "user",
+      "content": "增加一列“已核对”，给核对过的标记"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"find_replace\",\"column\":\"已核对\",\"find\":\"\",\"replace\":\"是\",\"scope\":\"selection\",\"rows\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT error: {\"error\":\"Unknown column \\\"已核对\\\". Available columns: 月份 | 项目 | 金额 | 大类 | 小类 | 备注 | 原始记录\"}"
+    }
+  ]
+}

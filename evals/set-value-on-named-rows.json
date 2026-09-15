@@ -1,0 +1,82 @@
+{
+  "name": "set-value-on-named-rows",
+  "why": "Writing one cell: find_replace with an empty find, the new value in replace, and \"rows\":[7]. The row number the user typed is 1-based and reaches the tool unchanged. A call without \"rows\" is the one that matters — an empty find with no target overwrites the whole column, which validateToolCall refuses, but by then the model has already decided to sweep 120 rows.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "find_replace",
+        "column": "状态",
+        "rows": [
+          7
+        ],
+        "includes": {
+          "replace": [
+            "已完成"
+          ]
+        }
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "把第 7 行的状态改成已完成"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

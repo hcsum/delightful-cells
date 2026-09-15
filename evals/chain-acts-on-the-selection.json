@@ -1,0 +1,97 @@
+{
+  "name": "chain-acts-on-the-selection",
+  "why": "Condition plus action: filter first, then act on what the filter selected. Step two is the one being judged, and it is the step where the scope has to be named. The 30 matching rows are the selection now, so an omitted scope happens to hit them — which is why the assertion is not \"did the right rows change\" but \"did the model say which rows it meant\". The same silence over an empty selection would have written 「已催」 into all 120. \"scope\":\"all\" is the explicit version of the same mistake.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "find_replace",
+        "column": "备注",
+        "includes": {
+          "replace": [
+            "已催"
+          ]
+        }
+      }
+    ],
+    "requireExplicitScope": [
+      "find_replace"
+    ],
+    "forbidCalls": [
+      {
+        "tool": "find_replace",
+        "scope": "all"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "把待付款的订单备注都写成「已催」"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"filter_rows\",\"column\":\"状态\",\"op\":\"equals\",\"value\":\"待付款\",\"mode\":\"select\",\"scope\":\"all\",\"rows\":null,\"highlight\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT filter_rows: {\"rowsMatched\":30,\"rowsTotal\":120,\"outcome\":\"30 of 120 rows matched (状态 equals 待付款) and are now selected in the user's table. These rows are now the selection: another tool can target them with \\\"scope\\\":\\\"selection\\\".\"}"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ],
+    "selectedCount": 30
+  }
+}

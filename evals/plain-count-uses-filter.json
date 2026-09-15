@@ -1,0 +1,75 @@
+{
+  "name": "plain-count-uses-filter",
+  "why": "Counting rows means filter_rows and reading rowsMatched. The tempting wrong turn is summarize_column, whose result carries distinct and count for the whole column and no answer to \"how many rows are over 5\" — the outcome sentence says so in as many words, and a model that reaches for it has to either guess or come back. gt is the only op that compares numerically.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "filter_rows",
+        "column": "数量",
+        "op": "gt"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "数量大于 5 的订单有多少个？"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

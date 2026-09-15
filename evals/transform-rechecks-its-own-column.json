@@ -1,0 +1,123 @@
+{
+  "name": "transform-rechecks-its-own-column",
+  "why": "Real run tmu2cxmf step 2 (2026-09-15), and the cleanest recording of the transform_column bug so far. What makes it different from transform-reads-source-column: here 金额 is not the user’s own data. Two turns earlier the user asked for it — 新增一个 column 叫做“金额” 把原始记录里的实际金额抽取出来 — and the model built it correctly, transform_column on 原始记录. So when the next request is 逐行跟原始数据对比, the column it points transform_column at is its OWN earlier output, and 核对 against 原始记录 becomes extracting from an extraction. The only legal source column is 原始记录; that is what this forbids. Note the instruction it wrote: “从原始记录中重新提取金额” — in Chinese, naming the source column outright, while \"column\" says 金额. It knows which column to read and passes a different one. That detail reaches past this case: the reason given for not porting the filter_rows_ai foreign-column guard to transform_column was that the guard looks for a header name inside the instruction, and GLM wrote its instruction in English (\"the original record text\") so nothing matched. This instruction WOULD have matched. Two recorded samples, one of them the guard catches — see docs/model-switch-handover.md. The honest answer to this request is not a tool call at all: 金额 was derived from 原始记录 minutes ago, so comparing them compares a column with itself, and saying so is the one reply that helps. That cannot be asserted, so the case only forbids the substitution. Baseline 2026-09-15, 8 runs each: glm-4.7-flash 7/8, llama-4-scout 8/8 — and neither number means what it looks like. Of GLM’s 8 replies only ONE did the right thing (transform_column on 原始记录); 3 were refusals (\"逐行对比工作量较大，超出了单次回复的长度限制\"), 3 called filter_rows on 金额 for no reason, and 1 was the substitution this case forbids. All 8 of llama’s were refusals. forbidCalls cannot tell a refusal from success, so the score here is a floor, not a grade.",
+  "from": {
+    "turn": "tmu2cxmf20pmtdc0p",
+    "step": 2
+  },
+  "observed": "{\"type\":\"tool_call\",\"tool\":\"transform_column\",\"column\":\"金额\",\"instruction\":\"从原始记录中重新提取金额，确保包含所有数字（如'打车58.27元'提取58.27，'快递12+12+12=36'提取36，'机票：3510元'提取3510）\",\"newColumnName\":\"金额_核对\",\"scope\":\"all\",\"rows\":null}",
+  "assert": {
+    "forbidCalls": [
+      {
+        "tool": "transform_column",
+        "column": "金额"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "新增一个 column 叫做“金额” 把原始记录里的实际金额抽取出来 这个新的“金额” column 全部都是纯数字"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"transform_column\",\"column\":\"原始记录\",\"instruction\":\"从文本中提取纯数字金额，例如从'打车58.27元'中提取58.27，从'高铁40元'中提取40\",\"newColumnName\":\"金额\",\"scope\":\"all\",\"rows\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT transform_column: {\"newColumn\":\"金额\",\"rowsProcessed\":154,\"rowsFailed\":0,\"scope\":\"all\",\"sampleOutputs\":[\"58.27\",\"40\",\"260\"]}"
+    },
+    {
+      "role": "assistant",
+      "content": "已成功新增“金额”列，并从“原始记录”中提取了所有金额。共处理了 154 行，提取结果为纯数字。"
+    },
+    {
+      "role": "user",
+      "content": "核对一下金额"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"summarize_column\",\"column\":\"金额\",\"scope\":\"all\",\"rows\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT summarize_column: {\"column\":\"金额\",\"totalRows\":154,\"nonEmpty\":153,\"distinct\":117,\"sampleValues\":[\"58.27\",\"800\",\"45\",\"33\",\"309\",\"199\",\"119.54\",\"129\",\"360\",\"467\",\"157.2\",\"400\",\"48\",\"77.35\",\"34.56\",\"50\",\"69.6\",\"1622.74\",\"5310\",\"16\",\"597\",\"4640\",\"49.9\",\"80.36\",\"276.33\",\"89.13\",\"42.4\",\"70.44\",\"33.03\",\"22.7\",\"121\",\"285\",\"503.34\",\"3510\",\"263\",\"166.06\",\"50.8\",\"101.15\",\"380\"],\"topValues\":[{\"value\":\"300\",\"count\":7},{\"value\":\"200\",\"count\":6},{\"value\":\"500\",\"count\":5},{\"value\":\"100\",\"count\":4},{\"value\":\"16\",\"count\":4},{\"value\":\"400\",\"count\":3},{\"value\":\"10\",\"count\":3},{\"value\":\"12\",\"count\":3},{\"value\":\"40\",\"count\":2},{\"value\":\"45\",\"count\":2}],\"numeric\":{\"min\":6.79,\"max\":8031.5,\"mean\":416.5,\"sum\":63724.57,\"count\":153},\"outcome\":\"Column \\\"金额\\\" over 154 rows: 153 non-empty cells holding 117 different values (distinct = how many different values exist, NOT how many rows meet any condition). Of those, 153 parse as numbers: they add up to 63724.57, average 416.5, ranging 6.79–8031.5. These cover every non-empty cell that is a number, including zeros. topValues lists the most common values with how many rows hold each. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.\",\"scope\":\"all\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "核对结果如下：总行数154行，有效金额153行，金额范围6.79元至8,031.5元，金额合计63,724.57元，平均金额416.5元。最常见的金额是300元（7行）、200元（6行）和500元（5行）。"
+    },
+    {
+      "role": "user",
+      "content": "逐行跟原始数据对比"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\":\"tool_call\",\"tool\":\"summarize_column\",\"column\":\"原始记录\",\"scope\":\"all\",\"rows\":null}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT summarize_column: {\"column\":\"原始记录\",\"totalRows\":154,\"nonEmpty\":153,\"distinct\":141,\"sampleValues\":[\"打车58.27元\",\"胶装40元\",\"快递12+12+12=36\",\"打印机硒鼓69\",\"坐垫纸199\",\"聚餐645.1\",\"高铁150+150=300\",\"快递278+21=299\",\"打车 17.13元\",\"办理CA 288元\",\"购买标书700\",\"住宿347元\",\"快递12+10.56+12\",\"文具18.41\",\"咖啡糖35.5\",\"打车17.11元\",\"胶装30元\",\"快递27元\",\"住宿597元\",\"高铁330元\",\"电子钥匙230\",\"打印费 30\",\"喷水壶 自拍杆54.02\",\"餐费140元\",\"胶装费16元\",\"灭火器162\",\"寄快递12元\",\"防蚊喷剂103.92\",\"旅游用品1390.68\",\"交通503.34\",\"机票：3510元\",\"胶装72元\",\"快递12+12\",\"香薰50.8\",\"电费708.95\",\"门票620（无票）\"],\"outcome\":\"Column \\\"原始记录\\\" over 154 rows: 153 non-empty cells holding 141 different values (distinct = how many different values exist, NOT how many rows meet any condition). The values are not numeric, so there is no sum or average. Values are nearly all unique, so no frequency counts are given. sampleValues is a sample of the distinct values, not the full column. This is a whole-column overview only. To count the rows meeting a condition, run filter_rows and read rowsMatched.\",\"scope\":\"all\"}"
+    }
+  ],
+  "grid": {
+    "sheetName": "明细表",
+    "headers": [
+      "月份",
+      "项目",
+      "大类",
+      "小类",
+      "备注",
+      "原始记录",
+      "金额"
+    ],
+    "rowCount": 154,
+    "sampleRows": [
+      [
+        "1",
+        "打车",
+        "差旅费",
+        "市内交通",
+        "",
+        "打车58.27元",
+        "58.27"
+      ],
+      [
+        "1",
+        "高铁",
+        "差旅费",
+        "高铁",
+        "",
+        "高铁40元",
+        "40"
+      ],
+      [
+        "1",
+        "办理CA",
+        "投标",
+        "CA证书",
+        "",
+        "办理CA 260元",
+        "260"
+      ],
+      [
+        "1",
+        "办理CA",
+        "投标",
+        "CA证书",
+        "",
+        "办理CA 800元",
+        "800"
+      ],
+      [
+        "1",
+        "胶装",
+        "投标",
+        "胶装",
+        "",
+        "胶装40元",
+        "40"
+      ]
+    ]
+  }
+}

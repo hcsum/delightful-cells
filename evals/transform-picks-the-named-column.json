@@ -1,0 +1,80 @@
+{
+  "name": "transform-picks-the-named-column",
+  "why": "The positive twin of transform-reads-source-column, on the same sheet. There the model pointed transform_column at the derived column and read its own output back out; here the user names the source column outright, so picking 原始记录 is the whole job. If this one fails, the problem is not a subtle source/target confusion — the model cannot follow an explicit column name.",
+  "baseline": "2026-09-15, 8 runs each: glm-4.7-flash 8/8, llama-4-scout 8/8 — worth reading next to transform-reads-source-column, which GLM passes 3/8 on the same sheet. Told which column to read, it reads it; left to work the column out, it takes its own output.",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "transform_column",
+        "column": "原始记录"
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "把原始记录里买的是什么东西提出来，单独放一列"
+    }
+  ],
+  "grid": {
+    "sheetName": "明细表",
+    "headers": [
+      "月份",
+      "项目",
+      "金额",
+      "大类",
+      "小类",
+      "备注",
+      "原始记录"
+    ],
+    "rowCount": 154,
+    "sampleRows": [
+      [
+        "1",
+        "打车",
+        "58.27",
+        "差旅费",
+        "市内交通",
+        "",
+        "打车58.27元"
+      ],
+      [
+        "1",
+        "高铁",
+        "40.00",
+        "差旅费",
+        "高铁",
+        "",
+        "高铁40元"
+      ],
+      [
+        "1",
+        "办理CA",
+        "260.00",
+        "投标",
+        "CA证书",
+        "",
+        "办理CA 260元"
+      ],
+      [
+        "1",
+        "办理CA",
+        "800.00",
+        "投标",
+        "CA证书",
+        "",
+        "办理CA 800元"
+      ],
+      [
+        "1",
+        "胶装",
+        "40.00",
+        "投标",
+        "胶装",
+        "",
+        "胶装40元"
+      ]
+    ]
+  }
+}
