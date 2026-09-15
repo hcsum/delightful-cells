@@ -2,8 +2,10 @@
 // One user message = one agent turn = up to MAX_STEPS model calls.
 
 import { t, type Locale } from "./i18n";
+import { trace, traceTurn } from "../trace";
 import {
   buildSystemPrompt,
+  IRREVERSIBLE_TOOLS,
   validateToolCall,
   type GridState,
   type ToolCall,
@@ -156,18 +158,38 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
   const history = [...opts.history];
   const turnId = newTurnId();
   let correctedOnce = false;
+  // Set once a tool has rewritten data, dropped a column, or spent neurons.
+  // From that point the loop stops re-prompting: see the parse-fail branch.
+  let touchedTheSheet = false;
+
+  const lastUser = [...opts.history].reverse().find((m) => m.role === "user");
+  traceTurn(turnId, lastUser && "content" in lastUser ? lastUser.content : "");
 
   for (let step = 1; step <= MAX_STEPS; step++) {
     opts.onStep?.(step);
     const system = buildSystemPrompt(opts.getGrid(), opts.sheetName);
-    const text = await postChat(flatten(system, history), turnId, opts.locale ?? "en");
+    const messages = flatten(system, history);
+    trace("prompt", {
+      step,
+      system,
+      chars: messages.reduce((n, m) => n + m.content.length, 0),
+      messages: messages.slice(1),
+    });
+    const text = await postChat(messages, turnId, opts.locale ?? "en");
     if (opts.isStale()) return;
+    trace("reply", { step, text });
 
     const parsed = extractToolJson(text);
 
     if (!parsed || typeof parsed.type !== "string") {
-      if (correctedOnce) {
-        // Give up on JSON — surface the raw text so the user still gets an answer.
+      trace("parse-fail", { step, corrected: correctedOnce, touchedTheSheet });
+      // Prose once the sheet has already been changed is a report, not a
+      // botched tool call: the work is done and the model is describing it.
+      // Re-prompting there is the dangerous direction — it pushes the model
+      // to do the same job a second time, by some other route, over some
+      // other set of rows. In a loop with side effects the safe failure is to
+      // stop, so a reply we cannot parse becomes the final answer.
+      if (touchedTheSheet || correctedOnce) {
         opts.emit({ id: nextMessageId(), role: "assistant", content: text.trim() || "…" });
         return;
       }
@@ -183,6 +205,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
     }
 
     if (parsed.type === "final") {
+      trace("final", { step, message: String(parsed.message ?? "") });
       opts.emit({
         id: nextMessageId(),
         role: "assistant",
@@ -193,6 +216,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
 
     const grid = opts.getGrid();
     const validated = validateToolCall(parsed, grid.headers, grid);
+    if ("error" in validated) trace("invalid", { step, error: validated.error, unknownTool: validated.unknownTool ?? null });
     if ("error" in validated && validated.unknownTool) {
       // The model invented a tool. Don't let it retry-and-invent again: answer
       // deterministically so the user learns what the app can't do yet.
@@ -214,8 +238,19 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
       continue;
     }
 
+    trace("call", { step, call: validated.call });
+    if (IRREVERSIBLE_TOOLS.has(validated.call.tool)) touchedTheSheet = true;
     const result = await opts.applyTool(validated.call);
     if (opts.isStale()) return;
+    trace("result", {
+      step,
+      tool: validated.call.tool,
+      ok: result.ok,
+      summary: result.summary,
+      // The one string the model actually reads back — worth seeing verbatim.
+      outcome: (result.data as { outcome?: string } | null)?.outcome,
+      data: result.data,
+    });
     const toolMessage: ChatMessage = {
       id: nextMessageId(),
       role: "tool",

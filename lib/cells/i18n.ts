@@ -112,6 +112,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     largeRunConfirm:
       "This will use about {c} credits and take around {m} minutes ({s} seconds). Keep this tab open until it finishes.",
     largeRunCanceled: "Canceled before starting the AI run.",
+    declinedByUser: "you declined this change",
 
     // Shown after a run that did not come back whole. The numbers are the whole
     // point: "some rows failed" is useless, "1,180 of 1,200 came back" tells the
@@ -336,6 +337,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     largeRunConfirm:
       "这次预计消耗约 {c} 点，耗时约 {m} 分钟（{s} 秒）。中途请勿关闭页面。",
     largeRunCanceled: "已取消，AI 处理尚未开始。",
+    declinedByUser: "你拒绝了这次修改",
 
     partialTitle: "{n} 行里有 {f} 行没跑出来",
     partialBody:

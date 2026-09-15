@@ -16,6 +16,10 @@ test-data/
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 
+# Dev-only agent traces (lib/trace.ts). Local debugging output, never shipped.
+.dev-trace/
+
 .wrangler
 .dev.vars
 .dev.vars.*
+.eval-build/

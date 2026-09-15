@@ -122,7 +122,13 @@ export function compileFormula(
       evaluate: (row) => {
         const vals: number[] = [];
         for (const ci of colIndexes) {
-          const n = Number(String(row[ci] ?? "").replace(/[$,\s]/g, ""));
+          // An empty cell is a missing input, not a zero. Number("") is 0, so
+          // without this the row still computes and the blank silently becomes
+          // a real term: [Amount] - [Extracted] on a row where the extraction
+          // found nothing reported the full amount as a discrepancy.
+          const text = String(row[ci] ?? "").replace(/[$,\s]/g, "");
+          if (text === "") return null;
+          const n = Number(text);
           if (!Number.isFinite(n)) return null;
           vals.push(n);
         }

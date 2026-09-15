@@ -152,6 +152,36 @@ export const KNOWN_TOOLS: ToolCall["tool"][] = [
   "remove_column",
 ];
 
+// Tools whose effect is not free to replay: they rewrite cell data, delete
+// columns, or spend neurons. The agent loop uses this to decide whether an
+// unparseable reply is worth retrying — once one of these has run, retrying
+// can only do the work a second time. Display-only tools (filter_rows,
+// highlight_rows, summarize_column) are deliberately absent: replaying those
+// costs nothing and changes no data.
+// Spreadsheet semantics: when rows are selected and the model doesn't say
+// otherwise, these work on the selection (like Excel does). Filters still
+// default to the whole sheet because they *create* the selection.
+//
+// buildSystemPrompt reads this same list to tell the model what omitting
+// "scope" means on this turn. Keep it the single source: the prompt claiming
+// one default while this decides another is exactly the bug that made a
+// "for all rows" transform quietly hit 100 of 154.
+export const ACTS_ON_SELECTION: readonly ToolCall["tool"][] = [
+  "find_replace",
+  "transform_column",
+  "compute_column",
+  "summarize_column",
+  "highlight_rows",
+];
+
+export const IRREVERSIBLE_TOOLS: ReadonlySet<string> = new Set([
+  "find_replace",
+  "transform_column",
+  "compute_column",
+  "remove_column",
+  "filter_rows_ai",
+]);
+
 export function validateToolCall(
   raw: Record<string, unknown>,
   headers: string[],
@@ -167,13 +197,9 @@ export function validateToolCall(
       unknownTool: tool || "(none)",
     };
   }
-  // Spreadsheet semantics: when rows are selected and the model doesn't say
-  // otherwise, acting tools work on the selection (like Excel does). Filters
-  // still default to the whole sheet because they *create* the selection.
-  const ACTS_ON_SELECTION = new Set(["find_replace", "transform_column", "compute_column", "summarize_column", "highlight_rows"]);
   const scope: ToolScope = TOOL_SCOPES.includes(raw.scope as ToolScope)
     ? (raw.scope as ToolScope)
-    : raw.scope == null && ACTS_ON_SELECTION.has(tool) && sets.selectedRows?.size
+    : raw.scope == null && ACTS_ON_SELECTION.includes(tool as ToolCall["tool"]) && sets.selectedRows?.size
       ? "selection"
       : "all";
   // Explicit row numbers (1-based, as shown in the # column) — usable by every tool.
@@ -261,10 +287,28 @@ export function validateToolCall(
   }
   if (tool === "find_replace") {
     const find = String(raw.find ?? "");
+    const replace = String(raw.replace ?? "");
+    // Empty find AND empty replace erases the cells it reaches, which is never
+    // what anyone wants on purpose. It shows up when the model wants to READ a
+    // row: find_replace is the only tool whose example takes "rows", so it gets
+    // reached for as a getter and silently wipes the cell instead.
+    if (find === "" && replace === "") {
+      return {
+        error:
+          'find_replace with both "find" and "replace" empty would erase those cells, and it is not a way to read them. To READ specific rows, call summarize_column with "rows":[46] — its sampleValues holds those cells\' values. To SET a value, put it in "replace".',
+      };
+    }
+    // Empty "find" rewrites every cell it reaches, so a call that never said
+    // where to aim is sloppy rather than intentional: make the model name the
+    // target. Note what this message does NOT offer — a way out via
+    // "scope":"all". A gate the model can satisfy by itself is not a gate,
+    // and the model is the party whose mistake this is meant to catch. It can
+    // still ask for the whole column; destructiveWarning() then puts that
+    // question to the user, who is the only one able to answer it.
     if (find === "" && !rows && raw.scope == null && scope === "all") {
       return {
         error:
-          'Empty "find" overwrites whole cells. Say which rows: "rows":[46] for specific rows, "scope":"selection"/"visible", or "scope":"all" explicitly if the user really wants the entire column overwritten.',
+          'Empty "find" overwrites whole cells, so it needs an explicit target. Name the rows with "rows":[46], or use "scope":"selection"/"visible".',
       };
     }
     return {
@@ -272,7 +316,7 @@ export function validateToolCall(
         tool: "find_replace",
         column,
         find,
-        replace: String(raw.replace ?? ""),
+        replace,
         matchCase: raw.matchCase === true,
         scope,
         rows,
@@ -285,6 +329,22 @@ export function validateToolCall(
   if (tool === "filter_rows_ai") {
     const criteria = String(raw.criteria ?? "").trim();
     if (!criteria) return { error: '"criteria" must be a non-empty string.' };
+    // The judge sees one cell of `column` and nothing else, so a criteria that
+    // names another column is a question it cannot answer — and it answers
+    // anyway, YES for every row, which reads back as a clean audit. Naming
+    // another column is the reliable tell: a real semantic test ("sounds
+    // angry") describes the cell's own content and needs no column names.
+    // Deliberately NOT applied to transform_column, whose instruction names
+    // another header for a legitimate reason ("提取金额数字" run over 原始记录).
+    const foreign = headers.find(
+      (h) => h !== column && h.trim().length >= 2 && criteria.toLowerCase().includes(h.trim().toLowerCase()),
+    );
+    if (foreign) {
+      return {
+        error:
+          `filter_rows_ai judges "${column}" one cell at a time and cannot see "${foreign}", so it would answer this test blindly for every row. To compare two columns: transform_column to pull the comparable value out of "${foreign}" into a new column, then compute_column to subtract the two, then filter_rows on that difference. If the test really is about "${column}" alone, restate it without naming another column.`,
+      };
+    }
     const mode = raw.mode === "filter" ? "filter" : "select";
     return {
       call: { tool: "filter_rows_ai", column, criteria, mode, scope, rows, highlight: parseHighlight(raw.highlight) },
@@ -430,7 +490,13 @@ export function dispatchTool(
         data: {
           rowsMatched: matched.length,
           rowsTotal: grid.rows.length,
-          outcome: `${matched.length} of ${only ? only.size : grid.rows.length} rows${scopeNote} matched (${call.column} ${call.op} ${call.value}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table. ${scopeHint(call.mode)}`,
+          outcome: matchOutcome({
+            matched: matched.length,
+            outOf: `${only ? only.size : grid.rows.length} rows${scopeNote}`,
+            test: `(${call.column} ${call.op} ${call.value})`,
+            mode: call.mode,
+            highlight: call.highlight,
+          }),
         },
       },
       nextGrid,
@@ -468,6 +534,38 @@ export function dispatchTool(
   };
 }
 
+/** Below this many rows, a whole-cell overwrite is precision, not a sweep. */
+export const CONFIRM_OVERWRITE_ROWS = 20;
+
+/**
+ * The plain-language question to put to the *user* before a call that would
+ * wipe or delete data wholesale — or null when there is nothing to ask.
+ *
+ * This is the half of the guard the model cannot reach. validateToolCall can
+ * only make the model be explicit about what it intends; it can never tell a
+ * deliberate whole-column overwrite ("set every row to 是") apart from the
+ * model mistaking rows it never checked for rows it did. Both arrive as the
+ * same legal call. Only the person who asked knows which one they meant, so
+ * the confirmation has to reach them.
+ */
+export function destructiveWarning(call: ToolCall, grid: GridState): string | null {
+  if (call.tool === "remove_column") {
+    const names = call.columns.join('", "');
+    return `Delete the column "${names}" and all ${grid.rows.length} values in it?\n\nThis cannot be undone from the chat.`;
+  }
+  if (call.tool === "find_replace" && call.find === "") {
+    // Only a sweep across rows the user never picked. "selection" and
+    // "visible" are sets they can see on screen and chose themselves, and
+    // explicit "rows" are the model being precise — which is what we asked it
+    // for. Confirming those too would fire on the happy path, and a dialog
+    // that appears when nothing is wrong stops being read.
+    if (resolveScope(grid, call) !== null) return null;
+    if (grid.rows.length <= CONFIRM_OVERWRITE_ROWS) return null;
+    return `Overwrite "${call.column}" in all ${grid.rows.length} rows with "${call.replace}"?\n\nEvery existing value in that column is replaced, including rows outside anything you selected. If some of them were never actually checked, they get marked as though they were.`;
+  }
+  return null;
+}
+
 export function buildSystemPrompt(grid: GridState, sheetName: string): string {
   const sampleRows = grid.rows.slice(0, 5);
   const sampleTsv = [
@@ -487,13 +585,13 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     sampleTsv,
     "",
     "Reply with EXACTLY ONE JSON object and nothing else. No prose outside JSON.",
-    'Either a tool call (every tool accepts optional "scope":"all"|"selection"|"visible", default all, and/or "rows":[46,47] — 1-based row numbers from the # column — to aim at specific rows):',
+    'Either a tool call (every tool accepts optional "scope":"all"|"selection"|"visible", and/or "rows":[46,47] — 1-based row numbers from the # column — to aim at specific rows; what omitting "scope" means right now is stated in CURRENT TABLE STATE above):',
     '  {"type":"tool_call","tool":"filter_rows","column":"<exact column name>","op":"contains|equals|not_equals|gt|lt|empty|not_empty","value":"...","mode":"select|filter","highlight":"yellow|green|pink|blue (optional: also paint the matches)"}',
-    '  {"type":"tool_call","tool":"find_replace","column":"<exact column name>","find":"...","replace":"...","matchCase":false}',
+    '  {"type":"tool_call","tool":"find_replace","column":"<exact column name>","find":"...","replace":"...","matchCase":false,"scope":"all|selection|visible"}',
     '  {"type":"tool_call","tool":"filter_rows_ai","column":"<exact column name>","criteria":"a semantic yes/no test for each cell, e.g. sounds angry","mode":"select|filter","highlight":"yellow (optional)"}',
-    '  {"type":"tool_call","tool":"summarize_column","column":"<exact column name>"}',
-    '  {"type":"tool_call","tool":"transform_column","column":"<exact column name>","instruction":"what to produce from each cell, e.g. extract the main keyword","newColumnName":"..."}',
-    '  {"type":"tool_call","tool":"compute_column","formula":"[Column A] / [Column B]","newColumnName":"..."}',
+    '  {"type":"tool_call","tool":"summarize_column","column":"<exact column name>","scope":"all|selection|visible"}',
+    '  {"type":"tool_call","tool":"transform_column","column":"<exact column name>","instruction":"what to produce from each cell, e.g. extract the main keyword","newColumnName":"...","scope":"all|selection|visible"}',
+    '  {"type":"tool_call","tool":"compute_column","formula":"[Column A] / [Column B]","newColumnName":"...","scope":"all|selection|visible"}',
     '  {"type":"tool_call","tool":"remove_column","columns":["<exact column name>", "..."]}   (deletes those columns from the sheet)',
     '  {"type":"tool_call","tool":"highlight_rows","scope":"selection","color":"yellow|green|pink|blue"}   (or "rows":[3,7] for specific row numbers; "clear":true to remove highlights)',
     "Or a final answer to the user:",
@@ -511,9 +609,6 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     '- A request about specific rows ("row 46", "rows 3 and 7", "the last row" only if',
     '  the number is known) → pass "rows":[46]. To set one cell: find_replace with',
     '  "find":"","replace":"<new value>","rows":[46].',
-    "- When rows are selected, acting tools (find_replace, transform_column,",
-    "  compute_column, summarize_column, highlight_rows) default to the selection.",
-    '  Pass "scope":"all" explicitly if the user really means the whole sheet.',
     "- gt/lt compare numerically.",
     "- find_replace matches literal text (no regex, no \"a|b\"). An EMPTY find",
     "  (\"find\":\"\") overwrites the whole cell — use that to SET a column's value,",
@@ -589,10 +684,20 @@ function describeScopes(grid: GridState): string {
   const marks = grid.highlightedRows?.size
     ? `Highlights: ${grid.highlightedRows.size} rows are highlighted (display only, not a scope).`
     : "Highlights: none.";
+  // What omitting "scope" actually does, in this turn's numbers. Stated here
+  // rather than as a general rule because the answer changes turn to turn, and
+  // a model that has to derive it from a rule gets it wrong: one run asked to
+  // set a column "for all rows", left "scope" out, and silently wrote 100 of
+  // 154. Naming the row counts makes the mistake visible before it is made.
+  const acting = ACTS_ON_SELECTION.join(", ");
+  const defaultNote = grid.selectedRows?.size
+    ? `Omitting "scope" on ${acting} RIGHT NOW means the ${grid.selectedRows.size} selected rows, NOT all ${grid.rows.length}. To act on the whole sheet you must pass "scope":"all" explicitly. Every other tool still defaults to all ${grid.rows.length} rows.`
+    : `Omitting "scope" right now means all ${grid.rows.length} rows, for every tool.`;
   return [
     "CURRENT TABLE STATE (authoritative — this reflects the table right now and",
     "supersedes anything claimed earlier in this chat, including your own TOOL_RESULTs):",
     `Row sets you can target with "scope": ${parts.join("; ")}.${parts.length === 1 ? " No selection or filter exists right now." : ""}`,
+    defaultNote,
     marks,
   ].join("\n");
 }
@@ -631,6 +736,36 @@ export function retryHint(failedRows: number[] | null): string {
     ? `The rows left unanswered are ${failedRows.join(", ")}.`
     : "There are too many to list individually.";
   return `${which} This run is finished: do NOT call this tool again to fix them. Re-running would charge for every row in the scope and would not merge with what is already applied. Report which rows are unanswered and let the user decide; if they want another attempt, say that it starts a fresh run over the rows they name.`;
+}
+
+/**
+ * What actually happened to the selection, worded the same way for the
+ * mechanical and the AI filter. Zero matches is the case that used to lie: no
+ * rows get painted, select mode clears the selection instead of setting one,
+ * and "scope":"selection" would then mean the whole sheet — so an empty result
+ * must not promise a highlight, and must not invite the next call to reuse the
+ * selection.
+ */
+export function matchOutcome(a: {
+  matched: number;
+  /** The denominator, already worded: "154 rows", "100 rows judged", ... */
+  outOf: string;
+  /** The test that was applied, e.g. `(金额 gt 100)`. */
+  test: string;
+  mode: "filter" | "select";
+  highlight: HighlightColor | null;
+}): string {
+  const verb = a.mode === "select" ? "selected" : "kept";
+  if (a.matched === 0) {
+    return `None of ${a.outOf} matched ${a.test}. Nothing is ${verb}${
+      a.highlight ? " and nothing was highlighted" : ""
+    }${
+      a.mode === "select" ? "; the selection the user had is now cleared" : ""
+    }. Do not tell the user that rows were ${verb}${a.highlight ? " or highlighted" : ""}.`;
+  }
+  return `${a.matched} of ${a.outOf} matched ${a.test} and are now ${verb}${
+    a.highlight ? ` and highlighted ${a.highlight}` : ""
+  } in the user's table. ${scopeHint(a.mode)}`;
 }
 
 export function scopeHint(mode: "filter" | "select"): string {

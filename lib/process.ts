@@ -16,6 +16,7 @@
 // decide what to do with the holes.
 
 import { AI_RETRY_SPLIT_ROWS } from '@/lib/limits';
+import { trace } from '@/lib/trace';
 
 export type ProcessRequest = {
   rows: string[];
@@ -244,7 +245,10 @@ async function attemptRows(
   const t0 = nowMs();
 
   const injected = injectedFailure(batchIndex);
-  if (injected) return injected;
+  if (injected) {
+    trace('batch', { status: 'injected-failure', start, count: chunk.length, ms: 0, batchIndex });
+    return injected;
+  }
 
   let res: Response;
   try {
@@ -263,6 +267,7 @@ async function attemptRows(
     });
   } catch (e) {
     const aborted = (e as any)?.name === 'AbortError';
+    trace('batch', { status: aborted ? 'aborted' : 'fetch-error', start, count: chunk.length, ms: Math.round(nowMs() - t0), error: String(e) });
     // eslint-disable-next-line no-console
     console.error('[processRows] fetch error', { rid, action, start, aborted, err: String(e) });
     return { message: String((e as any)?.message || e), fatal: false, aborted };
@@ -278,6 +283,7 @@ async function attemptRows(
     const code = errJson?.error as string | undefined;
     const message = (errJson && (errJson.message || errJson.error)) || snippet(errText) || `API error ${res.status}`;
     const retryAfter = Number(res.headers.get('Retry-After') || errJson?.retryAfterSeconds || 0) || 0;
+    trace('batch', { status: `http-${res.status}`, start, count: chunk.length, ms: Math.round(nowMs() - t0), code, error: message });
     // eslint-disable-next-line no-console
     console.warn('[processRows] non-OK', { rid, action, status: res.status, code, dt: (nowMs() - t0).toFixed(0), message });
     return {
@@ -318,6 +324,18 @@ async function attemptRows(
     };
     answered[indices[k]] = !missing.has(k);
   }
+  // The instruction and the rows are what a wrong answer is judged against,
+  // so the trace carries the pairs, not just how many there were.
+  trace('batch', {
+    status: 'ok',
+    start,
+    count: chunk.length,
+    ms: Math.round(nowMs() - t0),
+    missing: [...missing],
+    toBeExtracted,
+    extractFrom,
+    io: chunk.map((input, k) => ({ in: input, out: json!.results[k]?.output ?? null })),
+  });
   // eslint-disable-next-line no-console
   console.debug('[processRows] batch ok', { rid, action, start, count: chunk.length, dt: (nowMs() - t0).toFixed(0) });
   return null;

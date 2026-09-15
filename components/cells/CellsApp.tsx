@@ -10,13 +10,14 @@ import {
   type ParsedSheet,
 } from "@/lib/cells/workbook";
 import {
+  destructiveWarning,
   dispatchTool,
   failedRowNumbers,
   HIGHLIGHT_HEX,
+  matchOutcome,
   paintRows,
   resolveScope,
   retryHint,
-  scopeHint,
   scopeLabel,
   type GridState,
   type ToolCall,
@@ -558,19 +559,38 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         // match set either way, so the model has to say it was undecided
         // rather than reporting it as "did not match".
         const failed = failedIndices.length;
+        const judged = results.length - failed;
         const failedRows = failedRowNumbers(targets, failedIndices);
+        const scopeNote = only ? ` (within the ${scopeLabel(call)} rows)` : "";
         return {
           ok: true,
           summary:
             failed > 0
-              ? `${matched.length} of ${results.length} rows ${verb} (${failed} undecided)`
+              ? `${matched.length} of ${judged} judged rows ${verb} (${failed} undecided)`
               : `${matched.length} of ${results.length} rows ${verb}`,
           data: {
             rowsMatched: matched.length,
+            rowsJudged: judged,
             rowsTotal: results.length,
             rowsFailed: failed,
             ...(failedRows ? { failedRows } : {}),
-            outcome: `${matched.length} of ${results.length} rows${only ? ` (within the ${scopeLabel(call)} rows)` : ""} matched "${call.criteria}" (judged by AI on ${call.column}) and are now ${verb}${call.highlight ? ` and highlighted ${call.highlight}` : ""} in the user's table.${failed > 0 ? ` A further ${failed} rows could not be judged at all — they were NOT ${verb}, and that is not the same as not matching. Tell the user. ${retryHint(failedRows)}` : ""} ${scopeHint(call.mode)}`,
+            // The denominator is the rows that actually got an answer, never
+            // the rows we set out with: a run that judged 100 of 154 must not
+            // read as "154 rows checked".
+            outcome:
+              (failed > 0
+                ? `Only ${judged} of the ${results.length} rows${scopeNote} could be judged; ${failed} rows got no answer at all. `
+                : "") +
+              matchOutcome({
+                matched: matched.length,
+                outOf: failed > 0 ? `${judged} judged rows` : `${results.length} rows${scopeNote}`,
+                test: `"${call.criteria}" (judged by AI on ${call.column})`,
+                mode: call.mode,
+                highlight: call.highlight,
+              }) +
+              (failed > 0
+                ? ` The ${failed} unjudged rows were NOT ${verb}, and that is not the same as not matching — they are unchecked, so never report them as verified or as agreeing with the test. Tell the user. ${retryHint(failedRows)}`
+                : ""),
           },
         };
       } catch (e) {
@@ -617,6 +637,21 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           locale: localeRef.current,
           getGrid: () => gridRef.current!,
           applyTool: (call: ToolCall) => {
+            // A wholesale overwrite or a column deletion is put to the user
+            // before it lands. The model already had its chance to be precise
+            // in validateToolCall; this asks the one party who knows whether
+            // the sweep is what they meant.
+            const warning = destructiveWarning(call, gridRef.current!);
+            if (warning && !window.confirm(warning)) {
+              return {
+                ok: false,
+                summary: t(localeRef.current, "declinedByUser"),
+                data: {
+                  error:
+                    "The user was asked to confirm this change and declined. Do not retry it and do not reach the same result another way. Tell them it was not applied and ask what they want instead.",
+                },
+              };
+            }
             if (call.tool === "transform_column") return runTransform(call);
             if (call.tool === "filter_rows_ai") return runAiFilter(call);
             const { result, nextGrid } = dispatchTool(call, gridRef.current!);

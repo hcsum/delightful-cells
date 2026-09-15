@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "trace": "node scripts/trace.mjs",
+    "eval": "node scripts/eval.mjs",
     "cf": "NEXT_PUBLIC_SITE_URL=https://delightfulcells.com NEXT_PUBLIC_BASE_URL=https://delightfulcells.com opennextjs-cloudflare build && opennextjs-cloudflare deploy --env prod",
     "preview": "NEXT_PUBLIC_SITE_URL=https://delightfulcells.com NEXT_PUBLIC_BASE_URL=https://delightfulcells.com opennextjs-cloudflare build && opennextjs-cloudflare preview --env prod"
   },
