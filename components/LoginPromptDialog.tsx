@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { TIER_LIMITS } from '@/lib/limits'
+import { dailyNeurons, rowsAffordable } from '@/lib/limits'
 
 export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }: { open: boolean; onClose: () => void; onSignIn: () => void; disabled?: boolean }) {
 
@@ -23,7 +23,7 @@ export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }:
       <div className="relative w-full max-w-sm rounded-3xl border !border-black/10 bg-[#fffaf0] p-6 text-black shadow-xl">
         <h3 className="text-lg font-extrabold">Sign in to keep going</h3>
         <ul className="mt-3 space-y-1.5 text-sm text-black/65">
-          <li>· {TIER_LIMITS.free.rowsPerDay.toLocaleString()} AI rows a day instead of {TIER_LIMITS.anon.rowsPerDay.toLocaleString()}</li>
+          <li>· About {rowsAffordable(dailyNeurons('free')).toLocaleString()} AI rows a day instead of {rowsAffordable(dailyNeurons('anon')).toLocaleString()}</li>
           <li>· Your own daily AI budget, not the shared one</li>
         </ul>
         <button

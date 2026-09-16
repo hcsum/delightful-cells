@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { TIER_LIMITS } from '@/lib/limits';
+import { dailyNeurons, rowsAffordable } from '@/lib/limits';
 import { useT } from '@/lib/cells/locale';
 
 // No sign-in required anymore: /api/quota answers for anonymous visitors too
@@ -11,7 +11,8 @@ import { useT } from '@/lib/cells/locale';
 export default function QuotaBanner() {
   const t = useT();
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [limit, setLimit] = useState<number>(TIER_LIMITS.anon.rowsPerDay);
+  const anonFloor = rowsAffordable(dailyNeurons('anon'));
+  const [limit, setLimit] = useState<number>(anonFloor);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -24,9 +25,7 @@ export default function QuotaBanner() {
         const json = await res.json();
         if (!cancelled) {
           setRemaining(Number(json?.remaining ?? 0) || 0);
-          const lim =
-            Number(json?.limit ?? TIER_LIMITS.anon.rowsPerDay) ||
-            TIER_LIMITS.anon.rowsPerDay;
+          const lim = Number(json?.limit ?? anonFloor) || anonFloor;
           setLimit(lim);
         }
       } catch {

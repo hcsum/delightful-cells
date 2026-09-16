@@ -9,15 +9,16 @@ export type Me = {
   billingToCredits: boolean;
   user: { name: string | null; email: string | null; image: string | null } | null;
   credits: { neurons: number; credits: number; neuronsPerCredit: number };
+  // One bucket, counted in neurons — the same unit a paid call is billed in.
+  // `creditsLeft` is that figure floored to whole credits, which is the only
+  // form the UI ever shows.
   daily: {
-    rowsUsed: number;
-    rowsLeft: number | null;
-    turnsUsed: number;
-    turnsLeft: number | null;
+    neuronsUsed: number;
+    neuronsLeft: number | null;
+    creditsLeft: number | null;
   };
   limits: {
-    chatTurns: number | null;
-    rowsPerDay: number | null;
+    dailyCredits: number | null;
     maxRowsPerRun: number;
   };
   site: {

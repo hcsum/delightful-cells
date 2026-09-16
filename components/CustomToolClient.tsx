@@ -5,7 +5,7 @@ import type { SVGProps } from "react";
 import { useForm } from "react-hook-form";
 import { processRows } from "@/lib/process";
 import type { ProcessResultItem, ProcessStop } from "@/lib/process";
-import { AI_BATCH_ROWS, TIER_LIMITS } from "@/lib/limits";
+import { AI_BATCH_ROWS, dailyNeurons, rowsAffordable } from "@/lib/limits";
 import PartialResultDialog from "@/components/PartialResultDialog";
 import FilePicker from "@/components/tools/FilePicker";
 import SheetSelect from "@/components/tools/SheetSelect";
@@ -210,7 +210,7 @@ export default function CustomToolClient({
     const total = dataRowCount;
     // Fall back to the anonymous daily floor: if /api/me is unreachable we
     // would rather truncate the run than have the server reject it.
-    let maxRows: number = TIER_LIMITS.anon.rowsPerDay;
+    let maxRows: number = rowsAffordable(dailyNeurons("anon"));
     let allowedRows = Math.min(total, maxRows);
     try {
       const meRes = await fetch("/api/me");
@@ -524,8 +524,8 @@ export default function CustomToolClient({
         )}
         <p className="mt-3 text-xs text-black/45">
           {t("ctDownloadNote", {
-            anon: TIER_LIMITS.anon.rowsPerDay.toLocaleString(),
-            free: TIER_LIMITS.free.rowsPerDay.toLocaleString(),
+            anon: rowsAffordable(dailyNeurons("anon")).toLocaleString(),
+            free: rowsAffordable(dailyNeurons("free")).toLocaleString(),
           })}
         </p>
       </section>

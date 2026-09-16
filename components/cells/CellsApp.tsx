@@ -45,7 +45,13 @@ import { LocaleContext, useStoredLocale } from "@/lib/cells/locale";
 import { describeUserChanges, snapshotGrid, type GridSnapshot } from "@/lib/cells/state-diff";
 import { presetsFor } from "@/lib/cells/demo";
 import { t, type Locale } from "@/lib/cells/i18n";
-import { AI_BATCH_ROWS, MAX_IMPORT_ROWS, minCreditsForRows, TIER_LIMITS } from "@/lib/limits";
+import {
+  AI_BATCH_ROWS,
+  MAX_IMPORT_ROWS,
+  dailyNeurons,
+  minCreditsForRows,
+  rowsAffordable,
+} from "@/lib/limits";
 import { useMe } from "@/lib/billing/useMe";
 import AuthPill from "@/components/billing/AuthPill";
 import CreditsBadge from "@/components/billing/CreditsBadge";
@@ -100,8 +106,9 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
   // the current cap, not the one captured when they were created.
   // Before /api/me answers, assume the anonymous floor: over-guessing means
   // sending a run the server will reject outright.
-  const maxRowsRef = useRef<number>(TIER_LIMITS.anon.rowsPerDay);
-  maxRowsRef.current = me?.limits.maxRowsPerRun ?? TIER_LIMITS.anon.rowsPerDay;
+  const anonRowFloor = rowsAffordable(dailyNeurons("anon"));
+  const maxRowsRef = useRef<number>(anonRowFloor);
+  maxRowsRef.current = me?.limits.maxRowsPerRun ?? anonRowFloor;
   const meRef = useRef(me);
   meRef.current = me;
 
@@ -113,7 +120,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     const cap = maxRowsRef.current;
     const me = meRef.current;
     const tier = me?.tier ?? "anon";
-    if ((me?.credits.neurons ?? 0) > 0 || me?.daily.rowsLeft === null)
+    if ((me?.credits.neurons ?? 0) > 0 || me?.daily.neuronsLeft === null)
       return t(localeRef.current, "maxRowsWorkbookError", {
         n: requested.toLocaleString(),
         m: MAX_IMPORT_ROWS.toLocaleString(),

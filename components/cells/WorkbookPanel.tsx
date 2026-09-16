@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { MAX_COLS, MAX_IMPORT_ROWS, type ParsedWorkbook } from "@/lib/cells/workbook";
-import { TIER_LIMITS } from "@/lib/limits";
+import { dailyNeurons, rowsAffordable } from "@/lib/limits";
 import type { Me } from "@/lib/billing/useMe";
 import type { GridState } from "@/lib/cells/tools";
 import DataTable from "./DataTable";
@@ -58,15 +58,20 @@ export default function WorkbookPanel({
   // /api/me answers we quote the anonymous floor: it is the only figure that
   // is true for everyone, and being pleasantly surprised beats being told you
   // had 3,000 rows and refused at 500.
-  const eff = limits ?? TIER_LIMITS.anon;
   const limitsHint =
-    eff.rowsPerDay == null
+    limits && limits.dailyCredits == null
       ? t("limitsHintMetered", {
           i: MAX_IMPORT_ROWS.toLocaleString(),
         })
       : t("limitsHint", {
           i: MAX_IMPORT_ROWS.toLocaleString(),
-          d: eff.rowsPerDay.toLocaleString(),
+          // Rows, not credits: this sits next to the import cap, and the two
+          // only mean anything read against each other. `maxRowsPerRun` is the
+          // server's own conversion of what's left, so the hint and the refusal
+          // quote the same number.
+          d: (
+            limits?.maxRowsPerRun ?? rowsAffordable(dailyNeurons("anon"))
+          ).toLocaleString(),
         });
 
   const fileInput = (

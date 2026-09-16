@@ -3,7 +3,12 @@
 // credit balance, and the site-wide meter. Supersedes GET /api/quota and
 // /api/usage for the Cells UI.
 
-import { MAX_IMPORT_ROWS, NEURONS_PER_CREDIT, SITE_NEURON_BUDGET } from "@/lib/limits";
+import {
+  MAX_IMPORT_ROWS,
+  NEURONS_PER_CREDIT,
+  SITE_NEURON_BUDGET,
+  rowsAffordable,
+} from "@/lib/limits";
 import { remainingDaily, resolveEntitlement } from "@/lib/billing/entitlement";
 import { creditsFromNeurons } from "@/lib/billing/credits";
 import { getUsageToday, neuronsFor } from "@/lib/usage";
@@ -39,9 +44,7 @@ export async function GET(request: Request) {
     JSON.stringify({
       tier: ent.baseTier,
       // True once the free allowance is gone and calls start costing credits.
-      billingToCredits:
-        ent.balanceNeurons > 0 &&
-        (daily.turnsLeft === 0 || daily.rowsLeft === 0),
+      billingToCredits: ent.balanceNeurons > 0 && daily.neuronsLeft === 0,
       user,
       credits: {
         neurons: ent.balanceNeurons,
@@ -51,12 +54,15 @@ export async function GET(request: Request) {
       daily,
       limits: {
         // Infinity does not survive JSON; null means "no limit".
-        chatTurns: finite(ent.limits.chatTurns),
-        rowsPerDay: finite(ent.limits.rowsPerDay),
+        dailyCredits: finite(ent.limits.dailyCredits),
+        // The one client-facing row number. What is left today is neurons, and
+        // rows are what the caller can act on, so convert at the measured rate —
+        // for SHORT text. A long column gets fewer rows out of the same
+        // allowance, which is why every surface that renders it says "about".
         maxRowsPerRun:
-          ent.balanceNeurons > 0 || daily.rowsLeft === null
+          ent.balanceNeurons > 0 || daily.neuronsLeft === null
             ? MAX_IMPORT_ROWS
-            : daily.rowsLeft,
+            : Math.min(MAX_IMPORT_ROWS, rowsAffordable(daily.neuronsLeft)),
       },
       site: {
         date: new Date().toISOString().slice(0, 10),

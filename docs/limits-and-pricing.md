@@ -3,33 +3,46 @@
 Every number here is enforced from `lib/limits.ts`. Change it there, not here —
 this file explains the *why*, the code is the source of truth.
 
-Last verified against production on 2026-09-06.
+Last verified against production on 2026-09-06. Free metering moved from
+actions to neurons on 2026-09-16; the measured-cost sections below are
+unchanged by that.
 
 ---
 
-## The four metering units
+## The metering units
 
-They are deliberately different, and mixing them up is the easiest way to
-overcharge someone.
+Everything is counted in neurons. Only the presentation differs.
 
 | Layer | Unit | Where |
 |---|---|---|
-| Free allowance, chat | turns | `TIER_LIMITS[tier].chatTurns` |
-| Free allowance, AI rows | rows | `TIER_LIMITS[tier].rowsPerDay` |
+| Free allowance | neurons/day | `TIER_LIMITS[tier].dailyCredits × 30` |
 | Paid deduction | neurons | `credit_balance.balance_neurons` |
 | Site-wide backstop | neurons | `SITE_NEURON_BUDGET[tier]` |
 | Displayed / sold | credits | `NEURONS_PER_CREDIT = 30` |
 
-**Free is metered in actions, paid is metered in compute.** A free allowance is
-a coarse gate and whole numbers are what a user can reason about. Money is not:
-a 50-row batch costs 17 neurons, i.e. 0.57 credits. Storing balances in credits
-and rounding each call up to 1 would overcharge a 1000-row job by ~2x. So the
-balance is stored in neurons and only *displayed* as `floor(neurons / 30)`.
+**Free and paid are metered the same way**, in what Cloudflare actually billed
+us (`x-usage-neurons`), never in a local estimate. Free used to be metered in
+*actions* instead — so many chat turns, so many AI rows — on the theory that
+whole numbers are easier to reason about. Two things were wrong with it. It
+made the product answer a question nobody asks (is this a chat thing or a rows
+thing? chatting about a sheet processes rows), and it made a free day and a
+bought credit incomparable, so "what does signing in get me" had no answer in
+the same unit as "what does $5 get me".
 
-A "turn" is one user message, not one model call. The agent loop fires up to
-`MAX_STEPS` calls per turn and the server cannot tell them apart, so the client
-sends `x-turn-id` and only the first call carrying that id spends the
-allowance. `MAX_CALLS_PER_TURN = 8` bounds a forged id.
+Neurons are the storage unit; credits are the only unit a user ever sees.
+`floor(neurons / 30)` — a 50-row batch costs 17 neurons, i.e. 0.57 credits, and
+rounding each call up to a whole credit would overcharge a 1,000-row job ~2x.
+
+One consequence: a call is *checked* before the worker runs and *charged*
+after, because its cost is not knowable in advance. So the last call of the day
+overshoots — someone sitting at 239 of 240 neurons still gets a whole call.
+That is the same rule paid balances follow, and it is cheaper than the
+alternative, which is quoting a price we do not have yet.
+
+Rows are a *derived* figure now, not a limit: `rowsAffordable(neurons)` inverts
+the measured cost model for the surfaces that can only speak in rows (`/tools`,
+the import hint, `limits.maxRowsPerRun`). It is exact for short text only, so
+every surface that renders it says "about".
 
 ---
 
@@ -37,26 +50,31 @@ allowance. `MAX_CALLS_PER_TURN = 8` bounds a forged id.
 
 | | Anonymous | Signed in | With credits |
 |---|---|---|---|
-| Chat turns / day | 6 | 10 | metered |
-| AI rows / day | 200 | 1,000 | metered |
+| Free credits / day | 8 (240 neurons) | 20 (600 neurons) | metered |
+| ≈ AI rows / day, short text | ~750 | ~1,875 | metered |
 | Site neuron budget / day | 10,000 | 100,000 | not bucketed |
 | Import (whole workbook) | 10,000 rows / 20 MB | same | same |
 | Filter, replace, compute, delete | unlimited | same | same |
 
-The two free rows are sized by what they are *for*.
+The two free rows are sized by what they are *for*, and the numbers were picked
+to match what the old action-based pair actually delivered: 240 neurons ≈ the
+measured cost of 6 chat turns plus 200 rows, 600 ≈ 10 turns plus 1,000 rows.
 
 **Anonymous is a demo.** Enough to watch it work, not to get work done. The
-demo sheet is 60 rows. Six turns covers the four demo presets plus a couple of
-the visitor's own questions; 200 rows a day is the demo three times, or one
-small file of their own.
+demo sheet is 60 rows, so 8 credits covers the four demo presets plus a few
+questions of the visitor's own, or the whole demo several times over.
 
-**Signed in is light real use that ends.** 1,000 rows a day gets a real file
-processed, and then the day is over. Chat turns stay at 10 because turns are
-where the product proves itself: cutting them reads as broken, while running
-out of rows reads as "I finished something and want to do the next one."
+**Signed in is light real use that ends.** 20 credits gets a real file
+processed, and then the day is over.
 
-Signing in buys three things: the 100k site budget instead of the shared
-anonymous 10k, 200 → 1,000 rows a day, and 6 → 10 chat turns.
+Signing in buys two things: the 100k site budget instead of the shared
+anonymous 10k, and 8 → 20 credits a day.
+
+> The row equivalents are *wider* than the old row caps — ~750 and ~1,875
+> against 200 and 1,000. That is a direct consequence of picking 8 and 20, and
+> it is deliberate: someone who spends their whole day on rows and never chats
+> should not be worse off than the old pair made them. There is no separate row
+> cap on top.
 
 Import and the mechanical tools run entirely in the browser
 (`lib/cells/workbook.ts`, `lib/cells/table-ops.ts`). They cost nothing to
@@ -68,16 +86,22 @@ budget shared across every sheet in the workbook, not a per-sheet cap.
 
 Both `/api/chat` and `/api/process` resolve it the same way:
 
-1. per-turn call cap (chat only)
-2. **site budget for the identity tier** — if exhausted and the user has a
+1. **site budget for the identity tier** — if exhausted and the user has a
    balance, go straight to paid; otherwise refuse
-3. today's free allowance — if exhausted and there is a balance, go to paid
-4. call llm-worker with `x-tier`
-5. `meterAndCharge` — record site usage, and deduct neurons if this call is paid
+2. today's free allowance (`billFreeCall`) — if already spent and there is a
+   balance, go to paid; otherwise refuse with `dailyCreditsExhausted`
+3. call llm-worker with `x-tier`
+4. settle the measured cost: `chargeNeurons` against the balance when the call
+   is paid, `commitFreeNeurons` against today's counter when it is free
 
-Step 2 sits before step 3 on purpose. If the shared budget is gone, credits
-are the only way through, and there is no sense burning a free turn on a call
-that is going to be billed anyway.
+Step 1 sits before step 2 on purpose. If the shared budget is gone, credits
+are the only way through, and there is no sense burning free allowance on a
+call that is going to be billed anyway.
+
+There is no longer a per-turn call cap, and the client no longer sends
+`x-turn-id`. Both existed to make "one turn spends one unit" enforceable
+against a forged id. Now every call spends what it costs, so a forged id buys
+nothing.
 
 ---
 
@@ -93,7 +117,8 @@ Where this is enforced:
 
 | Surface | Source of numbers |
 |---|---|
-| `/cells` drop zone and file bar | `me.limits` from `/api/me`, anon floor until it answers |
+| `/cells` usage meter | `me.daily.creditsLeft`, in credits |
+| `/cells` drop zone and file bar | `me.limits.maxRowsPerRun` from `/api/me`, anon floor until it answers |
 | `/tools` landing pages (static) | `components/RowsLimitNote.tsx`, anon floor + what sign-in adds |
 | `QuotaBanner` | `/api/quota` (tier-aware), anon floor until it answers |
 | `/pricing` comparison table | `TIER_LIMITS`, all three columns shown side by side |
@@ -110,11 +135,13 @@ per run and 1,000 per day. That forced users to reason about two numbers when
 the real limit was simply today's remaining allowance.
 
 Now `/api/me` reports one client-facing number: `limits.maxRowsPerRun`. For
-free users it is `daily.rowsLeft`; for users with credits it is
-`MAX_IMPORT_ROWS`, currently 10,000 rows. `/api/process` caps one *request* at
-`AI_BATCH_ROWS`, because that is the size the worker's output-token budget can
-actually answer: a larger request would come back truncated rather than
-refused. The whole run is controlled by `billRows`, batch by batch.
+free users it is `rowsAffordable(daily.neuronsLeft)` — today's remaining
+allowance, converted at the measured rate — capped at `MAX_IMPORT_ROWS`; for
+users with credits it is `MAX_IMPORT_ROWS`, currently 10,000 rows.
+`/api/process` caps one *request* at `AI_BATCH_ROWS`, because that is the size
+the worker's output-token budget can actually answer: a larger request would
+come back truncated rather than refused. The run as a whole is controlled by
+`billFreeCall` refusing the next batch once the allowance is spent.
 
 Large paid runs are handled with a confirmation dialog instead of a hard stop.
 The dialog appears over 1,000 selected rows and uses the measured production
@@ -153,7 +180,9 @@ the batch-size test below. Both figures, and `AI_BATCH_ROWS`, live in
 | 10,000 | 100 | 3,200 | 106.7 |
 
 One chat turn ≈ **28 neurons** (~0.9 credits), measured earlier: 10,000 free
-neurons ran about 360 turns.
+neurons ran about 360 turns. That is the figure the 8/20 daily credits are
+sized against — an anonymous day is roughly 8 turns of pure chat, or ~750 rows
+of pure processing, or any mix in between.
 
 > **These row numbers are 3x the planning estimate.** The plan assumed ~6
 > neurons per 50-row batch and therefore "1,000 rows ≈ 4 credits". It is
@@ -323,11 +352,16 @@ comes back in the language the user is reading.
 
 ## Known gaps
 
-- **The counter switch is not migrated.** Before this change, `chat:<key>`
-  counted model calls against a limit of 100. It now counts turns against 10.
-  Same KV key, so on the day of deploy anyone with ≥10 calls already recorded
-  was locked out of chat until UTC midnight. Self-healing; noted in case it
-  shows up in old logs.
+- **The neuron switch does not migrate the old counters.** The allowance now
+  lives under `neurons:<quotaKey>`, a key nothing wrote before. The old
+  `<quotaKey>` (rows) and `chat:<quotaKey>` (turns) counters are simply
+  abandoned, so on the day of deploy everyone starts the neuron bucket at zero
+  no matter what they had already spent — one free day, once. The stale keys
+  expire at UTC midnight on their own.
+- **An earlier counter switch, for the log archaeology.** Before that,
+  `chat:<key>` counted model calls against a limit of 100 and then counted
+  turns against 10. Same KV key, so anyone with ≥10 calls recorded on the day
+  of that deploy was locked out of chat until midnight.
 - **A 10,000-row import is verified, a 10,000-row *scroll* is not.** A 10k × 7
   sheet parses and renders on production with 30 rows in the DOM and a 28 MB
   JS heap, and row 10,000 renders correctly. Scroll smoothness was not

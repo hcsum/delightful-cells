@@ -1,12 +1,13 @@
 import { decode, encode } from "@toon-format/toon";
 import {
   asPaid,
-  billRows,
-  commitRows,
+  billFreeCall,
+  commitFreeNeurons,
   resolveEntitlement,
 } from "@/lib/billing/entitlement";
 import { AI_BATCH_ROWS } from "@/lib/limits";
 import { chargeNeurons, recordSiteUsage } from "@/lib/billing/meter";
+import { t } from "@/lib/cells/i18n";
 import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
 import { getClientIp } from "@/lib/client-ip";
 
@@ -155,12 +156,12 @@ export async function POST(request: Request) {
     }
 
     if (ent.tier !== "paid") {
-      const billing = await billRows(ent, rowsCount);
+      const billing = await billFreeCall(ent);
       if (billing.mode === "exceeded") {
         return new Response(
           JSON.stringify({
             error: "quota_exceeded",
-            message: `Daily row limit reached (${ent.limits.rowsPerDay} rows per day)`,
+            message: t(localeFromRequest(request), "dailyCreditsExhausted"),
           }),
           {
             status: 429,
@@ -322,12 +323,12 @@ export async function POST(request: Request) {
           missing: missing.length,
         });
       }
-      // Billed for what we are actually handing back. The missing rows will be
-      // re-sent by the client, and charging for them here would bill them twice.
-      const delivered = expected - missing.length;
       await chargeNeurons(ent, neurons, "process", requestId);
-      // Paid batches are billed in neurons above and don't touch the daily counter.
-      if (ent.tier !== "paid") await commitRows(ent, delivered);
+      // Free batches settle against the same measured cost, into the same daily
+      // neuron counter chat uses. Note this is the whole call, not the delivered
+      // rows: Cloudflare billed us for every row the worker read, including the
+      // ones whose answers came back truncated, and the counter tracks our bill.
+      if (ent.tier !== "paid") await commitFreeNeurons(ent, neurons);
       const jsonBody = JSON.stringify({ results, missing });
       return new Response(jsonBody, {
         status: 200,

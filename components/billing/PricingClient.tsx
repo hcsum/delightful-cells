@@ -8,7 +8,9 @@ import {
   MAX_FILE_BYTES,
   MAX_IMPORT_ROWS,
   TIER_LIMITS,
+  dailyNeurons,
   minCreditsForRows,
+  rowsAffordable,
 } from "@/lib/limits";
 import { useAuth } from "@/lib/auth/useAuth";
 import LoginPromptDialog from "@/components/LoginPromptDialog";
@@ -122,15 +124,18 @@ export default function PricingClient({ initialLocale = "en" }: { initialLocale?
             </thead>
             <tbody>
               <Row
-                label={tr("rowChatTurns")}
-                anon={TIER_LIMITS.anon.chatTurns.toLocaleString()}
-                free={TIER_LIMITS.free.chatTurns.toLocaleString()}
+                label={tr("rowDailyCredits")}
+                anon={TIER_LIMITS.anon.dailyCredits.toLocaleString()}
+                free={TIER_LIMITS.free.dailyCredits.toLocaleString()}
                 paid={tr("valMetered")}
               />
+              {/* The row underneath is the same allowance, read as rows. It is
+                  derived, not a second limit — and only exact on short text,
+                  which is why the label carries the ≈ and the caveat. */}
               <Row
                 label={tr("rowRowsPerDay")}
-                anon={TIER_LIMITS.anon.rowsPerDay.toLocaleString()}
-                free={TIER_LIMITS.free.rowsPerDay.toLocaleString()}
+                anon={rowsAffordable(dailyNeurons("anon")).toLocaleString()}
+                free={rowsAffordable(dailyNeurons("free")).toLocaleString()}
                 paid={tr("valMetered")}
               />
               {/* Import and the mechanical tools run entirely in the browser,

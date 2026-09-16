@@ -10,14 +10,14 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     dropTitle: "Drop your spreadsheet here",
     dropDesc1: ".xlsx, .xls, or .csv — it opens instantly, right in your browser.",
     dropDesc2: "Nothing is uploaded until you talk to the AI.",
-    limitsHint: "Loads up to {i} rows per workbook. AI can process up to {d} rows per day.",
+    limitsHint: "Loads up to {i} rows per workbook. Today's free allowance is about {d} more AI rows on short text.",
     limitsHintMetered:
       "Loads up to {i} rows per workbook. AI rows are billed to your credits — no daily cap.",
     rowsLimitNote:
-      "Note: without signing in, AI processing is capped at {anon} rows a day. Signing in raises that to {free} rows a day; credits remove the daily cap.",
+      "Note: without signing in, the free allowance is about {anon} AI rows a day on short text. Signing in raises that to about {free}; credits remove the daily cap.",
     quotaChecking: "Checking remaining rows…",
     quotaMetered: "Running on credits — no daily row cap",
-    quotaRemaining: "Remaining today: {remaining} / {limit} rows",
+    quotaRemaining: "Remaining today: about {remaining} of {limit} rows",
     chooseFile: "Choose a file",
     or: "or",
     tryDemo: "try with demo data",
@@ -96,17 +96,20 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     creditsBalanceLong: "{n} credits left",
     creditsEmpty: "No credits yet",
     // --- usage meter, per tier ---
-    meterFreeTitle: "🎁 Your free allowance today",
-    meterFreeDetail: "{turns} chat turns · {rows} AI rows left",
+    meterFreeTitle: "🎁 Free credits today",
+    meterFreeDetail: "{n} credits left",
     meterFreeUnlimited: "unlimited",
     meterCreditsTitle: "⚡ Credits",
     meterCreditsDetail: "Free allowance is used up — AI now runs on credits.",
-    meterSignInHint: "Sign in for a bigger daily allowance: 1,000 AI rows a day.",
+    meterSignInHint: "Sign in for a bigger daily allowance: {n} free credits a day.",
+    // Server-written refusal: the free bucket is empty and there is no balance.
+    dailyCreditsExhausted:
+      "Today's free credits are used up. Sign in or top up credits to keep going.",
     // --- conversion prompts ---
     maxRowsAnonDailyError:
-      "This AI action has {n} rows selected, but today's anonymous allowance has {m} AI rows left.",
+      "This AI action has {n} rows selected, but today's anonymous allowance covers about {m} more rows.",
     maxRowsFreeDailyError:
-      "This AI action has {n} rows selected, but your daily allowance has {m} AI rows left.",
+      "This AI action has {n} rows selected, but your allowance today covers about {m} more rows.",
     maxRowsWorkbookError:
       "This AI action has {n} rows selected, but this workbook can load at most {m} rows.",
     largeRunConfirm:
@@ -159,8 +162,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     pricingColAnon: "Anonymous",
     pricingColFree: "Signed in",
     pricingColPaid: "With credits",
-    rowChatTurns: "Chat turns per day",
-    rowRowsPerDay: "AI rows per day",
+    rowDailyCredits: "Free credits per day",
+    rowRowsPerDay: "≈ AI rows per day (short text)",
     rowImport: "Import / parse",
     rowMechanical: "Filter, replace, compute, delete",
     valUnlimited: "Unlimited",
@@ -215,7 +218,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ctProgressRows: "Processing {d}/{t} rows…",
     ctDefaultColumn: "Extracted",
     ctDownloadNote:
-      "The download keeps every original column and adds the new extracted one, in the same format you uploaded. Without signing in: {anon} rows a day, signed in: {free} a day. Credits remove the daily cap.",
+      "The download keeps every original column and adds the new extracted one, in the same format you uploaded. Without signing in: about {anon} rows a day, signed in: about {free}. Credits remove the daily cap.",
     ctDailyLimitAnon:
       "Daily row limit reached. Sign in for a bigger allowance, or try again tomorrow.",
     ctDailyLimitFree:
@@ -239,14 +242,14 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     dropTitle: "把表格拖到这里",
     dropDesc1: "支持 .xlsx、.xls、.csv —— 直接在浏览器里打开，不用等上传。",
     dropDesc2: "在你开始跟 AI 对话之前，文件不会离开这台电脑。",
-    limitsHint: "整个工作簿最多载入 {i} 行；AI 每天最多处理 {d} 行。",
+    limitsHint: "整个工作簿最多载入 {i} 行；今天的免费额度按短文本估算还够 AI 处理约 {d} 行。",
     limitsHintMetered:
       "整个工作簿最多载入 {i} 行；AI 按点数扣费，没有每日上限。",
     rowsLimitNote:
-      "提示：未登录时，AI 处理每天最多 {anon} 行。登录后每天最多 {free} 行；使用点数可移除每日上限。",
+      "提示：未登录时，每天的免费额度按短文本估算约够 {anon} 行 AI 处理。登录后约 {free} 行；使用点数可移除每日上限。",
     quotaChecking: "正在检查剩余行数…",
     quotaMetered: "正在使用点数处理，没有每日行数上限",
-    quotaRemaining: "今日剩余：{remaining} / {limit} 行",
+    quotaRemaining: "今日剩余：约 {remaining} / {limit} 行",
     chooseFile: "选择文件",
     or: "或者",
     tryDemo: "用演示数据试试",
@@ -324,15 +327,16 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     creditsBalanceLong: "还剩 {n} 点",
     creditsEmpty: "还没有点数",
     // --- usage meter, per tier ---
-    meterFreeTitle: "🎁 今天的免费额度",
-    meterFreeDetail: "还剩 {turns} 轮对话 · {rows} 行 AI 处理",
+    meterFreeTitle: "🎁 今日免费点数",
+    meterFreeDetail: "剩 {n} 点",
     meterFreeUnlimited: "不限",
     meterCreditsTitle: "⚡ 点数",
     meterCreditsDetail: "免费额度已用完 —— 现在按点数扣。",
-    meterSignInHint: "登录后每天额度更多：每天可处理 1000 行。",
+    meterSignInHint: "登录后每天额度更多：每天 {n} 点。",
+    dailyCreditsExhausted: "今日免费点数已用完，登录或充值可以接着用。",
     // --- conversion prompts ---
-    maxRowsAnonDailyError: "这个 AI 操作选了 {n} 行，但今天访客额度只剩 {m} 行。",
-    maxRowsFreeDailyError: "这个 AI 操作选了 {n} 行，但你今天的额度只剩 {m} 行。",
+    maxRowsAnonDailyError: "这个 AI 操作选了 {n} 行，但今天的访客额度大约只够再处理 {m} 行。",
+    maxRowsFreeDailyError: "这个 AI 操作选了 {n} 行，但你今天的额度大约只够再处理 {m} 行。",
     maxRowsWorkbookError: "这个 AI 操作选了 {n} 行，但整个工作簿最多载入 {m} 行。",
     largeRunConfirm:
       "这次预计消耗约 {c} 点，耗时约 {m} 分钟（{s} 秒）。中途请勿关闭页面。",
@@ -372,8 +376,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     pricingColAnon: "未登录",
     pricingColFree: "已登录",
     pricingColPaid: "有点数",
-    rowChatTurns: "每天对话轮数",
-    rowRowsPerDay: "每天 AI 处理行数",
+    rowDailyCredits: "每天免费点数",
+    rowRowsPerDay: "≈ 每天 AI 处理行数（短文本）",
     rowImport: "导入 / 解析",
     rowMechanical: "筛选、替换、公式计算、删除列",
     valUnlimited: "不限",
@@ -426,7 +430,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ctProgressRows: "正在处理 {d}/{t} 行…",
     ctDefaultColumn: "提取结果",
     ctDownloadNote:
-      "下载的文件保留全部原始列，并新增一列提取结果，格式和你上传的一致。未登录：每天 {anon} 行；登录后：每天 {free} 行。有点数则没有每日上限。",
+      "下载的文件保留全部原始列，并新增一列提取结果，格式和你上传的一致。未登录：每天约 {anon} 行；登录后：每天约 {free} 行。有点数则没有每日上限。",
     ctDailyLimitAnon: "今天的行数额度用完了。登录可以拿到更多额度，或者明天再来。",
     ctDailyLimitFree: "今天的行数额度用完了。获取点数就能接着跑，或者明天再来。",
     ctPartialRunConfirm:

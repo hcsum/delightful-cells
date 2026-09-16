@@ -1,12 +1,19 @@
 "use client";
 
 import { useT } from "@/lib/cells/locale";
+import { TIER_LIMITS } from "@/lib/limits";
 import type { Me } from "@/lib/billing/useMe";
 
 // What this shows depends on who you are:
-//  - anonymous  → the site-wide free budget, i.e. the old public meter
-//  - signed in  → what's left of *your* allowance today
-//  - on credits → your balance, because the allowance is already spent
+//  - free or anonymous → what's left of *your* own allowance today, in credits
+//  - on credits        → your balance, because the allowance is already spent
+//
+// Anonymous used to be shown the site-wide budget instead, on the grounds that
+// the shared bucket is what cuts them off. It is the rarer of the two walls and
+// the harder to act on — "the site is busy" is not something a visitor can do
+// anything about, while "you have 3 credits left" is. So both free tiers now
+// read the same meter, and the site budget only surfaces once it is actually
+// spent, as the `usagePaused` line.
 export default function UsageMeter({ me }: { me: Me | null }) {
   const t = useT();
   if (!me) return null;
@@ -28,47 +35,36 @@ export default function UsageMeter({ me }: { me: Me | null }) {
     );
   }
 
-  if (me.tier === "free") {
-    const turns = me.daily.turnsLeft;
-    const rows = me.daily.rowsLeft;
-    const unl = t("meterFreeUnlimited");
-    return (
-      <div className={box}>
-        <div className="flex items-center justify-between font-semibold">
-          <span>{t("meterFreeTitle")}</span>
-          <span className="text-black/80">
-            {t("meterFreeDetail", {
-              turns: turns === null ? unl : turns.toLocaleString(),
-              rows: rows === null ? unl : rows.toLocaleString(),
-            })}
-          </span>
-        </div>
-        <Bar used={me.site.tierNeurons} total={me.site.tierBudget} />
-      </div>
-    );
-  }
-
-  // Anonymous: the shared budget is the thing that can cut them off, so keep
-  // showing it — plus what signing in would change.
-  const used = me.site.tierNeurons;
-  const free = me.site.tierBudget;
-  // A share of the budget, not a raw neuron count: an anonymous visitor has no
-  // credits, so neurons would be a unit they can neither spend nor buy.
-  const left = free > 0 ? Math.max(0, Math.round(((free - used) / free) * 100)) : 0;
+  const credits = me.daily.creditsLeft;
+  // The bar tracks the user's OWN bucket. `limits.dailyCredits` is null for an
+  // unlimited account, in which case there is no bar to draw.
+  const total = me.limits.dailyCredits;
+  const sitePaused = me.site.tierNeurons >= me.site.tierBudget;
   return (
     <div className={box} title={t("usageHover", { c: me.site.requests })}>
       <div className="flex items-center justify-between font-semibold">
-        <span>{t("usageTitle")}</span>
-        <span className="text-black/80">{t("usageFree", { p: left })}</span>
+        <span>{t("meterFreeTitle")}</span>
+        <span className="text-black/80">
+          {credits === null
+            ? t("meterFreeUnlimited")
+            : t("meterFreeDetail", { n: credits.toLocaleString() })}
+        </span>
       </div>
-      <Bar used={used} total={free} />
-      <div className="mt-1 text-[11px] text-black/45">
-        {used >= free ? (
-          <span className="font-semibold text-[#b3003c]">{t("usagePaused")}</span>
-        ) : (
-          t("meterSignInHint")
-        )}
-      </div>
+      {total !== null && (
+        <Bar used={me.daily.neuronsUsed} total={total * me.credits.neuronsPerCredit} />
+      )}
+      {/* Two different walls, and only one of them is the user's own doing.
+          The shared budget outranks the sign-in nudge: signing in is pointless
+          advice while the tier's whole bucket is spent. */}
+      {sitePaused ? (
+        <div className="mt-1 text-[11px] font-semibold text-[#b3003c]">
+          {t("usagePaused")}
+        </div>
+      ) : me.tier === "anon" ? (
+        <div className="mt-1 text-[11px] text-black/45">
+          {t("meterSignInHint", { n: TIER_LIMITS.free.dailyCredits })}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,16 +1,12 @@
 // Chat proxy for Delightful Cells (/cells).
 // Browser → here → llm-worker /chat (hides the shared x-api-key).
-// Billing order per request: site budget for the tier → today's free turns →
+// Billing order per request: site budget for the tier → today's free neurons →
 // credit balance. MOCK_LLM=true answers locally with a scripted model so the
 // whole agent loop runs without a Cloudflare account.
 
-import {
-  asPaid,
-  billChatTurn,
-  guardTurnCalls,
-  resolveEntitlement,
-} from "@/lib/billing/entitlement";
+import { asPaid, billFreeCall, resolveEntitlement } from "@/lib/billing/entitlement";
 import { meterAndCharge } from "@/lib/billing/meter";
+import { t } from "@/lib/cells/i18n";
 import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
 import { getClientIp } from "@/lib/client-ip";
 
@@ -66,21 +62,6 @@ export async function POST(request: Request) {
 
   let ent = await resolveEntitlement(request);
 
-  // A turn id groups the up-to-MAX_STEPS calls one user message produces; the
-  // allowance is spent once per turn, not once per call. The per-turn cap is
-  // the backstop against a forged id being reused to make the allowance look
-  // untouched, so it applies to paid calls too.
-  const turnId = request.headers.get("x-turn-id") || requestIdFor(request);
-  if (!(await guardTurnCalls(turnId))) {
-    return json(
-      {
-        error: "quota_exceeded",
-        message: "That turn made too many AI calls. Start a new message.",
-      },
-      429,
-    );
-  }
-
   // Site budget before the free allowance: when the shared budget for this
   // tier is gone, credits are the way through, and there is no sense spending
   // a free turn on a call that will be billed anyway.
@@ -99,12 +80,12 @@ export async function POST(request: Request) {
   }
 
   if (ent.tier !== "paid") {
-    const billing = await billChatTurn(ent, turnId);
+    const billing = await billFreeCall(ent);
     if (billing.mode === "exceeded") {
       return json(
         {
           error: "quota_exceeded",
-          message: `Daily chat limit reached (${ent.limits.chatTurns} turns per day). Sign in or top up credits to keep going.`,
+          message: t(localeFromRequest(request), "dailyCreditsExhausted"),
         },
         429,
       );
@@ -113,9 +94,21 @@ export async function POST(request: Request) {
   }
 
   // Mocked *after* billing on purpose: the tier and quota logic is the part
-  // worth exercising offline, and the mock reports no usage so nothing is spent.
+  // worth exercising offline. The mock reports a fixed cost in the same headers
+  // the worker uses, so the allowance really does drain locally — without it
+  // the one thing this path exists to test never happens.
   if (process.env.MOCK_LLM === "true") {
-    return json({ response: mockRespond(messages) });
+    const charged = await meterAndCharge(
+      mockUsageHeaders(),
+      ent,
+      "chat",
+      requestIdFor(request),
+    );
+    return json(
+      { response: mockRespond(messages) },
+      200,
+      ent.tier === "paid" ? { "x-billed-neurons": String(charged) } : undefined,
+    );
   }
 
   const workerUrl = process.env.LLM_WORKER_URL;
@@ -166,6 +159,16 @@ export async function POST(request: Request) {
     // credits rather than to the free allowance.
     ent.tier === "paid" ? { "x-billed-neurons": String(charged) } : undefined,
   );
+}
+
+// A plausible chat turn, at the measured ~20 neurons, in the header names
+// lib/usage.ts reads. Offline only.
+function mockUsageHeaders(): Headers {
+  return new Headers({
+    "x-usage-in": "1200",
+    "x-usage-out": "120",
+    "x-usage-neurons": "20",
+  });
 }
 
 function requestIdFor(request: Request): string {

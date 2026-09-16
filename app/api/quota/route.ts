@@ -4,6 +4,7 @@
 // signed-in allowance.
 
 import { remainingDaily, resolveEntitlement } from "@/lib/billing/entitlement";
+import { NEURONS_PER_CREDIT, rowsAffordable } from "@/lib/limits";
 
 function json(body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -15,13 +16,25 @@ function json(body: unknown) {
 async function readQuota(request: Request) {
   const ent = await resolveEntitlement(request);
   const daily = await remainingDaily(ent);
-  // rowsLeft is null when the tier has no daily cap; the legacy callers expect
-  // numbers, so report the balance as headroom in that case.
-  const limit = Number.isFinite(ent.limits.rowsPerDay)
-    ? ent.limits.rowsPerDay
-    : Number.MAX_SAFE_INTEGER;
-  const remaining = daily.rowsLeft ?? Number.MAX_SAFE_INTEGER;
-  return { limit, used: daily.rowsUsed, remaining };
+  // The allowance is kept in neurons now, but these callers only ever talk
+  // about rows, so convert at the measured rate. The result is approximate —
+  // it is exact only for short text — and `ctDownloadNote` / `quotaRemaining`
+  // say "about" for that reason. `used` is derived by subtraction rather than
+  // converted separately, so the three numbers always add up on screen.
+  // A null `neuronsLeft` means the tier has no daily cap; the legacy callers
+  // expect numbers, so both figures become the sentinel they already read as
+  // "metered, no cap".
+  if (daily.neuronsLeft === null) {
+    return {
+      limit: Number.MAX_SAFE_INTEGER,
+      used: 0,
+      remaining: Number.MAX_SAFE_INTEGER,
+    };
+  }
+  const limit = rowsAffordable(ent.limits.dailyCredits * NEURONS_PER_CREDIT);
+  const remaining = rowsAffordable(daily.neuronsLeft);
+  const used = Math.max(0, limit - remaining);
+  return { limit, used, remaining };
 }
 
 export async function GET(request: Request) {

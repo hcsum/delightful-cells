@@ -8,32 +8,40 @@ export const NEURONS_PER_CREDIT = 30;
 export type Tier = "anon" | "free" | "paid";
 
 // Everything metered against Cloudflare's AI bill. `paid` spends neurons out of
-// a purchased balance instead of a daily allowance, so its per-day caps are
+// a purchased balance instead of a daily allowance, so its per-day cap is
 // unbounded. The workbook import cap keeps one runaway job finite.
 //
-// The two free rows are sized by what they are FOR, not by what we can afford:
+// Free and paid now use the SAME unit. There used to be two free buckets — so
+// many chat turns, so many AI rows — and they made the product answer a
+// question nobody asks: is this a chat thing or a rows thing? Chatting about a
+// sheet processes rows, and processing rows happens through chat. One bucket,
+// counted in the thing that actually costs us money, is both simpler to
+// explain and honest about what a request is worth.
 //
-//   anon — see that it works. The demo sheet is 60 rows. 6 turns covers the
-//   four demo presets plus a couple of the visitor's own questions, and 200
-//   rows a day is the demo three times over, or one small file of their own.
+// The numbers are sized to what the old pair delivered in practice:
 //
-//   free — light real use that ends. 1,000 rows a day means a real file gets
-//   processed, and then the day is done. Chat turns stay at 10 because turns
-//   are where the product proves itself; cutting them reads as broken rather
-//   than limited, while running out of rows reads as "I finished something and
-//   want to do the next one".
+//   anon — see that it works. 8 credits = 240 neurons ≈ the measured total of
+//   the old 6 turns plus 200 rows. The demo sheet is 60 rows, so that is the
+//   four demo presets plus a few questions of the visitor's own, or the demo
+//   several times over.
+//
+//   free — light real use that ends. 20 credits = 600 neurons ≈ the old 10
+//   turns plus 1,000 rows. A real file gets processed, and then the day is
+//   done.
+//
+// Sized in credits, not neurons, because credits are what the UI shows and
+// what a purchase is denominated in: a free day and a bought credit have to be
+// readable against each other.
 export const TIER_LIMITS = {
-  anon: { chatTurns: 6, rowsPerDay: 200 },
-  free: { chatTurns: 10, rowsPerDay: 1000 },
-  paid: { chatTurns: Infinity, rowsPerDay: Infinity },
-} as const satisfies Record<Tier, { chatTurns: number; rowsPerDay: number }>;
+  anon: { dailyCredits: 8 },
+  free: { dailyCredits: 20 },
+  paid: { dailyCredits: Infinity },
+} as const satisfies Record<Tier, { dailyCredits: number }>;
 
-// --- Signed-in values, for code that needs a number before /api/me answers.
-// Derived, not repeated: these drifted from TIER_LIMITS once already. Never
-// render them as the reader's allowance — an anonymous visitor gets a
-// fraction. Copy written before the tier is known must quote TIER_LIMITS.anon,
-// the floor everyone is guaranteed.
-export const DAILY_ROWS_LIMIT = TIER_LIMITS.free.rowsPerDay;
+/** Today's free allowance in neurons — the unit the counter is actually kept in. */
+export function dailyNeurons(tier: Tier): number {
+  return TIER_LIMITS[tier].dailyCredits * NEURONS_PER_CREDIT;
+}
 
 // Site-wide daily neuron budget per free tier, so anonymous traffic can never
 // starve signed-in users. Paid traffic is not bucketed — it pays its own way.
@@ -84,6 +92,20 @@ export function minCreditsForRows(rows: number): number {
   const neurons =
     calls * MEASURED_NEURONS_PER_CALL + rows * MEASURED_NEURONS_PER_ROW;
   return neurons / NEURONS_PER_CREDIT;
+}
+
+// The inverse: how many rows a neuron allowance buys, for turning "what's left
+// today" into the only number a user of the row tools can act on. Assumes full
+// batches, so the per-call overhead is amortised over AI_BATCH_ROWS rows.
+//
+// Inherits the floor caveat from minCreditsForRows and makes it worse: this is
+// the count for SHORT text, and long columns get fewer rows out of the same
+// allowance. Every surface that renders it says "about".
+export function rowsAffordable(neurons: number): number {
+  if (!Number.isFinite(neurons)) return MAX_IMPORT_ROWS;
+  const perRow =
+    MEASURED_NEURONS_PER_ROW + MEASURED_NEURONS_PER_CALL / AI_BATCH_ROWS;
+  return Math.max(0, Math.floor(neurons / perRow));
 }
 
 // --- Client-side parsing limits --------------------------------------------

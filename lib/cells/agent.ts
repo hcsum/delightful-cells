@@ -20,7 +20,13 @@ export type ChatMessage =
   // text in the chat; sent to the model glued onto the next user message.
   | { id: string; role: "note"; content: string };
 
-export const MAX_STEPS = 6;
+// Raised from 6 after reading a trace: one turn in sixteen hit the ceiling and
+// four more reached step 5. Checking work is naturally 4-5 steps — look, act,
+// look again, report — so 6 cut off the careful answers first. The old reason
+// to keep it tight is gone: a turn no longer costs a fixed slice of the daily
+// allowance, so a longer turn now costs exactly the neurons it uses. What the
+// ceiling still buys is a stop for a model looping on its own output.
+export const MAX_STEPS = 8;
 
 let idCounter = 0;
 export function nextMessageId(): string {
@@ -109,22 +115,21 @@ export function extractToolJson(text: string): Record<string, unknown> | null {
   return null;
 }
 
-// One id per turn, sent on every call the turn makes. The daily allowance is
-// counted in turns, and only the first call carrying a given id spends one.
+// One id per turn. Kept for the trace, which groups a turn's calls under it;
+// the server no longer sees it, because the allowance is spent per call in
+// measured neurons rather than once per turn.
 function newTurnId(): string {
   return `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
 async function postChat(
   messages: FlatMessage[],
-  turnId: string,
   locale: Locale,
 ): Promise<string> {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-turn-id": turnId,
       // Refusals (quota, site budget) are written server-side, so the server
       // has to be told which language the user is reading.
       "x-locale": locale,
@@ -175,7 +180,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
       chars: messages.reduce((n, m) => n + m.content.length, 0),
       messages: messages.slice(1),
     });
-    const text = await postChat(messages, turnId, opts.locale ?? "en");
+    const text = await postChat(messages, opts.locale ?? "en");
     if (opts.isStale()) return;
     trace("reply", { step, text });
 

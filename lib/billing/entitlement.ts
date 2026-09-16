@@ -5,12 +5,8 @@
 // with credits still burns the free allowance first, so a purchase always adds
 // to what they had rather than replacing it.
 
-import { TIER_LIMITS, type Tier } from "@/lib/limits";
-import {
-  addRowsToDailyQuota,
-  ensureSingleRowIncrement,
-  getRowsUsedToday,
-} from "@/lib/quota";
+import { NEURONS_PER_CREDIT, TIER_LIMITS, type Tier } from "@/lib/limits";
+import { addRowsToDailyQuota, getRowsUsedToday } from "@/lib/quota";
 import { getQuotaKeyFromRequest, getUserIdFromRequest } from "@/lib/auth/session";
 import { getBalanceNeurons } from "@/lib/billing/credits";
 
@@ -28,7 +24,7 @@ export type Entitlement = {
 export type Billing =
   | { mode: "free" }
   | { mode: "paid" }
-  | { mode: "exceeded"; reason: "daily" | "per_turn" };
+  | { mode: "exceeded"; reason: "daily" };
 
 // Our own accounts, so a load test on production is not fought by the daily
 // allowance. Comma-separated emails in UNLIMITED_ACCOUNTS, matched against the
@@ -73,7 +69,7 @@ export async function resolveEntitlement(req: Request): Promise<Entitlement> {
     quotaKey,
     balanceNeurons,
     // TIER_LIMITS.paid is Infinity per day, which every caller already handles:
-    // billRows/billChatTurn compare against it and always pass, remainingDaily
+    // billFreeCall compares against it and always passes, remainingDaily
     // reports null, and the UI renders that as "unlimited".
     limits: unlimited ? TIER_LIMITS.paid : TIER_LIMITS[baseTier],
   };
@@ -85,67 +81,67 @@ export function asPaid(ent: Entitlement): Entitlement {
 }
 
 /**
- * One chat *turn*, not one model call: the agent loop fires up to MAX_STEPS
- * requests per turn and the server cannot tell them apart, so the client sends
- * a turn id and only its first request consumes the allowance.
+ * The daily free allowance, for one model call — chat or rows, they are the
+ * same bucket now. Called BEFORE the worker, so all it can do is check the
+ * counter; what the call actually cost is only known afterwards and lands via
+ * `commitFreeNeurons`.
  *
- * The per-turn call cap is the backstop against a forged turn id being reused
- * forever to make the allowance look untouched.
+ * That means the last call of the day is allowed to overshoot: a user sitting
+ * at 239 of 240 neurons gets one more full call. This is on purpose, and it is
+ * the same rule paid balances follow ("balance > 0, spend it, settle after") —
+ * refusing a call because it *might* exceed the allowance would mean quoting a
+ * cost we do not have yet, and a batch nobody can predict the price of is a
+ * worse experience than a few neurons of slippage.
  */
-export const MAX_CALLS_PER_TURN = 8;
-
-export async function guardTurnCalls(turnId: string): Promise<boolean> {
-  return addRowsToDailyQuota(`turn:${turnId}`, 1, MAX_CALLS_PER_TURN);
-}
-
-export async function billChatTurn(
-  ent: Entitlement,
-  turnId: string,
-): Promise<Billing> {
-  const withinDaily = await ensureSingleRowIncrement(
-    `chat:${ent.quotaKey}`,
-    `turn:${turnId}`,
-    1,
-    ent.limits.chatTurns,
-  );
-  if (withinDaily) return { mode: "free" };
+export async function billFreeCall(ent: Entitlement): Promise<Billing> {
+  const limit = allowanceNeurons(ent);
+  const used = await getRowsUsedToday(neuronKey(ent));
+  if (used < limit) return { mode: "free" };
   if (ent.balanceNeurons > 0) return { mode: "paid" };
   return { mode: "exceeded", reason: "daily" };
 }
 
 /**
- * Rows for one /api/process batch. Checked before calling the worker and
- * charged after it succeeds, so a worker error costs the user nothing —
- * `commitRows` is the second half.
+ * Spend what the call actually cost against today's allowance. The amount is
+ * llm-worker's `x-usage-neurons`, i.e. Cloudflare's own bill — never a local
+ * estimate, so a chat turn and a 100-row batch are compared on the same scale.
+ *
+ * No limit is passed: `billFreeCall` already decided this call was allowed, and
+ * a counter that refuses to record an overshoot would make the allowance look
+ * untouched the moment someone crossed it.
  */
-export async function billRows(
+export async function commitFreeNeurons(
   ent: Entitlement,
-  rows: number,
-): Promise<Billing> {
-  if (rows <= 0) return { mode: "free" };
-  const used = await getRowsUsedToday(ent.quotaKey);
-  if (used + rows <= ent.limits.rowsPerDay) return { mode: "free" };
-  if (ent.balanceNeurons > 0) return { mode: "paid" };
-  return { mode: "exceeded", reason: "daily" };
+  neurons: number,
+): Promise<void> {
+  if (neurons <= 0) return;
+  await addRowsToDailyQuota(neuronKey(ent), neurons, Infinity);
 }
 
-export async function commitRows(ent: Entitlement, rows: number): Promise<void> {
-  if (rows <= 0) return;
-  await addRowsToDailyQuota(ent.quotaKey, rows, ent.limits.rowsPerDay);
+function neuronKey(ent: Entitlement): string {
+  return `neurons:${ent.quotaKey}`;
+}
+
+// Read off `ent.limits`, not the tier: an UNLIMITED_ACCOUNTS address keeps the
+// `free` tier and carries the paid (Infinity) allowance, and reading the tier
+// would quietly put it back on the 20-credit bucket.
+function allowanceNeurons(ent: Entitlement): number {
+  return ent.limits.dailyCredits * NEURONS_PER_CREDIT;
 }
 
 /** Today's free allowance still left, for /api/me. Infinity → null (unbounded). */
 export async function remainingDaily(ent: Entitlement) {
-  const [rowsUsed, turnsUsed] = await Promise.all([
-    getRowsUsedToday(ent.quotaKey),
-    getRowsUsedToday(`chat:${ent.quotaKey}`),
-  ]);
-  const left = (limit: number, used: number) =>
-    Number.isFinite(limit) ? Math.max(0, limit - used) : null;
+  const neuronsUsed = await getRowsUsedToday(neuronKey(ent));
+  const limit = allowanceNeurons(ent);
+  const neuronsLeft = Number.isFinite(limit)
+    ? Math.max(0, limit - neuronsUsed)
+    : null;
   return {
-    rowsUsed,
-    rowsLeft: left(ent.limits.rowsPerDay, rowsUsed),
-    turnsUsed,
-    turnsLeft: left(ent.limits.chatTurns, turnsUsed),
+    neuronsUsed,
+    neuronsLeft,
+    // Floored, because a partial credit is not something anyone can spend and
+    // rounding up would promise a call that may not fit.
+    creditsLeft:
+      neuronsLeft === null ? null : Math.floor(neuronsLeft / NEURONS_PER_CREDIT),
   };
 }

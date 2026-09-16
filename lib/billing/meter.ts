@@ -6,7 +6,7 @@
 // each call up to a whole credit would overcharge several times over.
 
 import { spendNeurons, type LedgerReason } from "@/lib/billing/credits";
-import type { Entitlement } from "@/lib/billing/entitlement";
+import { commitFreeNeurons, type Entitlement } from "@/lib/billing/entitlement";
 import { recordUsageFromHeaders } from "@/lib/usage";
 
 /**
@@ -46,8 +46,11 @@ export async function chargeNeurons(
 }
 
 /**
- * Record site usage and, when this call is billed to credits, deduct it.
- * Returns the neurons deducted (0 when the call was free or unmetered).
+ * Record site usage and settle what the call cost: against the credit balance
+ * when this call is paid, against today's free allowance when it is not.
+ * Both halves read the same measured number, which is the whole point of
+ * metering free in neurons — a free day and a paid day are the same arithmetic.
+ * Returns the neurons deducted from the balance (0 when the call was free).
  */
 export async function meterAndCharge(
   headers: Headers,
@@ -56,5 +59,7 @@ export async function meterAndCharge(
   ref: string,
 ): Promise<number> {
   const neurons = await recordSiteUsage(headers, ent);
-  return chargeNeurons(ent, neurons, reason, ref);
+  const charged = await chargeNeurons(ent, neurons, reason, ref);
+  if (ent.tier !== "paid") await commitFreeNeurons(ent, neurons);
+  return charged;
 }
