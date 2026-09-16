@@ -34,26 +34,39 @@ function extractText(result: any): string {
   return text.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*?<\/think>/i, '').trim();
 }
 
-// One model for both endpoints. Alternatives: @cf/zai-org/glm-4.7-flash,
-// @cf/openai/gpt-oss-20b, @cf/zai-org/glm-5.3-flash (needs a paid billing method).
+// One model for both endpoints. Alternatives: @cf/meta/llama-4-scout-17b-16e-instruct,
+// @cf/zai-org/glm-4.7-flash, @cf/openai/gpt-oss-20b, @cf/google/gemma-4-26b-a4b-it.
 //
-// Switched off glm-4.7-flash on 2026-09-15: it fails 5 of the 21 cases in
-// evals/, all of them in multi-step 核对 — it points transform_column at a
-// derived column, then reads the resulting zeros back as proof the data is
-// correct. llama-4-scout passes four of those five. It costs ~4.2x per call
-// (~58 vs ~14 neurons); see docs/model-switch-handover.md for the measurement
-// and for the two failures neither model fixes.
-const MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+// Switched off glm-4.7-flash on 2026-09-15 (5 of 21 eval cases failed, all in
+// multi-step 核对) to llama-4-scout, at ~4.2x the neurons per call (~58 vs ~14).
+//
+// Switched to glm-5.3-flash on 2026-09-16 to get half of that back: 22/24 on
+// evals/ at --runs 4 vs llama's 24/24, at ~28 neurons per call. The two it
+// missed are report-unjudged-rows (1/4) and derived-column-is-not-evidence
+// (3/4). gemma-4-26b-a4b-it scored 23/24 for the same price but writes the tool
+// name into "type" and omits "tool", which validateToolCall rejects; qwen3-30b
+// was 21/24 at ~14. See docs/model-switch-handover.md, "Job 5".
+const MODEL = '@cf/zai-org/glm-5.3-flash';
 
-// GLM thinks out loud by default: ~10x the output tokens for the same answer,
-// and its <think> text breaks our one-JSON-object contract. The flag is GLM's
-// own, it is not in any other model's schema, and sending it to llama is
-// untested — so derive it from MODEL rather than leaving it hardcoded. This is
-// also exactly what scripts/eval.mjs does, which keeps the call the worker
-// makes identical to the call that was measured.
-const THINKING_OFF = MODEL.includes('glm')
-  ? { chat_template_kwargs: { enable_thinking: false } }
-  : {};
+// How the model's thinking is kept out of the answer. Reasoning text is ~10x
+// the output tokens for the same JSON, and inline <think> text breaks our
+// one-JSON-object contract. Probed 2026-09-16 over the REST API:
+//   glm-4.7-flash, qwen3, gemma-4: chat_template_kwargs.enable_thinking=false
+//     works — content is the bare JSON, reasoning_content empty.
+//   glm-5.3-flash: that same flag is WORSE — the thinking leaks into content,
+//     once with a stray </think> and a bash block. Its thinking cannot be
+//     turned off; reasoning_effort "low" halves it (94 → 53 completion tokens
+//     on a one-line prompt) and keeps content clean, and extractText drops
+//     reasoning_content anyway.
+//   llama: neither argument is in its schema — send nothing, as measured.
+// Derived from MODEL so the call the worker makes stays identical to the call
+// scripts/eval.mjs (thinkingOff) measured.
+function thinkingOff(model: string): Record<string, unknown> {
+  if (model.includes('glm-5.3')) return { reasoning_effort: 'low' };
+  if (/glm|qwen|gemma/.test(model)) return { chat_template_kwargs: { enable_thinking: false } };
+  return {};
+}
+const THINKING_OFF = thinkingOff(MODEL);
 
 const CHAT_ROLES = new Set(['system', 'user', 'assistant']);
 const CHAT_MAX_MESSAGES = 30;

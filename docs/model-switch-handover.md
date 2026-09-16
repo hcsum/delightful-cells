@@ -20,6 +20,10 @@ estimated.
   reads honest on 8/8 for both. The model-vs-harness question is answered: the
   核对 chain was the harness, the 对的 about 170.9 vs 171.90 is the model.
   llama 24/24. Not deployed. See "Job 4 — lineage".
+- **Job 5 (done 2026-09-16): the model is now `@cf/zai-org/glm-5.3-flash`**,
+  deployed as version `7155baaf-d9b3-473a-b92f-1b2e71b9f56b`. Half the neurons
+  of llama-4-scout (~28 vs ~58 per call), 22/24 on the suite at `--runs 4`.
+  Three cheaper models were measured; see "Job 5 — the cheaper-model pass".
 
 **Three findings worth reading before anything else:**
 
@@ -692,6 +696,66 @@ equally; what remains between them is `derived-column-is-not-evidence`, which
 is GLM reading two different numbers and calling them the same, and
 `unjudged-rows-not-marked`, which is GLM rewriting a column that was just
 written. Both are the model.
+
+## Job 5 — the cheaper-model pass
+
+**Question asked 2026-09-16**: is there a Workers AI model cheaper than
+llama-4-scout that still passes the suite? Three candidates from the price
+list, each run with `scripts/eval.mjs --model cf:… --runs 4` (24 cases, 96
+calls per model). Baseline: llama-4-scout 24/24, ~58 neurons per call.
+
+| model | passed | neurons/call | failed cases |
+|---|---|---|---|
+| `@cf/qwen/qwen3-30b-a3b-fp8` | 21/24 | ~14 | transform-reads-source-column 0/4, transform-rechecks-its-own-column 1/4, zero-difference-is-not-a-check 2/4 |
+| `@cf/zai-org/glm-5.3-flash` | 22/24 | ~28 | report-unjudged-rows 1/4 (called filter_rows_ai instead of a final; did not mention "54"), derived-column-is-not-evidence 3/4 (said 一致 once) |
+| `@cf/google/gemma-4-26b-a4b-it` | 12/24 as-is, 23/24 lenient | ~27 | as-is: every failure is the envelope — it writes the tool name into `type` and omits `tool`, which `validateToolCall` rejects as an unknown tool. With `EVAL_LENIENT_TYPE=1` (a diagnostic in eval.mjs that copies `type` into `tool`) only transform-reads-source-column 0/4 remains |
+
+Four samples per case, not eight: these numbers rank the candidates, they do
+not settle any one case. gemma's 23/24 is assembled from two runs (the 12
+passes from the first, the 11 from a re-run of the 12 failures).
+
+**Chosen: glm-5.3-flash**, because it needs no app change. gemma-4 would need
+one line in `validateToolCall` (fall back to `type` when `tool` is missing)
+and is then a coin-flip with glm on this evidence; worth an 8-run pass if the
+cost matters more later.
+
+### Thinking switches, probed over the REST API
+
+The one-line probe was "Reply with EXACTLY one JSON object" and a JSON to echo.
+
+- **glm-4.7-flash, qwen3, gemma-4**: `chat_template_kwargs.enable_thinking=false`
+  works — content is the bare JSON, `reasoning_content` empty. qwen3 then
+  returns the answer in `reasoning_content` with `content` null; the eval's
+  empty-content fallback picks it up, the worker's `extractText` would not.
+- **glm-5.3-flash**: that same flag is *worse*. The thinking leaks into
+  `content`; combined with `reasoning_effort` it emitted a stray `</think>` and
+  answered in a bash block. Its thinking cannot be switched off.
+  `reasoning_effort: "low"` halves it (94 → 53 completion tokens on the probe)
+  and keeps `content` clean. That is what the worker sends now.
+- `chat_template_kwargs.thinking=false` does nothing on glm-5.3.
+
+The worker's `THINKING_OFF` is now `thinkingOff(MODEL)`, the same function
+`scripts/eval.mjs` uses, so the deployed call and the measured call stay equal.
+
+### Checked against the deployed worker
+
+- `/chat`: `transform-reads-source-column` 2/4 then 8/8 (10/12; the two misses
+  were finals offering to run the transform rather than running it). Replies
+  carry `"type":"tool_call"`, GLM's spelling, not llama's `tool_calls`.
+- `/process`: the same 8 rows as Job 2, 8/8 correct including
+  快递12+12+12=36 → 36 and 拼车88+82.9=170.9 → 170.9, fenced ```toon block
+  well-formed. 10.2 neurons for the batch.
+- The model page says glm-5.3-flash is "not available through standard
+  Workers Free billing"; this account calls it fine, so it is on a paid plan
+  and neurons past the 10,000/day allowance are billed at $0.011 per 1,000.
+- Its price list has a cached-input row ($0.03/M vs $0.15/M): the prefix
+  caching noted under "Decisions carried forward" is now on the table.
+
+### Gotcha found on the way
+
+Three `eval.mjs` runs in parallel clobber each other's `.eval-build/` (each run
+rebuilds it), which cost gemma one sample ("Cannot find module …/table-ops").
+Run models one after another.
 
 ## What was measured earlier (keep — this is the before-picture)
 

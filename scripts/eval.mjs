@@ -137,6 +137,22 @@ async function askOllama(model, messages) {
 const CF_ACCOUNT = 'b31e99dd0f0eb76a87392404bc636490';
 let neuronsSpent = 0;
 
+// How each model's thinking is switched off. Probed 2026-09-16 against the
+// REST API with a one-line "reply with one JSON object" prompt:
+//   glm-4.7-flash, qwen3, gemma-4: chat_template_kwargs.enable_thinking=false
+//     works — reasoning_content empty, content is the JSON. (qwen3 then hands
+//     the answer back in reasoning_content with content null; the fallback
+//     below picks it up.)
+//   glm-5.3-flash: enable_thinking=false is WORSE — the thinking leaks into
+//     content, once with a stray </think> and a bash block. It cannot be turned
+//     off; reasoning_effort "low" halves it (94 → 53 completion tokens) and
+//     keeps content clean, so that is what it gets.
+function thinkingOff(model) {
+  if (model.includes('glm-5.3')) return { reasoning_effort: 'low' };
+  if (/glm|qwen|gemma/.test(model)) return { chat_template_kwargs: { enable_thinking: false } };
+  return {}; // llama and the rest: no such argument, keep the call as measured
+}
+
 async function askWorkersAI(model, messages) {
   const token = env.CLOUDFLARE_API_TOKEN;
   if (!token) throw new Error('CLOUDFLARE_API_TOKEN is not set; it needs the Workers AI Read permission.');
@@ -144,7 +160,7 @@ async function askWorkersAI(model, messages) {
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
     max_tokens: 1024,
     temperature: 0,
-    ...(model.includes('glm') ? { chat_template_kwargs: { enable_thinking: false } } : {}),
+    ...thinkingOff(model),
   };
   const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/ai/run/${model}`, {
     method: 'POST',
@@ -329,7 +345,13 @@ function parseReply(text) {
   for (const candidate of objects.reverse()) {
     try {
       const parsed = JSON.parse(candidate.replace(/,\s*([}\]])/g, '$1'));
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        // DIAGNOSTIC (2026-09-16, not in the app): gemma-4 writes the tool name
+        // into "type" and omits "tool". Score what it meant, to see whether the
+        // model or only its envelope is wrong.
+        if (env.EVAL_LENIENT_TYPE && typeof parsed.type === 'string' && parsed.tool == null && parsed.type !== 'final') parsed.tool = parsed.type;
+        return parsed;
+      }
     } catch {}
   }
   // Prose is a legitimate reply shape, not a parse error — the agent now
