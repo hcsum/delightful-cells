@@ -19,20 +19,8 @@ export default function AppShell({
   const [locale, setLocale] = useStoredLocale(initialLocale);
   const barePathname = stripLocalePrefix(pathname || "/");
   const labels = locale === "zh"
-    ? {
-        extractText: "提取文本",
-        compare: "比较列",
-        duplicates: "找重复",
-        credits: "额度",
-        terms: "服务条款",
-      }
-    : {
-        extractText: "Extract Text",
-        compare: "Compare columns",
-        duplicates: "Find duplicates",
-        credits: "Credits",
-        terms: "Terms of Service",
-      };
+    ? { credits: "额度", terms: "服务条款" }
+    : { credits: "Credits", terms: "Terms of Service" };
 
   if (barePathname === "/" || barePathname.startsWith("/cells")) {
     return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
@@ -49,27 +37,6 @@ export default function AppShell({
             </span>
           </Link>
           <nav className="flex items-center gap-2 text-sm">
-            <Link
-              href={localizePath("/extract-text-from-cell-excel", locale)}
-              title={labels.extractText}
-              className="hidden md:inline rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
-            >
-              {labels.extractText}
-            </Link>
-            <Link
-              href={localizePath("/compare-two-columns-in-excel", locale)}
-              title={labels.compare}
-              className="hidden md:inline rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
-            >
-              {labels.compare}
-            </Link>
-            <Link
-              href={localizePath("/find-duplicates-in-excel", locale)}
-              title={labels.duplicates}
-              className="hidden md:inline rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
-            >
-              {labels.duplicates}
-            </Link>
             <Link
               href={localizePath("/pricing", locale)}
               title={labels.credits}

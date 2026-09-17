@@ -19,7 +19,7 @@ import LoginPromptDialog from "@/components/LoginPromptDialog";
 import { currentPath } from "@/components/billing/AuthPill";
 
 export default function PricingClient({ initialLocale = "en" }: { initialLocale?: Locale }) {
-  const [locale, setLocale] = useStoredLocale(initialLocale);
+  const [locale] = useStoredLocale(initialLocale);
   const tr = (k: string, v?: Record<string, string | number>) => t(locale, k, v);
   const { isAuthenticated, signInWithGoogle } = useAuth();
   const [busy, setBusy] = useState<PackId | null>(null);
@@ -61,19 +61,13 @@ export default function PricingClient({ initialLocale = "en" }: { initialLocale?
   return (
     <LocaleContext.Provider value={locale}>
       <div className="py-10">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold">{tr("pricingTitle")}</h1>
-            <p className="mt-2 max-w-xl text-sm text-black/60">
-              {tr("pricingSubtitle")}
-            </p>
-          </div>
-          <button
-            onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
-            className="rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
-          >
-            {locale === "zh" ? "EN" : "中文"}
-          </button>
+        {/* No language toggle here: AppShell's header already carries one, and
+            two on the same screen read as two different settings. */}
+        <div>
+          <h1 className="text-3xl font-extrabold">{tr("pricingTitle")}</h1>
+          <p className="mt-2 max-w-xl text-sm text-black/60">
+            {tr("pricingSubtitle")}
+          </p>
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
