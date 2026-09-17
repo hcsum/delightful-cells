@@ -147,9 +147,11 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     // --- pricing page ---
     pricingTitle: "Credits",
     pricingSubtitle:
-      "Pay once, use whenever. Credits never expire, and one credit is about one chat turn.",
+      "Pay once, use whenever. Credits never expire. One credit is about one AI call, and a chat turn takes a few of them.",
     pricingCredits: "{n} credits",
     pricingPerCredit: "≈ {n} chat turns",
+    // A turn is several billed calls, so this is derived, approximate, and
+    // measured on heavier-than-average work. Always rendered with the ≈.
     creditsAmount: "{n} credits",
     pricingBuy: "Buy",
     pricingBusy: "Opening checkout…",
@@ -363,7 +365,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     signInToBuy: "登录后才能购买点数。",
     // --- pricing page ---
     pricingTitle: "点数",
-    pricingSubtitle: "一次买断，随时用。点数永不过期，1 点大约够一轮对话。",
+    pricingSubtitle: "一次买断，随时用。点数永不过期。1 点大约够一次 AI 调用，一轮对话通常要好几次。",
     pricingCredits: "{n} 点",
     pricingPerCredit: "约 {n} 轮对话",
     creditsAmount: "{n} 点",

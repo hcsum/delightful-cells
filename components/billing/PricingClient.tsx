@@ -8,9 +8,11 @@ import {
   MAX_FILE_BYTES,
   MAX_IMPORT_ROWS,
   TIER_LIMITS,
+  NEURONS_PER_CREDIT,
   dailyNeurons,
   minCreditsForRows,
   rowsAffordable,
+  turnsAffordable,
 } from "@/lib/limits";
 import { useAuth } from "@/lib/auth/useAuth";
 import LoginPromptDialog from "@/components/LoginPromptDialog";
@@ -87,7 +89,12 @@ export default function PricingClient({ initialLocale = "en" }: { initialLocale?
                   {tr("pricingCredits", { n: p.credits.toLocaleString() })}
                 </div>
                 <div className="mt-1 text-xs text-black/45">
-                  {tr("pricingPerCredit", { n: p.credits.toLocaleString() })}
+                  {/* Turns, not credits. One credit is about one model CALL,
+                      and a turn averages 3.3 of them — this line used to print
+                      the credit count, which overstated it ~3x. */}
+                  {tr("pricingPerCredit", {
+                    n: turnsAffordable(p.credits * NEURONS_PER_CREDIT).toLocaleString(),
+                  })}
                 </div>
                 <button
                   onClick={() => void buy(id)}

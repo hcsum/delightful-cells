@@ -50,19 +50,33 @@ every surface that renders it says "about".
 
 | | Anonymous | Signed in | With credits |
 |---|---|---|---|
-| Free credits / day | 8 (240 neurons) | 20 (600 neurons) | metered |
-| ≈ AI rows / day, short text | ~750 | ~1,875 | metered |
-| Site neuron budget / day | 10,000 | 100,000 | not bucketed |
+| Free credits / day | 20 (600 neurons) | 40 (1,200 neurons) | metered |
+| ≈ chat turns / day | ~6 | ~12 | metered |
+| ≈ AI rows / day, short text | ~1,875 | ~3,750 | metered |
+| Site neuron budget / day | 25,000 | 100,000 | not bucketed |
 | Import (whole workbook) | 10,000 rows / 20 MB | same | same |
 | Filter, replace, compute, delete | unlimited | same | same |
 
-The two free rows are sized by what they are *for*, and the numbers were picked
-to match what the old action-based pair actually delivered: 240 neurons ≈ the
-measured cost of 6 chat turns plus 200 rows, 600 ≈ 10 turns plus 1,000 rows.
+The two free rows are sized by what they are *for*, and they are sized on the
+**chat** side, because chat is where the product proves itself. 600 neurons is
+about six turns, which is what the old turn-based anonymous allowance gave;
+1,200 is about twelve, against the old ten.
+
+> **These were 8 and 20 for exactly one day.** Shipped 2026-09-16 sized against
+> "one turn ≈ 28 neurons" — the per-call figure wearing a per-turn label, see
+> above. At the real 3.3 calls a turn that handed an anonymous visitor about
+> **two** turns against the old six, which is not enough to see the thing work.
+> Re-sized to 20/40 on 2026-09-17 against the corrected numbers.
+>
+> The row equivalents that fall out are much wider than the old row caps —
+> ~1,875 and ~3,750 against 200 and 1,000. That is what sizing on chat costs,
+> and it is the right way round: running out of rows reads as "I finished
+> something and want to do the next one", running out of turns reads as
+> broken.
 
 **Anonymous is a demo.** Enough to watch it work, not to get work done. The
-demo sheet is 60 rows, so 8 credits covers the four demo presets plus a few
-questions of the visitor's own, or the whole demo several times over.
+demo sheet is 60 rows, so 8 credits is the demo run several times over — but
+only about two multi-step conversations, which is the part worth watching.
 
 **Signed in is light real use that ends.** 20 credits gets a real file
 processed, and then the day is over.
@@ -70,11 +84,8 @@ processed, and then the day is over.
 Signing in buys two things: the 100k site budget instead of the shared
 anonymous 10k, and 8 → 20 credits a day.
 
-> The row equivalents are *wider* than the old row caps — ~750 and ~1,875
-> against 200 and 1,000. That is a direct consequence of picking 8 and 20, and
-> it is deliberate: someone who spends their whole day on rows and never chats
-> should not be worse off than the old pair made them. There is no separate row
-> cap on top.
+> There is no separate row cap on top of the credit allowance. One bucket is
+> the whole point.
 
 Import and the mechanical tools run entirely in the browser
 (`lib/cells/workbook.ts`, `lib/cells/table-ops.ts`). They cost nothing to
@@ -179,10 +190,26 @@ the batch-size test below. Both figures, and `AI_BATCH_ROWS`, live in
 | 5,000 | 50 | 1,600 | 53 |
 | 10,000 | 100 | 3,200 | 106.7 |
 
-One chat turn ≈ **28 neurons** (~0.9 credits), measured earlier: 10,000 free
-neurons ran about 360 turns. That is the figure the 8/20 daily credits are
-sized against — an anonymous day is roughly 8 turns of pure chat, or ~750 rows
-of pure processing, or any mix in between.
+One chat **call** ≈ **28-30 neurons** (~1 credit). Measured twice and they
+agree: the eval suite over 96 calls of glm-5.3-flash came to ~28, and
+production's counter read 271 neurons over 9 calls on 2026-09-17.
+
+**A turn is not a call, and this was written down wrong for a long time.** The
+line here used to read "one chat *turn* ≈ 28 neurons, 10,000 neurons ran about
+360 turns". Those 360 were *requests* — the site counter counts calls — so the
+per-turn figure was really the per-call figure wearing the wrong label. While
+the free allowance was metered in turns, one turn cost one unit no matter how
+many calls it made, so nothing ever read the difference. Metering in neurons
+reads it everywhere.
+
+The agent loop makes several calls per user message: plan, act, look again,
+report. Counted off the 16 turns in `.dev-trace`: **53 calls, mean 3.3, median
+3, max 6** (`MEASURED_CALLS_PER_TURN`). So a turn costs about **100 neurons,
+i.e. ~3.3 credits**, not one.
+
+> That trace is the multi-step 核对 work the eval suite was built from — the
+> heavy end. A one-line question is 1-2 calls. 3.3 is the pessimistic figure;
+> `turnsAffordable()` uses it, and every surface says "about".
 
 > **These row numbers are 3x the planning estimate.** The plan assumed ~6
 > neurons per 50-row batch and therefore "1,000 rows ≈ 4 credits". It is
@@ -299,11 +326,16 @@ Cloudflare bills $0.011 per 1k neurons (`lib/usage.ts`). Stripe is 2.9% + $0.30.
 
 What a pack actually buys, at measured rates:
 
-| Pack | Chat turns | AI rows (short input) |
-|---|---|---|
-| $5 | ~1,070 | ~88,000 |
-| $12 | ~3,200 | ~265,000 |
-| $30 | ~10,700 | ~880,000 |
+| Pack | AI calls | Chat turns | AI rows (short input) |
+|---|---|---|---|
+| $5 | ~1,070 | ~300 | ~88,000 |
+| $12 | ~3,200 | ~900 | ~265,000 |
+| $30 | ~10,700 | ~3,030 | ~880,000 |
+
+The turns column is the calls column divided by 3.3. The old version of this
+table had the calls figure under a "Chat turns" heading, which overstated what
+a pack buys by about 3x; `/pricing` printed the same wrong number until
+2026-09-17.
 
 > The plan's table listed 93% margin for the $5 pack. That figure ignores the
 > Stripe fee, which is proportionally largest on the smallest pack. The $12 and
@@ -318,7 +350,18 @@ transferable (see `/terms` §5).
 
 Worst case, both site buckets fully drained every day:
 
-`(10,000 + 100,000) neurons × $0.011/1k = $1.21/day ≈ $36/month`
+`(25,000 + 100,000) neurons × $0.011/1k = $1.38/day ≈ $41/month`
+
+The anonymous bucket went 10,000 → 25,000 on 2026-09-17 with the allowance.
+It had to: at 600 neurons a visitor a 10,000 bucket is drained by **sixteen**
+people, and everyone after them meets "the site is busy" rather than their own
+allowance — the one refusal a visitor can do nothing about. At 25,000 it is
+41 fully-drained visitors, the same headroom the bucket had before.
+
+The signed-in bucket was deliberately left at 100,000. Doubling the allowance
+halves what it supports, 166 → 83 users a day, and at current traffic
+(single-digit requests a day) that is still enormous. Raising it would double
+the worst-case bill to buy capacity nobody is using.
 
 The buckets are per tier so a flood of anonymous traffic cannot spend what
 signed-in users depend on.
@@ -333,8 +376,10 @@ ordinary day never reaches it, and treat a hit as an alarm —
 The anonymous bucket is deliberately the small one, and not only to save
 money: when it runs out the visitor is asked to sign in, which turns overflow
 traffic into sign-ups instead of into cost. At the current numbers that wall
-arrives after roughly 95 typical visitors a day (3 chat turns plus one 60-row
-demo run ≈ 105 neurons each).
+arrives after roughly 80 typical visitors a day (3 chat turns at ~100 neurons
+each plus one 60-row demo run ≈ 320 neurons). That estimate used to read "95
+visitors at 105 neurons each", which was built on the same per-call/per-turn
+confusion — a turn is ~100 neurons, not ~28.
 
 > The cost of keeping it that low is a timezone one: the bucket is a single
 > UTC-day counter, so a busy American afternoon can leave later timezones

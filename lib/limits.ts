@@ -1,8 +1,13 @@
 // Shared app limits (importable by both server and client code)
 
 // --- Credits ---------------------------------------------------------------
-// Balances are stored in neurons and displayed in credits. A round trip of the
-// agent loop measured ~28 neurons, so one credit ≈ one turn.
+// Balances are stored in neurons and displayed in credits. One credit is about
+// one MODEL CALL, which is not the same thing as one chat turn — see
+// MEASURED_CALLS_PER_TURN below. This comment used to say "≈ one turn", which
+// was wrong by about 3x and had been wrong since the number was first written
+// down: the site counter counts requests, and "10,000 neurons ran ~360 turns"
+// was really ~360 calls. Under the old turn-based free metering nothing read
+// the difference, so it never surfaced.
 export const NEURONS_PER_CREDIT = 30;
 
 export type Tier = "anon" | "free" | "paid";
@@ -18,23 +23,30 @@ export type Tier = "anon" | "free" | "paid";
 // counted in the thing that actually costs us money, is both simpler to
 // explain and honest about what a request is worth.
 //
-// The numbers are sized to what the old pair delivered in practice:
+// The numbers are sized so the CHAT side matches what the old turn-based pair
+// delivered, because chat is where the product proves itself:
 //
-//   anon — see that it works. 8 credits = 240 neurons ≈ the measured total of
-//   the old 6 turns plus 200 rows. The demo sheet is 60 rows, so that is the
-//   four demo presets plus a few questions of the visitor's own, or the demo
-//   several times over.
+//   anon — see that it works. 20 credits = 600 neurons: about 6 chat turns,
+//   or ~1,875 rows of short text, or a mix. The demo sheet is 60 rows.
 //
-//   free — light real use that ends. 20 credits = 600 neurons ≈ the old 10
-//   turns plus 1,000 rows. A real file gets processed, and then the day is
-//   done.
+//   free — light real use that ends. 40 credits = 1,200 neurons: about 12
+//   chat turns, or ~3,750 rows.
+//
+// These were 8 and 20 for one day (2026-09-16), sized against "one turn ≈ 28
+// neurons" — a per-CALL figure mislabelled as per-turn (see NEURONS_PER_CREDIT).
+// At the real 3.3 calls a turn that gave an anonymous visitor about TWO turns
+// against the old six, which is not enough to watch the thing work. Re-sized on
+// the corrected numbers 2026-09-17. The row side is now far wider than the old
+// 200/1,000 caps; that is the price of sizing on chat, and it is the right way
+// round — running out of rows reads as "I finished something", running out of
+// turns reads as broken.
 //
 // Sized in credits, not neurons, because credits are what the UI shows and
 // what a purchase is denominated in: a free day and a bought credit have to be
 // readable against each other.
 export const TIER_LIMITS = {
-  anon: { dailyCredits: 8 },
-  free: { dailyCredits: 20 },
+  anon: { dailyCredits: 20 },
+  free: { dailyCredits: 40 },
   paid: { dailyCredits: Infinity },
 } as const satisfies Record<Tier, { dailyCredits: number }>;
 
@@ -49,12 +61,24 @@ export function dailyNeurons(tier: Tier): number {
 // This is a bill cap, not an anti-abuse device: a single identity can extract
 // well under a cent of inference, so nobody farms accounts for it. Read each
 // number as "the most I am willing to pay for this tier on any one day":
-// 10,000 + 100,000 neurons = $1.21/day at $0.011 per 1k, about $36/month.
+// 25,000 + 100,000 neurons = $1.38/day at $0.011 per 1k, about $41/month.
 //
-// The anonymous bucket is deliberately the small one. When it runs out the
-// visitor is asked to sign in, which turns the overflow into a conversion
+// The anonymous bucket went 10,000 -> 25,000 on 2026-09-17, alongside the
+// allowance going 8 -> 20 credits. It had to: at 600 neurons a visitor, a
+// 10,000 bucket is drained by SIXTEEN people, and then everyone after them
+// hits "the site is busy" instead of their own allowance. That is the one
+// refusal a visitor can do nothing about, so the shared bucket has to stay
+// comfortably wider than the per-visitor one.
+//
+// The signed-in bucket is deliberately NOT raised to match. Doubling the
+// allowance halves what it supports, 166 -> 83 users a day, and at current
+// traffic (single-digit requests a day) that is still enormous headroom.
+// Raising it would double the worst-case bill for capacity nobody is using.
+//
+// The anonymous bucket is still deliberately the smaller one. When it runs out
+// the visitor is asked to sign in, which turns the overflow into a conversion
 // prompt rather than a bill — see siteQuotaMessage() in lib/usage.ts.
-export const SITE_NEURON_BUDGET = { anon: 10_000, free: 100_000 } as const;
+export const SITE_NEURON_BUDGET = { anon: 25_000, free: 100_000 } as const;
 
 // --- Batching and measured cost --------------------------------------------
 // Rows per request to /api/process. Measured at 50 vs 100 on production
@@ -83,6 +107,33 @@ export const AI_RETRY_SPLIT_ROWS = 20;
 // call plus a cost per row. See docs/limits-and-pricing.md.
 export const MEASURED_NEURONS_PER_CALL = 2;
 export const MEASURED_NEURONS_PER_ROW = 0.3;
+
+// Chat does not decompose that way: a /chat call carries the sheet summary and
+// the whole history, so its cost is roughly flat per call rather than per row.
+// Measured twice on 2026-09-16/17, agreeing: the eval suite over 96 calls of
+// glm-5.3-flash came to ~28 neurons a call, and production's own counter read
+// 271 neurons over 9 calls (~30).
+export const MEASURED_NEURONS_PER_CHAT_CALL = 30;
+
+// ONE USER MESSAGE IS NOT ONE MODEL CALL. The agent loop plans, acts, looks
+// again and reports, and every one of those steps is separately billed. Read
+// off the 16 turns in .dev-trace: 53 calls, mean 3.3, median 3, max 6.
+//
+// That sample is the multi-step 核对 work the eval suite was built from, which
+// is the heavy end of what people do. A one-line question is 1-2 calls. Treat
+// this as the pessimistic figure it is, and never quote a turn count without
+// "about".
+export const MEASURED_CALLS_PER_TURN = 3.3;
+
+// How many chat turns a neuron allowance buys. The counterpart to
+// rowsAffordable(), and every bit as approximate — quote it with "about".
+export function turnsAffordable(neurons: number): number {
+  if (!Number.isFinite(neurons)) return Infinity;
+  return Math.max(
+    0,
+    Math.floor(neurons / (MEASURED_NEURONS_PER_CHAT_CALL * MEASURED_CALLS_PER_TURN)),
+  );
+}
 
 // A FLOOR, not a quote. It is what short inputs cost; comment and description
 // columns run higher, because the bill follows input length. Anything shown to
