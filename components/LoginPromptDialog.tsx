@@ -2,8 +2,10 @@
 
 import { useEffect } from 'react'
 import { dailyNeurons, rowsAffordable } from '@/lib/limits'
+import { useT } from '@/lib/cells/locale'
 
 export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }: { open: boolean; onClose: () => void; onSignIn: () => void; disabled?: boolean }) {
+  const t = useT()
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -21,10 +23,10 @@ export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }:
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-3xl border !border-black/10 bg-[#fffaf0] p-6 text-black shadow-xl">
-        <h3 className="text-lg font-extrabold">Sign in to keep going</h3>
+        <h3 className="text-lg font-extrabold">{t('loginPromptTitle')}</h3>
         <ul className="mt-3 space-y-1.5 text-sm text-black/65">
-          <li>· About {rowsAffordable(dailyNeurons('free')).toLocaleString()} AI rows a day instead of {rowsAffordable(dailyNeurons('anon')).toLocaleString()}</li>
-          <li>· Your own daily AI budget, not the shared one</li>
+          <li>· {t('loginPromptRows', { free: rowsAffordable(dailyNeurons('free')).toLocaleString(), anon: rowsAffordable(dailyNeurons('anon')).toLocaleString() })}</li>
+          <li>· {t('loginPromptBudget')}</li>
         </ul>
         <button
           type="button"
@@ -33,14 +35,14 @@ export default function LoginPromptDialog({ open, onClose, onSignIn, disabled }:
           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-black px-4 py-2.5 text-sm font-bold text-[#fffdf8] hover:opacity-85 disabled:opacity-50"
         >
           <GoogleIcon />
-          <span>Continue with Google</span>
+          <span>{t('signInGoogle')}</span>
         </button>
         <button
           type="button"
           onClick={onClose}
           className="mt-2 w-full rounded-full px-4 py-2 text-xs font-semibold text-black/50 hover:bg-black/5"
         >
-          Not now
+          {t('notNow')}
         </button>
       </div>
     </div>

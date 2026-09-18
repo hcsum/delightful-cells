@@ -1,7 +1,7 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
 import type { LandingEntry } from "@/lib/landing-copy";
-import { localizedMetadata } from "@/lib/seo";
+import { localizedMetadata, serverLocale } from "@/lib/seo";
 
 const PATH = "/extract-first-name-from-full-name-excel";
 
@@ -36,6 +36,21 @@ const COPY: LandingEntry = {
       "**处理整个文件**，下载带有名字新列的副本。",
     ],
   },
+  ja: {
+    title: "フルネームから名を抽出（Excel・CSVツール）",
+    description:
+      "Excel（.xlsx）またはCSVファイルをアップロードし、フルネームの列から名を抽出できます。",
+    h1: "フルネームから名を抽出",
+    intro:
+      "Excelファイルのフルネーム列から名を抽出します。数行だけ試すことも、ファイル全体をそのまま処理することもできます。",
+    steps: [
+      "**Excelファイルをアップロード** — .xlsx、.xls、.csvに対応しています。",
+      "フルネームが入っている**元の列**（例：「氏名」）を選びます。",
+      "**抽出対象**を「名」に設定します。",
+      "数行を**プレビュー**します。ミドルネームや複数語からなる姓にも対応しています。",
+      "**ファイル全体を処理**し、名の列が追加されたファイルをダウンロードします。",
+    ],
+  },
 };
 
 export function generateMetadata() {
@@ -43,19 +58,27 @@ export function generateMetadata() {
 }
 
 export default function Page() {
+  const locale = serverLocale();
+  const isJa = locale === "ja";
   return (
     <ToolLanding
       copy={COPY}
-      tool={<CustomToolClient initialTarget="first name" initialSource="full name" />}
+      tool={
+        <CustomToolClient
+          initialTarget={isJa ? "名" : "first name"}
+          initialSource={isJa ? "氏名" : "full name"}
+        />
+      }
       examples={[
         {
           heading: {
             en: "Example — Extract first name from full name",
             zh: "示例 —— 从完整姓名提取名字",
+            ja: "例 — フルネームから名を抽出",
           },
-          target: { en: "first name", zh: "名（first name）" },
-          source: { en: "full name", zh: "full name（完整姓名）" },
-          columns: ["full name", "first name"],
+          target: { en: "first name", zh: "名（first name）", ja: "名" },
+          source: { en: "full name", zh: "full name（完整姓名）", ja: "氏名" },
+          columns: isJa ? ["氏名", "名"] : ["full name", "first name"],
           rows: [
             ["Ada Lovelace", "Ada"],
             ["Grace Hopper", "Grace"],

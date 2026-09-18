@@ -1,7 +1,7 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
 import type { LandingEntry } from "@/lib/landing-copy";
-import { localizedMetadata } from "@/lib/seo";
+import { localizedMetadata, serverLocale } from "@/lib/seo";
 
 const PATH = "/extract-domain-from-email-excel";
 
@@ -36,6 +36,21 @@ const COPY: LandingEntry = {
       "**处理整个文件**，下载带有域名新列的副本。",
     ],
   },
+  ja: {
+    title: "メールアドレスからドメインを抽出（Excel・CSVツール）",
+    description:
+      "Excel（.xlsx）またはCSVファイルをアップロードし、メールアドレスの列からドメインを抽出できます。",
+    h1: "メールアドレスからドメインを抽出",
+    intro:
+      "Excelファイルのメールアドレス列からドメイン部分を抽出します。数行だけ試すことも、ファイル全体をそのまま処理することもできます。",
+    steps: [
+      "**Excelファイルをアップロード** — .xlsx、.xls、.csvに対応しています。",
+      "メールアドレスが入っている**元の列**を選びます。",
+      "**抽出対象**を「メールアドレスのドメイン」に設定します。",
+      "**プレビュー**でドメインが正しいか確認します（「+」付きのアドレスやサブドメインにも対応しています）。",
+      "**ファイル全体を処理**し、ドメインの列が追加されたファイルをダウンロードします。",
+    ],
+  },
 };
 
 export function generateMetadata() {
@@ -43,19 +58,37 @@ export function generateMetadata() {
 }
 
 export default function Page() {
+  const locale = serverLocale();
+  const isJa = locale === "ja";
   return (
     <ToolLanding
       copy={COPY}
-      tool={<CustomToolClient initialTarget="domain" initialSource="email address" />}
+      tool={
+        <CustomToolClient
+          initialTarget={isJa ? "ドメイン" : "domain"}
+          initialSource={isJa ? "メールアドレス" : "email address"}
+        />
+      }
       examples={[
         {
           heading: {
             en: "Example — Extract domain from email",
             zh: "示例 —— 从邮箱提取域名",
+            ja: "例 — メールアドレスからドメインを抽出",
           },
-          target: { en: "domain from email", zh: "邮箱域名" },
-          source: { en: "email address", zh: "email address（邮箱地址）" },
-          columns: ["email address", "domain"],
+          target: {
+            en: "domain from email",
+            zh: "邮箱域名",
+            ja: "メールアドレスのドメイン",
+          },
+          source: {
+            en: "email address",
+            zh: "email address（邮箱地址）",
+            ja: "メールアドレス",
+          },
+          columns: isJa
+            ? ["メールアドレス", "ドメイン"]
+            : ["email address", "domain"],
           rows: [
             ["alice@example.com", "example.com"],
             ["bob@company.co.uk", "company.co.uk"],

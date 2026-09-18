@@ -20,6 +20,7 @@ export const DEMO_SHEETS: DemoSheet[] = [
     presets: {
       en: ["Highlight rows where the feedback sounds angry", "Set Status to closed for every pending order", "Classify each Customer Feedback as positive, neutral or negative into a new column", "How much did we refund in total?"],
       zh: ["高亮 feedback 听起来很生气的行", "把所有 pending 订单的 Status 改成 closed", "把每条 Customer Feedback 分类为 positive / neutral / negative，写进新列", "总共退款了多少钱？"],
+      ja: ["不満や怒りが表れているフィードバックの行をハイライトして", "Status が pending の注文をすべて closed に変更して", "Customer Feedback の内容を positive、neutral、negative のいずれかに分類し、新しい列に入れて", "返金額の合計はいくら？"],
     },
     rows: [
       ["ORD-1001", "Widget Pro", "App crashes every time I open settings. Very frustrating!", "1", "10", "resolved"],
@@ -90,6 +91,7 @@ export const DEMO_SHEETS: DemoSheet[] = [
     presets: {
       en: ["Add a Unit Price column: Revenue divided by Units Sold", "Highlight rows where Revenue is greater than 4000", "What's the total Revenue?"],
       zh: ["新增一列 Unit Price：Revenue 除以 Units Sold", "高亮 Revenue 大于 4000 的行", "Revenue 总共是多少？"],
+      ja: ["Revenue を Units Sold で割った Unit Price 列を追加して", "Revenue が 4000 より大きい行をハイライトして", "Revenue の合計はいくら？"],
     },
     rows: [
       ["East", "Jan", "212", "4028"],
@@ -129,9 +131,13 @@ export function presetsFor(fileName: string, sheetName: string, headers: string[
   }
   const a = headers[0] ?? "A";
   const b = headers[Math.min(1, headers.length - 1)] ?? a;
-  return locale === "zh"
-    ? [`总结一下 ${a} 这一列`, `高亮 ${b} 为空的行`, `把每行的 ${b} 提炼成一个关键词，写进新列`]
-    : [`Summarize the ${a} column`, `Highlight rows where ${b} is empty`, `Extract the main keyword from each ${b} into a new column`];
+  if (locale === "zh") {
+    return [`总结一下 ${a} 这一列`, `高亮 ${b} 为空的行`, `把每行的 ${b} 提炼成一个关键词，写进新列`];
+  }
+  if (locale === "ja") {
+    return [`${a} 列を要約して`, `${b} が空の行をハイライトして`, `各行の ${b} からキーワードを1つ抽出し、新しい列に入れて`];
+  }
+  return [`Summarize the ${a} column`, `Highlight rows where ${b} is empty`, `Extract the main keyword from each ${b} into a new column`];
 }
 
 // Build the demo as a real .xlsx File so it goes through the exact same

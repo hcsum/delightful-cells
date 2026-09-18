@@ -1,11 +1,10 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
-import type { LandingEntry } from "@/lib/landing-copy";
 import { localizedMetadata } from "@/lib/seo";
 
 const PATH = "/excel-extract-number-from-string";
 
-const COPY: LandingEntry = {
+const COPY = {
   en: {
     title: "Excel: Extract Number from String (Excel & CSV Tool)",
     description:
@@ -36,7 +35,45 @@ const COPY: LandingEntry = {
       "**处理整个文件**，下载带有数字新列的副本。",
     ],
   },
+  ja: {
+    title: "Excel：文字列から数値を抽出（Excel・CSV ツール）",
+    description:
+      "Excel（.xlsx）または CSV のテキスト列から数値を抽出します。価格、ID、SKUなど、文字と数字が混在するセルから数値を取り出せます。結果をプレビューしてからファイル全体を処理できます。",
+    h1: "Excel：文字列から数値を抽出",
+    intro:
+      "Excel または CSV のテキスト列から数値を抽出します。価格、ID、SKU、郵便番号など、文字列に含まれる数値をまとめて取り出せます。数行で結果を確認してから、ファイル全体を処理できます。",
+    steps: [
+      "**Excel ファイルをアップロード** — .xlsx、.xls、.csv に対応しています。",
+      "説明やメモなど、テキストと数字が混在する**元の列**を選びます。",
+      "整数と小数を抽出するには、**抽出対象**を「すべての数値」のままにします。",
+      "数行を**プレビュー**し、必要に応じて説明を調整します。",
+      "**ファイル全体を処理**し、数値の列が追加されたファイルをダウンロードします。",
+    ],
+  },
 };
+
+const EXAMPLES = [
+  {
+    heading: {
+      en: "Example — Extract numbers from mixed text",
+      zh: "示例 —— 从混合文本里提取数字",
+      ja: "例 — 数字が混在するテキストから数値を抽出",
+    },
+    target: {
+      en: "all numeric values (including decimals)",
+      zh: "所有数字（含小数）",
+      ja: "すべての数値（小数を含む）",
+    },
+    source: { en: "text", zh: "text（文本）", ja: "text（テキスト）" },
+    columns: ["text", "numbers"],
+    rows: [
+      ["Invoice #4453 total: $129.50 (2 items)", "4453, 129.50, 2"],
+      ["Qty 3 - Ref 88-204, price 9.99", "3, 88, 204, 9.99"],
+      ["no numbers here", ""],
+      ["Order 5821 / 12 units / lot A", "5821, 12"],
+    ],
+  },
+];
 
 export function generateMetadata() {
   return localizedMetadata(PATH, COPY);
@@ -44,29 +81,6 @@ export function generateMetadata() {
 
 export default function Page() {
   return (
-    <ToolLanding
-      copy={COPY}
-      tool={<CustomToolClient />}
-      examples={[
-        {
-          heading: {
-            en: "Example — Extract numbers from mixed text",
-            zh: "示例 —— 从混合文本里提取数字",
-          },
-          target: {
-            en: "all numeric values (including decimals)",
-            zh: "所有数字（含小数）",
-          },
-          source: { en: "text", zh: "text（文本）" },
-          columns: ["text", "numbers"],
-          rows: [
-            ["Invoice #4453 total: $129.50 (2 items)", "4453, 129.50, 2"],
-            ["Qty 3 - Ref 88-204, price 9.99", "3, 88, 204, 9.99"],
-            ["no numbers here", ""],
-            ["Order 5821 / 12 units / lot A", "5821, 12"],
-          ],
-        },
-      ]}
-    />
+    <ToolLanding copy={COPY} tool={<CustomToolClient />} examples={EXAMPLES} />
   );
 }

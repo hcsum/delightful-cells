@@ -1,13 +1,13 @@
 import type { Route } from "next";
 
-export const SUPPORTED_LOCALES = ["en", "zh"] as const;
+export const SUPPORTED_LOCALES = ["en", "zh", "ja"] as const;
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: AppLocale = "en";
 export const LOCALE_COOKIE = "cells-locale";
 
 export function isAppLocale(value: string | undefined | null): value is AppLocale {
-  return value === "en" || value === "zh";
+  return value === "en" || value === "zh" || value === "ja";
 }
 
 export function localeFromPathname(pathname: string | null | undefined): AppLocale {

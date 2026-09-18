@@ -29,6 +29,17 @@ const SHARED = {
     stepProcess: "**处理整个文件**，下载带有新列的副本。",
     introSuffix: "可以先预览几行确认效果，也可以直接处理整个文件。",
   },
+  ja: {
+    howTo: "使い方",
+    examples: "例",
+    expected: "出力例:",
+    target: "抽出対象:",
+    source: "元の列:",
+    stepUpload: "**Excel ファイルをアップロード** — .xlsx、.xls、.csv に対応しています。",
+    stepPreviewGeneric: "数行を**プレビュー**して、出力を確認します。",
+    stepProcess: "**ファイル全体を処理**して、新しい列が追加されたファイルをダウンロードします。",
+    introSuffix: "数行をプレビューして結果を確認するか、そのままファイル全体を処理できます。",
+  },
 } as const;
 
 export type SharedKey = keyof (typeof SHARED)["en"];

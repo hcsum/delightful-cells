@@ -1,11 +1,10 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
-import type { LandingEntry } from "@/lib/landing-copy";
-import { localizedMetadata } from "@/lib/seo";
+import { localizedMetadata, serverLocale } from "@/lib/seo";
 
 const PATH = "/extract-numbers-from-text-excel";
 
-const COPY: LandingEntry = {
+const COPY = {
   en: {
     title: "Extract Numbers from Text in Excel (Excel & CSV Tool)",
     description:
@@ -24,6 +23,21 @@ const COPY: LandingEntry = {
       "从 Excel 文件的文本列里提取数字。可以先预览几行确认效果，也可以直接处理整个文件。",
     steps: [],
   },
+  ja: {
+    title: "Excelのテキストから数値を抽出（Excel・CSV ツール）",
+    description:
+      "Excel または CSV ファイルをアップロードし、AIを使ってテキスト列から数値を自動で抽出します。",
+    h1: "テキストから数値を抽出",
+    intro:
+      "Excelファイルのテキスト列から数値を抽出します。数行だけ試すことも、ファイル全体をそのまま処理することもできます。",
+    steps: [],
+  },
+};
+
+const DEFAULTS = {
+  en: { target: "all numbers", source: "text" },
+  zh: { target: "all numbers", source: "text" },
+  ja: { target: "すべての数値", source: "テキスト" },
 };
 
 export function generateMetadata() {
@@ -31,10 +45,16 @@ export function generateMetadata() {
 }
 
 export default function Page() {
+  const defaults = DEFAULTS[serverLocale()];
   return (
     <ToolLanding
       copy={COPY}
-      tool={<CustomToolClient initialTarget="all numbers" initialSource="text" />}
+      tool={
+        <CustomToolClient
+          initialTarget={defaults.target}
+          initialSource={defaults.source}
+        />
+      }
     />
   );
 }

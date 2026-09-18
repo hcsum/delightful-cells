@@ -1,7 +1,7 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
 import type { LandingEntry } from "@/lib/landing-copy";
-import { localizedMetadata } from "@/lib/seo";
+import { localizedMetadata, serverLocale } from "@/lib/seo";
 
 const PATH = "/extract-username-from-email-excel";
 
@@ -36,6 +36,21 @@ const COPY: LandingEntry = {
       "**处理整个文件**，下载带有用户名新列的副本。",
     ],
   },
+  ja: {
+    title: "メールアドレスからユーザー名を抽出（Excel・CSVツール）",
+    description:
+      "Excel（.xlsx）またはCSVファイルをアップロードし、メールアドレスの列からユーザー名（@より前の部分）を抽出できます。",
+    h1: "メールアドレスからユーザー名を抽出",
+    intro:
+      "Excelファイルのメールアドレス列から、@より前のユーザー名部分を抽出します。数行だけ試すことも、ファイル全体をそのまま処理することもできます。",
+    steps: [
+      "**Excelファイルをアップロード** — .xlsx、.xls、.csvに対応しています。",
+      "メールアドレスが入っている**元の列**を選びます。",
+      "**抽出対象**を「ユーザー名（@より前の部分）」に設定します。",
+      "数行を**プレビュー**します。プラスアドレスの「+」以降もユーザー名に含まれます。",
+      "**ファイル全体を処理**し、ユーザー名の列が追加されたファイルをダウンロードします。",
+    ],
+  },
 };
 
 export function generateMetadata() {
@@ -43,13 +58,19 @@ export function generateMetadata() {
 }
 
 export default function Page() {
+  const locale = serverLocale();
+  const isJa = locale === "ja";
   return (
     <ToolLanding
       copy={COPY}
       tool={
         <CustomToolClient
-          initialTarget="username (local-part before @)"
-          initialSource="email address"
+          initialTarget={
+            isJa
+              ? "ユーザー名（@より前の部分）"
+              : "username (local-part before @)"
+          }
+          initialSource={isJa ? "メールアドレス" : "email address"}
         />
       }
       examples={[
@@ -57,13 +78,21 @@ export default function Page() {
           heading: {
             en: "Example — Extract username from email",
             zh: "示例 —— 从邮箱提取用户名",
+            ja: "例 — メールアドレスからユーザー名を抽出",
           },
           target: {
             en: "username (local-part before @)",
             zh: "用户名（@ 之前的部分）",
+            ja: "ユーザー名（@より前の部分）",
           },
-          source: { en: "email address", zh: "email address（邮箱地址）" },
-          columns: ["email address", "username"],
+          source: {
+            en: "email address",
+            zh: "email address（邮箱地址）",
+            ja: "メールアドレス",
+          },
+          columns: isJa
+            ? ["メールアドレス", "ユーザー名"]
+            : ["email address", "username"],
           rows: [
             ["alice@example.com", "alice"],
             ["bob@company.co.uk", "bob"],

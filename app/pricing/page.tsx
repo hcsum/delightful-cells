@@ -14,6 +14,11 @@ const COPY = {
     description:
       "购买 Delightful Cells 的点数。一次性付款，永不过期，1 点大约够一次 AI 调用。",
   },
+  ja: {
+    title: "クレジット — Delightful Cells",
+    description:
+      "Delightful Cellsのクレジットを購入できます。一度きりの支払いで、有効期限はありません。AI処理1回につき、およそ1クレジットを使用します。",
+  },
 };
 
 export function generateMetadata() {

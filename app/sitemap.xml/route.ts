@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { USE_CASES, STATIC_ROUTES, EN_ONLY_ROUTES } from '@/lib/routes'
+import { USE_CASES, STATIC_ROUTES, ROUTE_LOCALES } from '@/lib/routes'
 import { SUPPORTED_LOCALES, localizePath } from '@/lib/locale-routing'
 import { SITE_URL } from '@/lib/site'
 
@@ -33,13 +33,13 @@ export async function GET() {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 ${routes
   .flatMap((route) => {
-    const locales = EN_ONLY_ROUTES.has(route.path) ? (['en'] as const) : SUPPORTED_LOCALES
+    const locales = ROUTE_LOCALES[route.path] ?? SUPPORTED_LOCALES
     return locales.map((locale) => {
       const path = localizePath(route.path, locale)
       const alternates = locales
         .map((alternateLocale) => {
           const href = `${baseUrl}${localizePath(route.path, alternateLocale)}`
-          const hreflang = alternateLocale === 'zh' ? 'zh-CN' : 'en'
+          const hreflang = alternateLocale === 'zh' ? 'zh-CN' : alternateLocale
           return `    <xhtml:link rel="alternate" hreflang="${hreflang}" href="${href}" />`
         })
         .join('\n')

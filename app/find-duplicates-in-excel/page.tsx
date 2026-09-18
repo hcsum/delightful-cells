@@ -40,6 +40,23 @@ const COPY = {
     exampleTarget: "重复标记（同一个值出现超过一次时为 True）",
     exampleSource: "email（邮箱）",
   },
+  ja: {
+    title: "Excelの重複値をチェック（Excel・CSVツール）",
+    description:
+      "Excel（.xlsx）またはCSVファイルをアップロードし、1列内の重複値をマークします。最大20 MBのファイルに対応しています。",
+    h1: "Excelの重複値をチェック",
+    intro:
+      "列を1つ選び、その列内の重複値をマークします。デフォルトでは大文字と小文字を区別しません。Excelファイルをアップロードすると、結果の列が1つ追加されたファイルをダウンロードできます。",
+    steps: [
+      "**ファイルをアップロード：**.xlsx、.xls、.csvファイルを選びます。事前に形式を変換する必要はありません。複数のシートがある場合は、使用するシートを選びます。",
+      "**列を選択：**アップロードしたファイルの見出しがドロップダウンに表示されます。入力する必要はありません。",
+      "**大文字と小文字の区別（任意）：**オフの場合は区別せず、オンの場合は区別して比較します。",
+      "**処理してダウンロード：**重複フラグの列が末尾に追加されたファイルを、アップロード時と同じ形式でダウンロードできます。",
+    ],
+    exampleHeading: "例 — 重複するメールアドレスを見つける",
+    exampleTarget: "重複フラグ（正規化後の同じ値が複数回現れる場合はTrue）",
+    exampleSource: "email（メールアドレス）",
+  },
 } as const;
 
 const EXAMPLE_ROWS = [
@@ -92,8 +109,12 @@ export default function Page() {
                 <table className="mt-1 w-full text-sm border-collapse">
                   <thead>
                     <tr className="text-left">
-                      <th className="border-b border-white/10 py-1 pr-4">email</th>
-                      <th className="border-b border-white/10 py-1">duplicates_email</th>
+                      <th className="border-b border-white/10 py-1 pr-4">
+                        email
+                      </th>
+                      <th className="border-b border-white/10 py-1">
+                        duplicates_email
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

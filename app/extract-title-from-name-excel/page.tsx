@@ -1,7 +1,7 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
 import type { LandingEntry } from "@/lib/landing-copy";
-import { localizedMetadata } from "@/lib/seo";
+import { localizedMetadata, serverLocale } from "@/lib/seo";
 
 const PATH = "/extract-title-from-name-excel";
 
@@ -36,6 +36,21 @@ const COPY: LandingEntry = {
       "**处理整个文件**，下载带有称谓新列的文件。",
     ],
   },
+  ja: {
+    title: "氏名から敬称・肩書きを抽出（Excel・CSVツール）",
+    description:
+      "Excel（.xlsx）またはCSVファイルをアップロードし、氏名の列からMr、Ms、Dr、Profなどの敬称や肩書きを抽出できます。",
+    h1: "氏名から敬称・肩書きを抽出",
+    intro:
+      "Excelファイルの氏名列から敬称や肩書きを抽出します。数行だけ試すことも、ファイル全体をそのまま処理することもできます。",
+    steps: [
+      "**Excelファイルをアップロード** — .xlsx、.xls、.csvに対応しています。",
+      "フルネームが入っている**元の列**（例：「氏名」）を選びます。",
+      "**抽出対象**を「敬称・肩書き」に設定します。",
+      "**プレビュー**で敬称や肩書き（Mr、Ms、Mrs、Dr、Profなど）が正しく抽出されているか確認します。",
+      "**ファイル全体を処理**し、敬称・肩書きの列が追加されたファイルをダウンロードします。",
+    ],
+  },
 };
 
 export function generateMetadata() {
@@ -43,13 +58,19 @@ export function generateMetadata() {
 }
 
 export default function Page() {
+  const locale = serverLocale();
+  const isJa = locale === "ja";
   return (
     <ToolLanding
       copy={COPY}
       tool={
         <CustomToolClient
-          initialTarget="honorific or title (e.g., Mr, Ms, Dr, Prof)"
-          initialSource="name"
+          initialTarget={
+            isJa
+              ? "敬称・肩書き（例：Mr、Ms、Dr、Prof）"
+              : "honorific or title (e.g., Mr, Ms, Dr, Prof)"
+          }
+          initialSource={isJa ? "氏名" : "name"}
         />
       }
       examples={[
@@ -57,13 +78,15 @@ export default function Page() {
           heading: {
             en: "Example — Extract title from name",
             zh: "示例 —— 从姓名提取称谓",
+            ja: "例 — 氏名から敬称・肩書きを抽出",
           },
           target: {
             en: "title (Mr, Ms, Mrs, Dr, Prof, etc.)",
             zh: "称谓（Mr、Ms、Mrs、Dr、Prof 等）",
+            ja: "敬称・肩書き（Mr、Ms、Mrs、Dr、Profなど）",
           },
-          source: { en: "name", zh: "name（姓名）" },
-          columns: ["name", "title"],
+          source: { en: "name", zh: "name（姓名）", ja: "氏名" },
+          columns: isJa ? ["氏名", "敬称・肩書き"] : ["name", "title"],
           rows: [
             ["Mr John Smith", "Mr"],
             ["Dr Ada Lovelace", "Dr"],

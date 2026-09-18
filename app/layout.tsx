@@ -54,6 +54,25 @@ const SITE = {
       "excel ai 数据提取",
     ],
   },
+  ja: {
+    default: "AIでExcelの列を抽出・要約・分類・比較",
+    template: "%s | Excel データツール",
+    description:
+      "ExcelやCSVのデータを抽出・要約・分類できます。重複チェックや列の比較にも対応。ファイルをアップロードして結果を確認し、そのままダウンロードできます。",
+    keywords: [
+      "excel 重複 検索",
+      "excel 2列 比較",
+      "excel 列 比較",
+      "excel 重複 チェック",
+      "excel データ 抽出",
+      "excel テキスト 抽出",
+      "excel csv ツール",
+      "csv データ クレンジング",
+      "excel ai ツール",
+      "ai excel 処理",
+      "excel ai データ抽出",
+    ],
+  },
 } as const;
 
 export function generateMetadata(): Metadata {
@@ -74,7 +93,7 @@ export default function RootLayout({
 }) {
   const locale = serverLocale();
   return (
-    <html lang={locale === "zh" ? "zh-CN" : "en"}>
+    <html lang={locale === "zh" ? "zh-CN" : locale}>
       <body>
         <AppShell initialLocale={locale}>{children}</AppShell>
       </body>

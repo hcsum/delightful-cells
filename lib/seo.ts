@@ -16,7 +16,7 @@ export function serverLocale(): AppLocale {
 
 export type LocalizedCopy = { title: string; description: string };
 
-// /x and /zh/x are the same file rendered twice. Without these tags a crawler
+// /x, /zh/x, and /ja/x are the same file rendered for each locale. Without these tags a crawler
 // sees two URLs with the same content and no statement of which is which, so
 // it picks one and drops the other — and the sitemap's hreflang alone never
 // said it on the page itself.
@@ -26,6 +26,7 @@ export function localeAlternates(path: string, locale: AppLocale) {
     languages: {
       en: localizePath(path, "en"),
       "zh-CN": localizePath(path, "zh"),
+      ja: localizePath(path, "ja"),
       "x-default": localizePath(path, "en"),
     },
   };

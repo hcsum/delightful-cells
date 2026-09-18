@@ -1,11 +1,10 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
-import type { LandingEntry } from "@/lib/landing-copy";
-import { localizedMetadata } from "@/lib/seo";
+import { localizedMetadata, serverLocale } from "@/lib/seo";
 
 const PATH = "/extract-city-from-address-excel";
 
-const COPY: LandingEntry = {
+const COPY = {
   en: {
     title: "Extract City from Address in Excel (Excel & CSV Tool)",
     description:
@@ -36,34 +35,64 @@ const COPY: LandingEntry = {
       "**处理整个文件**，下载带有城市新列的结果。",
     ],
   },
+  ja: {
+    title: "Excel の住所から市区町村名を抽出（Excel・CSV ツール）",
+    description:
+      "Excel または CSV ファイルをアップロードし、AI を使って住所列から市区町村名を自動抽出します。",
+    h1: "住所から市区町村名を抽出",
+    intro:
+      "Excel ファイルの住所列から市区町村名を抽出します。数行をプレビューして結果を確認するか、そのままファイル全体を処理できます。",
+    steps: [
+      "**Excel ファイルをアップロード** — .xlsx、.xls、.csv に対応しています。",
+      "住所全体が入力された**抽出元の列**を選びます。",
+      "**抽出対象**を「市区町村名」に設定します。",
+      "数行を**プレビュー**して、市区町村名が正しく出力されることを確認します。",
+      "**ファイル全体を処理**し、市区町村名の列が追加されたファイルをダウンロードします。",
+    ],
+  },
 };
+
+const DEFAULTS = {
+  en: { target: "city name", source: "address" },
+  zh: { target: "city name", source: "address" },
+  ja: { target: "市区町村名", source: "住所" },
+};
+
+const EXAMPLES = [
+  {
+    heading: {
+      en: "Example — Extract city from address",
+      zh: "示例 —— 从地址提取城市",
+      ja: "例 — 住所から市区町村名を抽出",
+    },
+    target: { en: "city name", zh: "城市名", ja: "市区町村名" },
+    source: { en: "address", zh: "address（地址）", ja: "address（住所）" },
+    columns: ["address", "city"],
+    rows: [
+      ["1600 Amphitheatre Parkway, Mountain View, CA 94043", "Mountain View"],
+      ["One Apple Park Way, Cupertino, CA 95014", "Cupertino"],
+      ["350 Fifth Avenue, New York, NY 10118", "New York"],
+      ["1 Microsoft Way, Redmond, WA 98052", "Redmond"],
+    ],
+  },
+];
 
 export function generateMetadata() {
   return localizedMetadata(PATH, COPY);
 }
 
 export default function Page() {
+  const defaults = DEFAULTS[serverLocale()];
   return (
     <ToolLanding
       copy={COPY}
-      tool={<CustomToolClient initialTarget="city name" initialSource="address" />}
-      examples={[
-        {
-          heading: {
-            en: "Example — Extract city from address",
-            zh: "示例 —— 从地址提取城市",
-          },
-          target: { en: "city name", zh: "城市名" },
-          source: { en: "address", zh: "address（地址）" },
-          columns: ["address", "city"],
-          rows: [
-            ["1600 Amphitheatre Parkway, Mountain View, CA 94043", "Mountain View"],
-            ["One Apple Park Way, Cupertino, CA 95014", "Cupertino"],
-            ["350 Fifth Avenue, New York, NY 10118", "New York"],
-            ["1 Microsoft Way, Redmond, WA 98052", "Redmond"],
-          ],
-        },
-      ]}
+      tool={
+        <CustomToolClient
+          initialTarget={defaults.target}
+          initialSource={defaults.source}
+        />
+      }
+      examples={EXAMPLES}
     />
   );
 }

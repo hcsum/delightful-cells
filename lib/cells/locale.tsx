@@ -49,11 +49,14 @@ export function useStoredLocale(initialLocale: Locale = DEFAULT_LOCALE): [Locale
 
     let saved: string | null = null;
     try { saved = localStorage.getItem("cells-locale"); } catch {}
+    const browserLocale = navigator.language?.toLowerCase();
     const next = isAppLocale(saved)
       ? saved
-      : navigator.language?.toLowerCase().startsWith("zh")
+      : browserLocale?.startsWith("zh")
         ? "zh"
-        : DEFAULT_LOCALE;
+        : browserLocale?.startsWith("ja")
+          ? "ja"
+          : DEFAULT_LOCALE;
     setLocale(next);
     persistLocale(next);
     if (next !== DEFAULT_LOCALE) {

@@ -42,7 +42,8 @@ export function siteQuotaMessage(tier: "anon" | "free", locale: Locale): string 
 // back to English rather than guessing from Accept-Language, which is often
 // the browser's install language and not what the user picked in the UI.
 export function localeFromRequest(req: Request): Locale {
-  return req.headers.get("x-locale") === "zh" ? "zh" : "en";
+  const locale = req.headers.get("x-locale");
+  return locale === "zh" || locale === "ja" ? locale : "en";
 }
 
 export function neuronsFor(u: DailyUsage): number {

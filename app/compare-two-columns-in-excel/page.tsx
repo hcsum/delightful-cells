@@ -114,11 +114,71 @@ const COPY = {
       },
     },
   },
+  ja: {
+    title: "Excelで2つの列を比較（Excel・CSVツール）",
+    description:
+      "Excelの2つの列を比較し、重複する値、一致する値、一方の列にしかない値を見つけます。数式は不要です。ExcelまたはCSVファイルをアップロードして、結果をすぐにダウンロードできます。",
+    keywords: [
+      "Excel 2列 比較",
+      "Excel 二つの列を比較",
+      "Excel 列 比較",
+      "Excel 2列 重複 欠損",
+      "Excel 2列 重複 チェック",
+      "Excel 列 データ 照合",
+    ],
+    h1: "Excelで2つの列を比較",
+    intro:
+      "数式を書かずにExcelの2つの列を比較し、一致する値や、片方の列にしかない値を確認できます。ExcelとCSVに対応し、2列間の差分や共通する値を見つけられます。",
+    tasksTitle: "よくある列の比較",
+    tasks: [
+      "行ごとにA列とB列が等しいか比較する",
+      "A列にはあるがB列にはない値を見つける",
+      "A列とB列の両方にある値を見つける",
+      "並べ替えられておらず、長さも異なるデータを比較する",
+    ],
+    useCasesTitle: "主な使用例",
+    useCases: [
+      "仕入先や販売チャネルごとの商品リストを照合する",
+      "出席者リストを登録者名簿と照合する",
+      "マスターファイルとインポートしたデータを比較する",
+      "データの結合、移行、重複排除の結果を検証する",
+    ],
+    tryTitle: "今すぐ試す：",
+    steps: [
+      "**ファイルをアップロード：**.xlsx、.xls、.csvファイル（最大20 MB）を選びます。処理はすべてブラウザ内で行われます。複数のシートがある場合は、使用するシートを選びます。",
+      "**A列とB列を選択：**どちらのドロップダウンにも、アップロードしたファイルの見出しが表示されます。入力する必要はありません。",
+      "**比較方法を選択：***両方にある値*、*同じ行で一致する値*、*B列にない値*から選びます。",
+      "**大文字と小文字の区別（任意）：**オフの場合は区別せず、オンの場合は区別して比較します。",
+      "**処理してダウンロード：**比較結果の列が末尾に追加されたファイルを、アップロード時と同じ形式でダウンロードできます。",
+    ],
+    source: "入力された注文番号 → マスターの注文番号",
+    modes: {
+      duplicates: {
+        heading: "例 — 両方にある値（A列の値がB列にもある）",
+        target:
+          "重複フラグ（正規化したA列の値がB列のどこかに存在する場合はTrue）",
+      },
+      matches: {
+        heading: "例 — 一致（同じ行のAとBが等しい）",
+        target:
+          "一致フラグ（同じ行にあるA列とB列の正規化した値が等しい場合はTrue）",
+      },
+      missing: {
+        heading: "例 — B列にない値（A列の値がB列のどこにもない）",
+        target:
+          "未検出フラグ（正規化したA列の値がB列のどこにも存在しない場合はTrue）",
+      },
+    },
+  },
 } as const;
 
 type Mode = keyof (typeof COPY)["en"]["modes"];
 
-const EXAMPLES: { mode: Mode; column: string; rows: [string, string, string][] }[] = [
+const EXAMPLES: {
+  mode: Mode;
+  column: string;
+  rows: [string, string, string][];
+}[] = [
   {
     mode: "duplicates",
     column: "duplicates_order_number_entered_order_number_master",
@@ -162,7 +222,9 @@ const EXAMPLES: { mode: Mode; column: string; rows: [string, string, string][] }
 
 export function generateMetadata() {
   const locale = serverLocale();
-  return localizedMetadata(PATH, COPY, { keywords: [...COPY[locale].keywords] });
+  return localizedMetadata(PATH, COPY, {
+    keywords: [...COPY[locale].keywords],
+  });
 }
 
 export default function Page() {
@@ -212,10 +274,13 @@ export default function Page() {
         <section className="space-y-12">
           {EXAMPLES.map((ex) => (
             <article key={ex.mode} className="space-y-3">
-              <h3 className="text-lg font-medium">{c.modes[ex.mode].heading}</h3>
+              <h3 className="text-lg font-medium">
+                {c.modes[ex.mode].heading}
+              </h3>
               <ul className="text-white/80 text-sm space-y-1">
                 <li>
-                  <strong>{shared(locale, "target")}</strong> {c.modes[ex.mode].target}
+                  <strong>{shared(locale, "target")}</strong>{" "}
+                  {c.modes[ex.mode].target}
                 </li>
                 <li>
                   <strong>{shared(locale, "source")}</strong> {c.source}
@@ -228,12 +293,18 @@ export default function Page() {
                     <thead>
                       <tr className="text-left">
                         <th className="border-b border-white/10 py-1 pr-4">
-                          order_number_entered
+                          {locale === "ja"
+                            ? "入力された注文番号"
+                            : "order_number_entered"}
                         </th>
                         <th className="border-b border-white/10 py-1 pr-4">
-                          order_number_master
+                          {locale === "ja"
+                            ? "マスターの注文番号"
+                            : "order_number_master"}
                         </th>
-                        <th className="border-b border-white/10 py-1">{ex.column}</th>
+                        <th className="border-b border-white/10 py-1">
+                          {ex.column}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>

@@ -19,8 +19,10 @@ export default function AppShell({
   const [locale, setLocale] = useStoredLocale(initialLocale);
   const barePathname = stripLocalePrefix(pathname || "/");
   const labels = locale === "zh"
-    ? { credits: "额度", terms: "服务条款" }
-    : { credits: "Credits", terms: "Terms of Service" };
+    ? { credits: "额度", terms: "服务条款", language: "语言" }
+    : locale === "ja"
+      ? { credits: "クレジット", terms: "利用規約", language: "言語" }
+      : { credits: "Credits", terms: "Terms of Service", language: "Language" };
 
   if (barePathname === "/" || barePathname.startsWith("/cells")) {
     return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
@@ -44,13 +46,16 @@ export default function AppShell({
             >
               {labels.credits}
             </Link>
-            <button
-              type="button"
-              onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
+            <select
+              value={locale}
+              onChange={(event) => setLocale(event.target.value as AppLocale)}
+              aria-label={labels.language}
               className="rounded-full border !border-black/15 bg-white px-3 py-1 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
             >
-              {locale === "zh" ? "EN" : "中文"}
-            </button>
+              <option value="en">English</option>
+              <option value="zh">中文</option>
+              <option value="ja">日本語</option>
+            </select>
             <HeaderAuth />
           </nav>
         </div>

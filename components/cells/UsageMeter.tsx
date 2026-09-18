@@ -1,7 +1,6 @@
 "use client";
 
 import { useT } from "@/lib/cells/locale";
-import { TIER_LIMITS } from "@/lib/limits";
 import type { Me } from "@/lib/billing/useMe";
 
 // What this shows depends on who you are:
@@ -62,7 +61,7 @@ export default function UsageMeter({ me }: { me: Me | null }) {
         </div>
       ) : me.tier === "anon" ? (
         <div className="mt-1 text-[11px] text-black/45">
-          {t("meterSignInHint", { n: TIER_LIMITS.free.dailyCredits })}
+          {t("meterSignInHint")}
         </div>
       ) : null}
     </div>

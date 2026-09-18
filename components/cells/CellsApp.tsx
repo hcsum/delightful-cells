@@ -197,7 +197,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         onProgress(0, rows.length);
         return processRows(rows, instruction, column, AI_BATCH_ROWS, undefined, {
           action: "download",
-          locale: localeRef.current,
+          locale: localeRef.current as "en" | "zh",
           onProgress,
         });
       };
@@ -723,12 +723,16 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           </p>
         </div>
         <div className="flex items-center gap-2">
-        <button
-          onClick={() => switchLocale(locale === "zh" ? "en" : "zh")}
+        <select
+          value={locale}
+          onChange={(event) => switchLocale(event.target.value as Locale)}
+          aria-label={locale === "zh" ? "语言" : locale === "ja" ? "言語" : "Language"}
           className="inline-flex items-center rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
         >
-          {locale === "zh" ? "EN" : "中文"}
-        </button>
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+        </select>
         {/* AppShell early-returns on "/", so the homepage carries its own
             header controls rather than inheriting the site chrome. */}
         <CreditsBadge me={me} />

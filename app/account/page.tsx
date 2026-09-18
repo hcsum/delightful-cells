@@ -1,16 +1,28 @@
 import type { Metadata } from "next";
 import { getUserIdFromRequest } from "@/lib/auth/session";
-import { getBalanceNeurons, listLedger, type LedgerEntry } from "@/lib/billing/credits";
+import {
+  getBalanceNeurons,
+  listLedger,
+  type LedgerEntry,
+} from "@/lib/billing/credits";
 import { getDb } from "@/lib/billing/db";
-import AccountClient, { type PurchaseRow } from "@/components/billing/AccountClient";
+import AccountClient, {
+  type PurchaseRow,
+} from "@/components/billing/AccountClient";
 import { serverLocale } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 // Signed-in only, so there is nothing here to index in either language.
 export function generateMetadata(): Metadata {
+  const locale = serverLocale();
+  const title = {
+    en: "Account — Delightful Cells",
+    zh: "我的账户 —— Delightful Cells",
+    ja: "アカウント — Delightful Cells",
+  }[locale];
   return {
-    title: serverLocale() === "zh" ? "我的账户 —— Delightful Cells" : "Account — Delightful Cells",
+    title,
     robots: { index: false, follow: false },
   };
 }
