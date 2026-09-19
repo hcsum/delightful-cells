@@ -119,8 +119,14 @@ export default function ChatPanel({
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#00b0ff] [animation-delay:240ms]" />
               </span>
               {progress
-                ? t("processing", { d: progress.done, t: progress.total })
-                : t("thinkingStep", { s: thinkingStep, m: MAX_STEPS })}
+                ? t("processing", {
+                    d: progress.done,
+                    t: progress.total,
+                  })
+                : t(thinkingStep === 1 ? "thinkingAnalyzing" : "thinkingChecking", {
+                    s: thinkingStep,
+                    m: MAX_STEPS,
+                  })}
             </div>
             {progress && (
               <div className="mt-1 pl-8 text-[11px] font-medium text-black/35">

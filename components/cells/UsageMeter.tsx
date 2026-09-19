@@ -5,9 +5,9 @@ import type { Me } from "@/lib/billing/useMe";
 import { rowsAffordableWithChat } from "@/lib/limits";
 import InfoPopover from "./InfoPopover";
 
-// One balance card for everything the user can spend: today's remaining
-// credits plus their purchased balance. The bar and the popover both use that
-// combined amount, so a top-up is reflected everywhere in the card.
+// The bar is deliberately only today's finite free allowance. Purchased
+// credits have no fixed ceiling, so mixing them into a progress bar makes the
+// scale change whenever the user tops up and gives the bar no stable meaning.
 export default function UsageMeter({ me }: { me: Me | null }) {
   const t = useT();
   if (!me) return null;
@@ -17,23 +17,19 @@ export default function UsageMeter({ me }: { me: Me | null }) {
 
   const dailyNeurons = me.daily.neuronsLeft;
   const balanceNeurons = me.credits.neurons;
-  const totalNeurons = dailyNeurons === null ? null : dailyNeurons + balanceNeurons;
-  const totalCredits =
-    totalNeurons === null
-      ? null
-      : Math.floor(totalNeurons / me.credits.neuronsPerCredit);
   const estimatedRows =
-    totalNeurons === null ? null : rowsAffordableWithChat(totalNeurons);
+    dailyNeurons === null ? null : rowsAffordableWithChat(dailyNeurons);
+  const freeExhausted = dailyNeurons === 0;
   const sitePaused = me.site.tierNeurons >= me.site.tierBudget;
 
   return (
     <div className={box} title={t("usageHover", { c: me.site.requests })}>
       <div className="flex items-center justify-between font-semibold">
         <span className="flex items-center gap-1.5">
-          {t("meterAvailableTitle")}
+          {t("meterFreeTitle")}
           <InfoPopover label={t("creditsEstimateLabel")}>
             <span className="text-[11px]">
-              {totalCredits === null || estimatedRows === null
+              {estimatedRows === null
                 ? t("creditsEstimateUnlimited")
                 : t("creditsEstimate", {
                     r: estimatedRows.toLocaleString(),
@@ -42,30 +38,31 @@ export default function UsageMeter({ me }: { me: Me | null }) {
           </InfoPopover>
         </span>
         <span className="text-black/80">
-          {totalCredits === null
-            ? t("meterAvailableUnlimited")
-            : t("meterAvailableTotal", { n: totalCredits.toLocaleString() })}
+          {me.daily.creditsLeft === null
+            ? t("meterFreeUnlimited")
+            : t("meterFreeDetail", { n: me.daily.creditsLeft.toLocaleString() })}
         </span>
       </div>
       {dailyNeurons !== null && me.limits.dailyCredits !== null && (
         <RemainingBar
-          remaining={dailyNeurons + balanceNeurons}
-          total={
-            me.limits.dailyCredits * me.credits.neuronsPerCredit + balanceNeurons
-          }
+          remaining={dailyNeurons}
+          total={me.limits.dailyCredits * me.credits.neuronsPerCredit}
         />
       )}
-      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-black/45">
-        {me.daily.creditsLeft !== null && (
-          <span>{t("meterTodayCredits", { n: me.daily.creditsLeft.toLocaleString() })}</span>
-        )}
-      </div>
       {/* Two different walls, and only one of them is the user's own doing.
           The shared budget outranks the sign-in nudge: signing in is pointless
           advice while the tier's whole bucket is spent. */}
       {sitePaused ? (
         <div className="mt-1 text-[11px] font-semibold text-[#b3003c]">
           {t("usagePaused")}
+        </div>
+      ) : freeExhausted && balanceNeurons > 0 ? (
+        <div className="mt-1.5 text-[11px] font-semibold text-black/55">
+          {t("meterUsingPaid")}
+        </div>
+      ) : freeExhausted ? (
+        <div className="mt-1.5 text-[11px] font-semibold text-[#b3003c]">
+          {t("meterFreeExhaustedBuy")}
         </div>
       ) : me.tier === "anon" ? (
         <div className="mt-1 text-[11px] text-black/45">
