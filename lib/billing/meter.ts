@@ -6,8 +6,15 @@
 // each call up to a whole credit would overcharge several times over.
 
 import { spendNeurons, type LedgerReason } from "@/lib/billing/credits";
+import { getDb } from "@/lib/billing/db";
 import { commitFreeNeurons, type Entitlement } from "@/lib/billing/entitlement";
-import { recordUsageFromHeaders } from "@/lib/usage";
+import { recordMeasuredUsage, recordUsageFromHeaders } from "@/lib/usage";
+
+export type MeasuredUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  neurons: number;
+};
 
 /**
  * What this call cost us, recorded against the site-wide budget. Always do this
@@ -57,9 +64,69 @@ export async function meterAndCharge(
   ent: Entitlement,
   reason: LedgerReason,
   ref: string,
+  settlementClaimed = false,
 ): Promise<number> {
+  if (!settlementClaimed) {
+    const claim = await reserveSettlement(ref, reason);
+    if (claim === "duplicate") return 0;
+  }
   const neurons = await recordSiteUsage(headers, ent);
   const charged = await chargeNeurons(ent, neurons, reason, ref);
   if (ent.tier !== "paid") await commitFreeNeurons(ent, neurons);
   return charged;
+}
+
+export async function meterAndChargeUsage(
+  usage: MeasuredUsage,
+  ent: Entitlement,
+  reason: LedgerReason,
+  ref: string,
+  settlementClaimed = false,
+): Promise<number> {
+  if (!settlementClaimed) {
+    const claim = await reserveSettlement(ref, reason);
+    if (claim === "duplicate") return 0;
+  }
+  const neurons = await recordMeasuredUsage(usage, ent.tier);
+  const charged = await chargeNeurons(ent, neurons, reason, ref);
+  if (ent.tier !== "paid") await commitFreeNeurons(ent, neurons);
+  return charged;
+}
+
+/** Reserve idempotent settlement before starting a billable inference. */
+export async function reserveSettlement(
+  ref: string,
+  reason: LedgerReason,
+): Promise<"claimed" | "duplicate"> {
+  const claim = await claimSettlement(ref, reason);
+  if (claim === "unavailable") throw new Error("Billing settlement is unavailable");
+  return claim;
+}
+
+async function claimSettlement(
+  ref: string,
+  reason: LedgerReason,
+): Promise<"claimed" | "duplicate" | "unavailable"> {
+  const db = await getDb();
+  if (db) {
+    try {
+      const result = await db
+        .prepare("INSERT OR IGNORE INTO ai_settlement (ref, reason, created_at) VALUES (?, ?, ?)")
+        .bind(ref, reason, Date.now())
+        .run();
+      return result.meta.changes > 0 ? "claimed" : "duplicate";
+    } catch (error) {
+      // Fail closed when persistent idempotency is unavailable: the user can
+      // still receive an already-generated result, but it must not be charged
+      // twice by falling back to an isolate-local marker.
+      console.error("[ALERT][billing] settlement claim failed", { ref, reason, error: String(error) });
+      return "unavailable";
+    }
+  }
+  const global = globalThis as typeof globalThis & { __aiSettlements?: Set<string> };
+  global.__aiSettlements ||= new Set<string>();
+  const key = `${reason}:${ref}`;
+  if (global.__aiSettlements.has(key)) return "duplicate";
+  global.__aiSettlements.add(key);
+  return "claimed";
 }

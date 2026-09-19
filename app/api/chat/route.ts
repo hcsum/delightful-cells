@@ -5,7 +5,7 @@
 // whole agent loop runs without a Cloudflare account.
 
 import { asPaid, billFreeCall, resolveEntitlement } from "@/lib/billing/entitlement";
-import { meterAndCharge } from "@/lib/billing/meter";
+import { meterAndCharge, reserveSettlement } from "@/lib/billing/meter";
 import { t } from "@/lib/cells/i18n";
 import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
 import { getClientIp } from "@/lib/client-ip";
@@ -60,6 +60,11 @@ export async function POST(request: Request) {
     );
   }
 
+  // The browser-provided ID is correlation-only. Settlement IDs must never be
+  // caller-controlled, otherwise reusing one turns idempotency into free calls.
+  const requestId = requestIdFor(request);
+  const settlementRef = crypto.randomUUID();
+
   let ent = await resolveEntitlement(request);
 
   // Site budget before the free allowance: when the shared budget for this
@@ -93,6 +98,14 @@ export async function POST(request: Request) {
     if (billing.mode === "paid") ent = asPaid(ent);
   }
 
+  try {
+    if (await reserveSettlement(settlementRef, "chat") !== "claimed") {
+      return json({ error: "settlement_conflict", message: "Request settlement conflict." }, 409);
+    }
+  } catch {
+    return json({ error: "billing_unavailable", message: "Billing is temporarily unavailable." }, 503);
+  }
+
   // Mocked *after* billing on purpose: the tier and quota logic is the part
   // worth exercising offline. The mock reports a fixed cost in the same headers
   // the worker uses, so the allowance really does drain locally — without it
@@ -102,7 +115,8 @@ export async function POST(request: Request) {
       mockUsageHeaders(),
       ent,
       "chat",
-      requestIdFor(request),
+      settlementRef,
+      true,
     );
     return json(
       { response: mockRespond(messages) },
@@ -119,8 +133,6 @@ export async function POST(request: Request) {
       500,
     );
   }
-
-  const requestId = requestIdFor(request);
 
   const upstream = await fetch(`${workerUrl.replace(/\/$/, "")}/chat`, {
     method: "POST",
@@ -150,7 +162,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const charged = await meterAndCharge(upstream.headers, ent, "chat", requestId);
+  const charged = await meterAndCharge(upstream.headers, ent, "chat", settlementRef, true);
   const data = (await upstream.json()) as { response?: string };
   return json(
     { response: String(data?.response ?? "") },
@@ -172,10 +184,7 @@ function mockUsageHeaders(): Headers {
 }
 
 function requestIdFor(request: Request): string {
-  return (
-    request.headers.get("x-request-id") ||
-    `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
+  return request.headers.get("x-request-id") || crypto.randomUUID();
 }
 
 // ---------------------------------------------------------------------------

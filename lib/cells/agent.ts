@@ -2,6 +2,7 @@
 // One user message = one agent turn = up to MAX_STEPS model calls.
 
 import { t, type Locale } from "./i18n";
+import { readSse } from "./sse";
 import { trace, traceTurn } from "../trace";
 import {
   buildSystemPrompt,
@@ -34,6 +35,16 @@ export function nextMessageId(): string {
 }
 
 type FlatMessage = { role: "system" | "user" | "assistant"; content: string };
+
+export type AgentPhase =
+  | "idle"
+  | "connecting"
+  | "accepted"
+  | "analyzing"
+  | "generating"
+  | "executing_tool"
+  | "processing_rows"
+  | "checking_result";
 
 // Flatten rich chat history into what the model API accepts. Tool cards
 // become user messages carrying the TOOL_RESULT payload (llama has no tool role).
@@ -126,6 +137,7 @@ async function postChat(
   messages: FlatMessage[],
   locale: Locale,
 ): Promise<string> {
+  const requestId = crypto.randomUUID();
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: {
@@ -133,6 +145,7 @@ async function postChat(
       // Refusals (quota, site budget) are written server-side, so the server
       // has to be told which language the user is reading.
       "x-locale": locale,
+      "x-request-id": requestId,
     },
     body: JSON.stringify({ messages }),
   });
@@ -148,6 +161,56 @@ async function postChat(
   return String(body?.response ?? "");
 }
 
+class StreamingUnavailableError extends Error {}
+
+export async function postChatStream(
+  messages: FlatMessage[],
+  locale: Locale,
+  options: { onStatus?: (phase: AgentPhase) => void; signal?: AbortSignal } = {},
+): Promise<string> {
+  const requestId = crypto.randomUUID();
+  options.onStatus?.("connecting");
+  const res = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-locale": locale,
+      "x-request-id": requestId,
+    },
+    body: JSON.stringify({ messages }),
+    signal: options.signal,
+  });
+  if (!res.ok) {
+    let message = `Chat request failed (${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body?.message) message = String(body.message);
+    } catch {}
+    if (res.status === 404) throw new StreamingUnavailableError(message);
+    throw new Error(message);
+  }
+  if (!res.body) throw new Error("Chat stream has no response body.");
+
+  let result: string | null = null;
+  let done = false;
+  let lastSeq = 0;
+  await readSse(res.body, (event) => {
+    if (event.requestId !== requestId || !Number.isInteger(event.seq) || event.seq <= lastSeq) {
+      throw new Error("Malformed chat stream sequence.");
+    }
+    lastSeq = event.seq;
+    if (event.type === "accepted") options.onStatus?.("accepted");
+    else if (event.type === "model_started") options.onStatus?.("analyzing");
+    else if (event.type === "activity") options.onStatus?.("generating");
+    else if (event.type === "result") result = String((event.data as { response?: unknown })?.response ?? "");
+    else if (event.type === "error") {
+      throw new Error(String((event.data as { message?: unknown })?.message || "The model response was interrupted."));
+    } else if (event.type === "done") done = true;
+  });
+  if (!done || result === null) throw new Error("Chat stream ended before completion.");
+  return result;
+}
+
 export type AgentTurnOptions = {
   locale?: Locale;
   history: ChatMessage[]; // history BEFORE this turn, user message included
@@ -157,6 +220,7 @@ export type AgentTurnOptions = {
   isStale: () => boolean; // true → a newer turn superseded us, stop silently
   emit: (message: ChatMessage) => void; // stream tool cards / replies into the UI
   onStep?: (step: number) => void;
+  onPhase?: (phase: AgentPhase) => void;
 };
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
@@ -180,7 +244,17 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
       chars: messages.reduce((n, m) => n + m.content.length, 0),
       messages: messages.slice(1),
     });
-    const text = await postChat(messages, opts.locale ?? "en");
+    let text: string;
+    if (process.env.NEXT_PUBLIC_CHAT_STREAMING !== "false") {
+      try {
+        text = await postChatStream(messages, opts.locale ?? "en", { onStatus: opts.onPhase });
+      } catch (error) {
+        if (!(error instanceof StreamingUnavailableError)) throw error;
+        text = await postChat(messages, opts.locale ?? "en");
+      }
+    } else {
+      text = await postChat(messages, opts.locale ?? "en");
+    }
     if (opts.isStale()) return;
     trace("reply", { step, text });
 
@@ -245,6 +319,7 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
 
     trace("call", { step, call: validated.call });
     if (IRREVERSIBLE_TOOLS.has(validated.call.tool)) touchedTheSheet = true;
+    opts.onPhase?.("executing_tool");
     const result = await opts.applyTool(validated.call);
     if (opts.isStale()) return;
     trace("result", {

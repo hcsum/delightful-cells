@@ -36,6 +36,7 @@ import PartialResultDialog from "@/components/PartialResultDialog";
 import {
   nextMessageId,
   runAgentTurn,
+  type AgentPhase,
   type ChatMessage,
 } from "@/lib/cells/agent";
 import WorkbookPanel, { type WorkbookState } from "./WorkbookPanel";
@@ -86,10 +87,10 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
   // The "you're on credits now" note is shown once per session, not per call.
   const creditsNoticeShownRef = useRef(false);
   const [agent, setAgent] = useState<{
-    thinking: boolean;
+    phase: AgentPhase;
     step: number;
     progress: { done: number; total: number } | null;
-  }>({ thinking: false, step: 1, progress: null });
+  }>({ phase: "idle", step: 1, progress: null });
 
   // The agent loop reads/writes the grid through refs so mid-turn tool calls
   // always see the latest data, independent of React's async state updates.
@@ -158,7 +159,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     stopped?: ProcessStop;
   } | null>(null);
   const partialResolverRef = useRef<((d: "retry" | "apply") => void) | null>(null);
-  const aiBusy = agent.thinking || partialPrompt != null;
+  const aiBusy = agent.phase !== "idle" || partialPrompt != null;
   aiBusyRef.current = aiBusy;
 
   const resolvePartial = useCallback((decision: "retry" | "apply") => {
@@ -192,7 +193,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       column: string,
     ): Promise<{ results: ProcessResultItem[]; failedIndices: number[]; stopped?: ProcessStop }> => {
       const onProgress = (done: number, total: number) =>
-        setAgent((prev) => ({ ...prev, progress: { done, total } }));
+        setAgent((prev) => ({ ...prev, phase: "processing_rows", progress: { done, total } }));
       const run = (rows: string[]) => {
         onProgress(0, rows.length);
         return processRows(rows, instruction, column, AI_BATCH_ROWS, undefined, {
@@ -257,7 +258,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     resolvePartial("apply"); // settle a dangling result dialog, if any
     lastTurnSnapshotRef.current = null;
     userEditsRef.current = 0;
-    setAgent({ thinking: false, step: 1, progress: null });
+    setAgent({ phase: "idle", step: 1, progress: null });
     // XLSX.read is synchronous: a big file freezes the tab for seconds, so say
     // so up front rather than looking hung.
     setWorkbookState({
@@ -290,7 +291,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     resolvePartial("apply");
     lastTurnSnapshotRef.current = null;
     userEditsRef.current = 0;
-    setAgent({ thinking: false, step: 1, progress: null });
+    setAgent({ phase: "idle", step: 1, progress: null });
     setWorkbookState((prev) => {
       if (prev.status !== "ready" || !prev.workbook.sheets[index]) return prev;
       const grid = gridFromSheet(prev.workbook.sheets[index]);
@@ -626,7 +627,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (workbookState.status !== "ready" || agent.thinking) return;
+      if (workbookState.status !== "ready" || agent.phase !== "idle") return;
       const sheetName = workbookState.workbook.sheets[workbookState.activeSheet].name;
       const userMessage: ChatMessage = {
         id: nextMessageId(),
@@ -646,7 +647,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       ];
       setMessages(history);
       const turnId = ++turnIdRef.current;
-      setAgent({ thinking: true, step: 1, progress: null });
+      setAgent({ phase: "connecting", step: 1, progress: null });
 
       try {
         await runAgentTurn({
@@ -678,7 +679,14 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           },
           isStale: () => turnIdRef.current !== turnId,
           emit: (message) => setMessages((prev) => [...prev, message]),
-          onStep: (step) => setAgent((prev) => ({ ...prev, thinking: true, step })),
+          onStep: (step) => setAgent((prev) => ({
+            ...prev,
+            phase: process.env.NEXT_PUBLIC_CHAT_STREAMING !== "false"
+              ? (step === 1 ? "connecting" : "checking_result")
+              : (step === 1 ? "analyzing" : "checking_result"),
+            step,
+          })),
+          onPhase: (phase) => setAgent((prev) => ({ ...prev, phase })),
         });
       } catch (e) {
         if (turnIdRef.current === turnId) {
@@ -693,7 +701,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         }
       } finally {
         if (turnIdRef.current === turnId) {
-          setAgent({ thinking: false, step: 1, progress: null });
+          setAgent({ phase: "idle", step: 1, progress: null });
           if (gridRef.current) {
             lastTurnSnapshotRef.current = snapshotGrid(gridRef.current, userEditsRef.current);
           }
@@ -701,7 +709,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         setUsageRefresh((n) => n + 1);
       }
     },
-    [workbookState, agent.thinking, messages, setGrid, runTransform, runAiFilter],
+    [workbookState, agent.phase, messages, setGrid, runTransform, runAiFilter],
   );
 
   return (
@@ -760,7 +768,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           <UsageMeter me={me} />
           <ChatPanel
             messages={messages}
-            thinking={agent.thinking}
+            phase={agent.phase}
             thinkingStep={agent.step}
             progress={agent.progress}
             ready={workbookState.status === "ready"}

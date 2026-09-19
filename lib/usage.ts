@@ -121,6 +121,22 @@ export async function recordUsageFromHeaders(
   return neurons;
 }
 
+export async function recordMeasuredUsage(
+  usage: Pick<DailyUsage, "inputTokens" | "outputTokens" | "neurons">,
+  tier: Tier = "anon",
+): Promise<number> {
+  const delta = {
+    inputTokens: Number(usage.inputTokens) || 0,
+    outputTokens: Number(usage.outputTokens) || 0,
+    calls: 1,
+    neurons: Number(usage.neurons) || 0,
+  };
+  if (!delta.inputTokens && !delta.outputTokens && !delta.neurons) return 0;
+  await addUsage(key(tier), delta);
+  await addUsage(key(), delta);
+  return delta.neurons;
+}
+
 async function addUsage(k: string, delta: DailyUsage): Promise<void> {
   try {
     const cur = await readUsage(k);

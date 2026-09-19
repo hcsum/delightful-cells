@@ -20,6 +20,14 @@ type ProcessRequest = {
 type ChatMessage = { role: string; content: string };
 type ChatRequest = { messages: ChatMessage[] };
 
+import {
+  consumeWorkersAiStream,
+  extractStreamDelta,
+  extractStreamUsage,
+  writeSseEvent,
+  type StreamUsage,
+} from './stream';
+
 // Workers AI answers in two shapes: the older models return { response },
 // the OpenAI-schema ones (glm, gpt-oss, …) return { choices: [{ message }] }.
 // Reasoning models also put their thinking in reasoning_content, or inline it
@@ -154,7 +162,7 @@ export default {
     // Chat endpoint for Delightful.cells (/cells). Rate limiting and the
     // x-api-key check above already ran; this branch never touches TOON.
     const { pathname } = new URL(request.url);
-    if (pathname === '/chat') {
+    if (pathname === '/chat' || pathname === '/chat-stream') {
       let chatPayload: ChatRequest;
       try { chatPayload = await request.json(); }
       catch (e) { log('chat-bad-json', String(e)); return json({ error: 'invalid_json', message: 'Invalid JSON' }, 400, origin); }
@@ -171,6 +179,9 @@ export default {
       }
       if (totalChars > CHAT_MAX_TOTAL_CHARS) {
         return json({ error: 'too_large', message: 'Conversation too large' }, 400, origin);
+      }
+      if (pathname === '/chat-stream') {
+        return streamChat(env, messages, rid, origin, log);
       }
       const chatResult = await env.AI.run(MODEL, {
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
@@ -242,6 +253,70 @@ export default {
     });
   },
 } satisfies ExportedHandler<Env>;
+
+function streamChat(
+  env: Env,
+  messages: ChatMessage[],
+  requestId: string,
+  origin: string,
+  log: (...args: any[]) => void,
+): Response {
+  const transform = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = transform.writable.getWriter();
+  let seq = 0;
+  const emit = (type: string, data: unknown = {}) =>
+    writeSseEvent(writer, { type, requestId, seq: ++seq, at: Date.now(), data });
+
+  void (async () => {
+    let content = '';
+    const terminal: { usage: StreamUsage | null } = { usage: null };
+    let lastActivityAt = 0;
+    try {
+      await emit('model_started');
+      const result = await env.AI.run(MODEL, {
+        messages: messages.map((message) => ({ role: message.role, content: message.content })),
+        max_tokens: 1024,
+        temperature: 0,
+        stream: true,
+        ...THINKING_OFF,
+      } as any);
+      await consumeWorkersAiStream(result, async (chunk) => {
+        content += extractStreamDelta(chunk);
+        terminal.usage = extractStreamUsage(chunk) ?? terminal.usage;
+        const now = Date.now();
+        if (now - lastActivityAt >= 1000) {
+          lastActivityAt = now;
+          await emit('activity', { phase: 'generating' });
+        }
+      });
+      const response = extractText({ response: content });
+      if (!response) throw new Error('Workers AI returned an empty response');
+      // Match the non-streaming endpoint: missing neurons means unmetered, not
+      // that an otherwise valid and already-paid-for answer should be dropped.
+      await emit('internal_result', { response, usage: terminal.usage });
+      log('chat-stream-ok', { bytes: response.length, messages: messages.length, usage: terminal.usage });
+    } catch (error) {
+      log('chat-stream-error', { error: String(error) });
+      await emit('error', {
+        code: 'upstream_stream_failed',
+        message: 'The model response was interrupted.',
+        retrySafe: false,
+      }).catch(() => {});
+    } finally {
+      await writer.close().catch(() => {});
+    }
+  })();
+
+  return new Response(transform.readable, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store, no-transform',
+      Connection: 'keep-alive',
+      ...corsHeaders(origin),
+    },
+  });
+}
 
 // Token usage reported by Workers AI, passed to the app so it can meter itself.
 function usageHeaders(result: any): Record<string, string> {

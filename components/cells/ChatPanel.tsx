@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MAX_STEPS, type ChatMessage } from "@/lib/cells/agent";
+import { MAX_STEPS, type AgentPhase, type ChatMessage } from "@/lib/cells/agent";
 import ToolCallCard from "./ToolCallCard";
 import { useT } from "@/lib/cells/locale";
 import MarkdownMessage from "./MarkdownMessage";
 
 export default function ChatPanel({
   messages,
-  thinking,
+  phase,
   thinkingStep,
   progress,
   ready,
@@ -16,7 +16,7 @@ export default function ChatPanel({
   onSend,
 }: {
   messages: ChatMessage[];
-  thinking: boolean;
+  phase: AgentPhase;
   thinkingStep: number;
   progress: { done: number; total: number } | null;
   ready: boolean; // a sheet is loaded
@@ -26,6 +26,7 @@ export default function ChatPanel({
   const t = useT();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const thinking = phase !== "idle";
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -123,10 +124,17 @@ export default function ChatPanel({
                     d: progress.done,
                     t: progress.total,
                   })
-                : t(thinkingStep === 1 ? "thinkingAnalyzing" : "thinkingChecking", {
-                    s: thinkingStep,
-                    m: MAX_STEPS,
-                  })}
+                : t(phase === "connecting"
+                    ? "phaseConnecting"
+                    : phase === "accepted"
+                      ? "phaseAccepted"
+                      : phase === "analyzing"
+                        ? "phaseAnalyzing"
+                        : phase === "generating"
+                          ? "phaseGenerating"
+                          : phase === "executing_tool"
+                            ? "phaseExecutingTool"
+                            : "thinkingChecking", { s: thinkingStep, m: MAX_STEPS })}
             </div>
             {progress && (
               <div className="mt-1 pl-8 text-[11px] font-medium text-black/35">

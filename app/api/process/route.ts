@@ -64,7 +64,10 @@ export async function POST(request: Request) {
     // Get request headers to forward
     const requestId =
       request.headers.get("x-request-id") ||
-      `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      crypto.randomUUID();
+    // One server request is one billable inference. Keep the client ID for
+    // logs only; retries and batches must each get an independent ledger ref.
+    const settlementRef = crypto.randomUUID();
     const action = request.headers.get("x-action") || "preview";
     const rid = request.headers.get("x-request-id") || "";
     const app = request.headers.get("x-app") || "excel-extract-column-app";
@@ -323,7 +326,7 @@ export async function POST(request: Request) {
           missing: missing.length,
         });
       }
-      await chargeNeurons(ent, neurons, "process", requestId);
+      await chargeNeurons(ent, neurons, "process", settlementRef);
       // Free batches settle against the same measured cost, into the same daily
       // neuron counter chat uses. Note this is the whole call, not the delivered
       // rows: Cloudflare billed us for every row the worker read, including the

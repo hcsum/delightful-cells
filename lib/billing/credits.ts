@@ -52,6 +52,30 @@ export async function spendNeurons(
   const before = await getBalanceNeurons(userId);
   if (before <= 0) return 0;
   const spent = Math.min(before, Math.round(neurons));
+  if (ref) {
+    try {
+      await db.batch([
+        db
+          .prepare(
+            `INSERT INTO credit_ledger (id, user_id, delta, reason, ref, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(ledgerId(), userId, -spent, reason, ref, now),
+        db
+          .prepare(
+            `UPDATE credit_balance
+               SET balance_neurons = MAX(0, balance_neurons - ?), updated_at = ?
+             WHERE user_id = ?`,
+          )
+          .bind(spent, now, userId),
+      ]);
+      return spent;
+    } catch {
+      // A duplicate (reason, ref) rolls the batch back, including the balance
+      // update, so replaying the same request is a no-op.
+      return 0;
+    }
+  }
   const res = await db
     .prepare(
       `UPDATE credit_balance
@@ -61,7 +85,7 @@ export async function spendNeurons(
     .bind(spent, now, userId)
     .run();
   if (!res.meta.changes) return 0;
-  await insertLedger(db, userId, -spent, reason, ref ?? null, now);
+  await insertLedger(db, userId, -spent, reason, null, now);
   return spent;
 }
 
