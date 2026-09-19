@@ -744,7 +744,6 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
           <WorkbookPanel
             state={workbookState}
-            limits={me?.limits}
             onFile={handleFile}
             onEditCell={aiBusy ? undefined : handleEditCell}
             onSelectRow={handleSelectRow}

@@ -159,6 +159,20 @@ export function rowsAffordable(neurons: number): number {
   return Math.max(0, Math.floor(neurons / perRow));
 }
 
+// A user-facing end-to-end estimate, including the chat calls needed to ask
+// for, plan and report a row-processing job. Assume a typical instruction
+// processes 1,000 rows; smaller jobs spend proportionally more on chat.
+export function rowsAffordableWithChat(neurons: number): number {
+  if (!Number.isFinite(neurons)) return MAX_IMPORT_ROWS;
+  const typicalRowsPerTurn = 1_000;
+  const rowCost =
+    MEASURED_NEURONS_PER_ROW + MEASURED_NEURONS_PER_CALL / AI_BATCH_ROWS;
+  const chatCostPerRow =
+    (MEASURED_NEURONS_PER_CHAT_CALL * MEASURED_CALLS_PER_TURN) /
+    typicalRowsPerTurn;
+  return Math.max(0, Math.floor(neurons / (rowCost + chatCostPerRow)));
+}
+
 // --- Client-side parsing limits --------------------------------------------
 // These bound browser memory, not our AI bill, so they are the same for every
 // tier: truncating them saves nothing and only makes the showcase look broken.

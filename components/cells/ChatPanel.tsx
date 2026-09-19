@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MAX_STEPS, type ChatMessage } from "@/lib/cells/agent";
 import ToolCallCard from "./ToolCallCard";
 import { useT } from "@/lib/cells/locale";
+import MarkdownMessage from "./MarkdownMessage";
 
 export default function ChatPanel({
   messages,
@@ -48,14 +49,15 @@ export default function ChatPanel({
         </span>
       </div>
 
-      <div ref={scrollRef} className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
+      <div
+        ref={scrollRef}
+        className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto px-1"
+      >
         {messages.length === 0 && (
           <div className="rounded-2xl border-2 border-dashed !border-black/10 bg-white p-4 text-sm text-black/55">
             {ready ? (
               <>
-                <p className="font-semibold text-black/70">
-                  {t("sheetIn")}
-                </p>
+                <p className="font-semibold text-black/70">{t("sheetIn")}</p>
                 <div className="mt-3 flex flex-col items-start gap-3">
                   {presets.map((s) => (
                     <button
@@ -86,16 +88,21 @@ export default function ChatPanel({
           }
           if (m.role === "note") {
             return (
-              <div key={m.id} className="px-2 text-center text-[11px] italic text-black/40">
-                {m.content.replace(/^\[|\]$/g, "").replace(/ Trust CURRENT TABLE STATE.*$/, "")}
+              <div
+                key={m.id}
+                className="px-2 text-center text-[11px] italic text-black/40"
+              >
+                {m.content
+                  .replace(/^\[|\]$/g, "")
+                  .replace(/ Trust CURRENT TABLE STATE.*$/, "")}
               </div>
             );
           }
           if (m.role === "assistant") {
             return (
               <div key={m.id} className="flex justify-start">
-                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-md border !border-black/10 bg-white px-4 py-2 text-sm text-black/80">
-                  {m.content}
+                <div className="max-w-[85%] rounded-2xl rounded-bl-md border !border-black/10 bg-white px-4 py-2 text-sm text-black/80">
+                  <MarkdownMessage>{m.content}</MarkdownMessage>
                 </div>
               </div>
             );

@@ -2,10 +2,9 @@
 
 import { useRef } from "react";
 import { MAX_COLS, MAX_IMPORT_ROWS, type ParsedWorkbook } from "@/lib/cells/workbook";
-import { dailyNeurons, rowsAffordable } from "@/lib/limits";
-import type { Me } from "@/lib/billing/useMe";
 import type { GridState } from "@/lib/cells/tools";
 import DataTable from "./DataTable";
+import InfoPopover from "./InfoPopover";
 import { useT } from "@/lib/cells/locale";
 import { makeDemoFile } from "@/lib/cells/demo";
 
@@ -32,12 +31,8 @@ export default function WorkbookPanel({
   onReset,
   onDownload,
   onDownloadXlsx,
-  limits,
 }: {
   state: WorkbookState;
-  // From /api/me. Null while that is in flight, and for a signed-out visitor
-  // whose request failed — both cases fall back to the anonymous floor below.
-  limits?: Me["limits"] | null;
   onFile: (file: File) => void;
   // Undefined makes the grid read-only: DataTable drops the double-click
   // affordance and the hint along with it. Used while an AI run is in flight.
@@ -53,26 +48,6 @@ export default function WorkbookPanel({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const t = useT();
-
-  // Quote what *this* reader is allowed, not the signed-in numbers. Before
-  // /api/me answers we quote the anonymous floor: it is the only figure that
-  // is true for everyone, and being pleasantly surprised beats being told you
-  // had 3,000 rows and refused at 500.
-  const limitsHint =
-    limits && limits.dailyCredits == null
-      ? t("limitsHintMetered", {
-          i: MAX_IMPORT_ROWS.toLocaleString(),
-        })
-      : t("limitsHint", {
-          i: MAX_IMPORT_ROWS.toLocaleString(),
-          // Rows, not credits: this sits next to the import cap, and the two
-          // only mean anything read against each other. `maxRowsPerRun` is the
-          // server's own conversion of what's left, so the hint and the refusal
-          // quote the same number.
-          d: (
-            limits?.maxRowsPerRun ?? rowsAffordable(dailyNeurons("anon"))
-          ).toLocaleString(),
-        });
 
   const fileInput = (
     <input
@@ -117,9 +92,6 @@ export default function WorkbookPanel({
               {t("dropDesc1")}
               <br />
               {t("dropDesc2")}
-            </p>
-            <p className="mt-3 text-xs font-semibold text-black/45">
-              {limitsHint}
             </p>
             <button
               onClick={() => inputRef.current?.click()}
@@ -168,9 +140,11 @@ export default function WorkbookPanel({
         <span className="text-xs text-black/40">
           {t("rowsCols", { r: grid.rows.length, c: grid.headers.length })}
         </span>
-        <span className="text-xs text-black/35">
-          {limitsHint}
-        </span>
+        <div className="text-xs">
+          <InfoPopover label={t("workbookLimitLabel")} panelClassName="w-56">
+            {t("workbookLimitInfo", { i: MAX_IMPORT_ROWS.toLocaleString() })}
+          </InfoPopover>
+        </div>
         <button
           onClick={() => inputRef.current?.click()}
           className={`${pill} bg-black text-[#fffdf8] hover:opacity-80`}
@@ -196,27 +170,54 @@ export default function WorkbookPanel({
         <button onClick={onReset} className={`${pill} bg-white text-black/70 border !border-black/15 hover:bg-[#ffe6ef]`}>
           {t("resetData")}
         </button>
-        <button onClick={onDownloadXlsx} className={`${pill} bg-[#e8ffe8] text-black border !border-black/15 hover:bg-[#d4f7d4]`}>
-          {t("downloadExcel")}
-        </button>
-        <button onClick={onDownload} className={`${pill} bg-white text-black/70 border !border-black/15 hover:bg-[#e8ffe8]`}>
-          {t("downloadCsv")}
-        </button>
+        <div className="inline-flex items-center gap-1 rounded-xl border !border-black/15 bg-white p-1 shadow-[0_2px_8px_rgba(0,0,0,0.05)]">
+          <button
+            onClick={onDownloadXlsx}
+            className="rounded-lg bg-[#166534] px-3 py-1.5 text-xs font-bold text-white transition-all hover:bg-[#14532d] hover:shadow-sm active:translate-y-px"
+          >
+            {t("downloadExcel")}
+          </button>
+          <button
+            onClick={onDownload}
+            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-black/60 transition-colors hover:bg-[#f2eee5] hover:text-black"
+          >
+            {t("downloadCsv")}
+          </button>
+        </div>
       </div>
 
       {workbook.sheets.length > 1 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div
+          className="mt-3 flex flex-wrap items-center gap-1 rounded-xl border !border-black/10 bg-[#f0eadf] p-1.5"
+          role="tablist"
+          aria-label="Workbook sheets"
+        >
           {workbook.sheets.map((s, i) => (
             <button
               key={i}
               onClick={() => onSelectSheet(i)}
-              className={`${pill} ${
+              role="tab"
+              aria-selected={i === activeSheet}
+              className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition-all ${
                 i === activeSheet
-                  ? "bg-black text-[#fffdf8]"
-                  : "bg-white text-black/60 border !border-black/15 hover:bg-[#fff3d6]"
+                  ? "bg-white text-black shadow-[0_1px_5px_rgba(0,0,0,0.10)] ring-1 ring-black/10"
+                  : "text-black/50 hover:bg-white/55 hover:text-black/80"
               }`}
             >
-              {s.name}
+              <span
+                aria-hidden="true"
+                className={`grid h-4 w-4 grid-cols-2 gap-[2px] rounded-[4px] border p-[2px] transition-colors ${
+                  i === activeSheet
+                    ? "border-[#166534]/40 bg-[#e8f5e9]"
+                    : "border-black/15 bg-white/50"
+                }`}
+              >
+                <span className="rounded-[1px] bg-current opacity-50" />
+                <span className="rounded-[1px] bg-current opacity-25" />
+                <span className="rounded-[1px] bg-current opacity-25" />
+                <span className="rounded-[1px] bg-current opacity-50" />
+              </span>
+              <span>{s.name}</span>
             </button>
           ))}
         </div>
