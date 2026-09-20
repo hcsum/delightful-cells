@@ -33,7 +33,7 @@ export function localeAlternates(path: string, locale: AppLocale) {
 }
 
 // Builds the head for a page that exists in both locales. `extra` wins over the
-// defaults, so a page with its own og:image or keywords passes them through.
+// defaults, so a page with its own og:image passes it through.
 export function localizedMetadata(
   path: string,
   copy: Record<AppLocale, LocalizedCopy>,

@@ -9,14 +9,6 @@ const COPY = {
     title: "Compare Two Columns in Excel (Excel & CSV Tool)",
     description:
       "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload an Excel file or CSV and download results fast.",
-    keywords: [
-      "compare 2 columns in excel",
-      "compare two columns in excel",
-      "compare columns excel",
-      "how to find duplicates or missing values between two columns",
-      "find duplicates between two columns excel",
-      "excel column comparison guide",
-    ],
     h1: "Compare Two Columns in Excel",
     intro:
       "Here you can compare 2 columns in Excel to find matching or missing values without writing formulas. This tool acts as a column comparison helper for Excel and CSV data. Compare 2 columns in Excel to identify differences, duplicates, or missing values in your dataset.",
@@ -65,14 +57,6 @@ const COPY = {
     title: "Excel 比较两列（Excel 和 CSV 工具）",
     description:
       "在 Excel 里比较两列，找出重复值、相同值或缺失值。不用写公式 —— 上传 Excel 或 CSV 文件，直接下载结果。",
-    keywords: [
-      "excel 比较两列",
-      "excel 对比两列数据",
-      "excel 两列找重复",
-      "excel 两列找不同",
-      "excel 查找缺失值",
-      "excel 两列数据比对",
-    ],
     h1: "在 Excel 里比较两列",
     intro:
       "不用写公式，就能比较 Excel 里的两列，找出相同或缺失的值。Excel 和 CSV 数据都能处理，可以用来找出两列之间的差异、重复值和缺失项。",
@@ -118,14 +102,6 @@ const COPY = {
     title: "Excelで2つの列を比較（Excel・CSVツール）",
     description:
       "Excelの2つの列を比較し、重複する値、一致する値、一方の列にしかない値を見つけます。数式は不要です。ExcelまたはCSVファイルをアップロードして、結果をすぐにダウンロードできます。",
-    keywords: [
-      "Excel 2列 比較",
-      "Excel 二つの列を比較",
-      "Excel 列 比較",
-      "Excel 2列 重複 欠損",
-      "Excel 2列 重複 チェック",
-      "Excel 列 データ 照合",
-    ],
     h1: "Excelで2つの列を比較",
     intro:
       "数式を書かずにExcelの2つの列を比較し、一致する値や、片方の列にしかない値を確認できます。ExcelとCSVに対応し、2列間の差分や共通する値を見つけられます。",
@@ -222,9 +198,7 @@ const EXAMPLES: {
 
 export function generateMetadata() {
   const locale = serverLocale();
-  return localizedMetadata(PATH, COPY, {
-    keywords: [...COPY[locale].keywords],
-  });
+  return localizedMetadata(PATH, COPY);
 }
 
 export default function Page() {
