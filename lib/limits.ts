@@ -26,11 +26,11 @@ export type Tier = "anon" | "free" | "paid";
 // The numbers are sized so the CHAT side matches what the old turn-based pair
 // delivered, because chat is where the product proves itself:
 //
-//   anon — see that it works. 20 credits = 600 neurons: about 6 chat turns,
-//   or ~1,875 rows of short text, or a mix. The demo sheet is 60 rows.
+//   anon — see that it works. 15 credits = 450 neurons: about 4 chat turns,
+//   or ~1,406 rows of short text, or a mix. The demo sheet is 60 rows.
 //
-//   free — light real use that ends. 40 credits = 1,200 neurons: about 12
-//   chat turns, or ~3,750 rows.
+//   free — light real use that ends. 30 credits = 900 neurons: about 9
+//   chat turns, or ~2,812 rows.
 //
 // These were 8 and 20 for one day (2026-09-16), sized against "one turn ≈ 28
 // neurons" — a per-CALL figure mislabelled as per-turn (see NEURONS_PER_CREDIT).
@@ -45,8 +45,8 @@ export type Tier = "anon" | "free" | "paid";
 // what a purchase is denominated in: a free day and a bought credit have to be
 // readable against each other.
 export const TIER_LIMITS = {
-  anon: { dailyCredits: 20 },
-  free: { dailyCredits: 40 },
+  anon: { dailyCredits: 15 },
+  free: { dailyCredits: 30 },
   paid: { dailyCredits: Infinity },
 } as const satisfies Record<Tier, { dailyCredits: number }>;
 
@@ -64,16 +64,16 @@ export function dailyNeurons(tier: Tier): number {
 // 25,000 + 100,000 neurons = $1.38/day at $0.011 per 1k, about $41/month.
 //
 // The anonymous bucket went 10,000 -> 25,000 on 2026-09-17, alongside the
-// allowance going 8 -> 20 credits. It had to: at 600 neurons a visitor, a
-// 10,000 bucket is drained by SIXTEEN people, and then everyone after them
+// allowance going 8 -> 20 credits. At the current 450 neurons a visitor, a
+// 10,000 bucket is drained by TWENTY-TWO people, and then everyone after them
 // hits "the site is busy" instead of their own allowance. That is the one
 // refusal a visitor can do nothing about, so the shared bucket has to stay
 // comfortably wider than the per-visitor one.
 //
-// The signed-in bucket is deliberately NOT raised to match. Doubling the
-// allowance halves what it supports, 166 -> 83 users a day, and at current
-// traffic (single-digit requests a day) that is still enormous headroom.
-// Raising it would double the worst-case bill for capacity nobody is using.
+// The signed-in bucket is deliberately NOT raised to match. At the current
+// allowance it supports 111 fully-drained users a day, and at current traffic
+// (single-digit requests a day) that is still enormous headroom. Raising it
+// would increase the worst-case bill for capacity nobody is using.
 //
 // The anonymous bucket is still deliberately the smaller one. When it runs out
 // the visitor is asked to sign in, which turns the overflow into a conversion

@@ -159,7 +159,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     // Shown when the SITE-WIDE budget for the tier is gone, not the user's own
     // allowance. Each one names the single next step that actually works.
     siteQuotaAnon:
-      "The AI budget visitors share is used up for today. Sign in to keep going — signed-in users draw on a separate, much larger budget. Resets at midnight UTC. 🍃",
+      "Today's demo credits for visitors have been used up. Sign in to get more free credits.",
     siteQuotaFree:
       "The free AI budget everyone shares is used up for today. Credits are never capped by it, so topping up keeps you running. Resets at midnight UTC. 🍃",
     signInToBuy: "Sign in to buy credits.",
@@ -397,7 +397,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
       "AI 运行期间表格变了，结果没有写入，以免落到错误的行上。什么都没有应用 —— 请重新运行一次。",
     switchedToCredits: "今天的免费额度用完了 —— 接下来 AI 按点数扣。⚡",
     siteQuotaAnon:
-      "访客共用的 AI 额度今天用完了。登录就能继续 —— 登录用户用的是另一个大得多的额度。UTC 零点重置。🍃",
+      "今天的访客体验点数已用完。登录即可获得更多免费点数。",
     siteQuotaFree:
       "全站共用的免费 AI 额度今天用完了。点数不受这个额度限制，充值就能接着跑。UTC 零点重置。🍃",
     signInToBuy: "登录后才能购买点数。",
@@ -615,7 +615,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     partialUndecided: "{f} 行は判定できなかったため、結果から除外されています。",
     sheetChangedDuringRun: "AIの処理中にシートが変更されたため、誤った行への書き込みを避けるために結果を破棄しました。変更は適用されていません。もう一度実行してください。",
     switchedToCredits: "本日の無料枠を使い切りました。これ以降、AIはクレジットを使用します。",
-    siteQuotaAnon: "ゲスト全体で共有している本日のAI無料枠を使い切りました。ログインすると、ログインユーザー専用の無料枠で続けられます。UTC 0時にリセットされます。",
+    siteQuotaAnon: "本日のゲスト向けお試しクレジットは終了しました。ログインすると、さらに無料クレジットを利用できます。",
     siteQuotaFree: "サイト全体で共有している本日のAI無料枠を使い切りました。クレジットを購入すると、この上限に関係なく続けられます。UTC 0時にリセットされます。",
     signInToBuy: "クレジットを購入するにはログインしてください。",
     pricingTitle: "クレジット",

@@ -50,39 +50,39 @@ every surface that renders it says "about".
 
 | | Anonymous | Signed in | With credits |
 |---|---|---|---|
-| Free credits / day | 20 (600 neurons) | 40 (1,200 neurons) | metered |
-| ≈ chat turns / day | ~6 | ~12 | metered |
-| ≈ AI rows / day, short text | ~1,875 | ~3,750 | metered |
+| Free credits / day | 15 (450 neurons) | 30 (900 neurons) | metered |
+| ≈ chat turns / day | ~4 | ~9 | metered |
+| ≈ AI rows / day, short text | ~1,406 | ~2,812 | metered |
 | Site neuron budget / day | 25,000 | 100,000 | not bucketed |
 | Import (whole workbook) | 10,000 rows / 20 MB | same | same |
 | Filter, replace, compute, delete | unlimited | same | same |
 
 The two free rows are sized by what they are *for*, and they are sized on the
-**chat** side, because chat is where the product proves itself. 600 neurons is
-about six turns, which is what the old turn-based anonymous allowance gave;
-1,200 is about twelve, against the old ten.
+**chat** side, because chat is where the product proves itself. 450 neurons is
+about four turns; 900 is about nine.
 
 > **These were 8 and 20 for exactly one day.** Shipped 2026-09-16 sized against
 > "one turn ≈ 28 neurons" — the per-call figure wearing a per-turn label, see
 > above. At the real 3.3 calls a turn that handed an anonymous visitor about
 > **two** turns against the old six, which is not enough to see the thing work.
 > Re-sized to 20/40 on 2026-09-17 against the corrected numbers.
+> Changed to 15/30 on 2026-09-20.
 >
 > The row equivalents that fall out are much wider than the old row caps —
-> ~1,875 and ~3,750 against 200 and 1,000. That is what sizing on chat costs,
+> ~1,406 and ~2,812 against 200 and 1,000. That is what sizing on chat costs,
 > and it is the right way round: running out of rows reads as "I finished
 > something and want to do the next one", running out of turns reads as
 > broken.
 
 **Anonymous is a demo.** Enough to watch it work, not to get work done. The
-demo sheet is 60 rows, so 8 credits is the demo run several times over — but
-only about two multi-step conversations, which is the part worth watching.
+demo sheet is 60 rows, so 15 credits can run it several times — but that is
+still only about four multi-step conversations.
 
-**Signed in is light real use that ends.** 20 credits gets a real file
+**Signed in is light real use that ends.** 30 credits gets a real file
 processed, and then the day is over.
 
 Signing in buys two things: the 100k site budget instead of the shared
-anonymous 10k, and 8 → 20 credits a day.
+anonymous 25k, and 15 → 30 credits a day.
 
 > There is no separate row cap on top of the credit allowance. One bucket is
 > the whole point.
@@ -353,21 +353,18 @@ Worst case, both site buckets fully drained every day:
 `(25,000 + 100,000) neurons × $0.011/1k = $1.38/day ≈ $41/month`
 
 The anonymous bucket went 10,000 → 25,000 on 2026-09-17 with the allowance.
-It had to: at 600 neurons a visitor a 10,000 bucket is drained by **sixteen**
-people, and everyone after them meets "the site is busy" rather than their own
-allowance — the one refusal a visitor can do nothing about. At 25,000 it is
-41 fully-drained visitors, the same headroom the bucket had before.
+At the current 450 neurons per visitor, it supports 55 fully-drained visitors.
 
-The signed-in bucket was deliberately left at 100,000. Doubling the allowance
-halves what it supports, 166 → 83 users a day, and at current traffic
-(single-digit requests a day) that is still enormous. Raising it would double
-the worst-case bill to buy capacity nobody is using.
+The signed-in bucket was deliberately left at 100,000. At the current
+allowance it supports 111 fully-drained users a day, and at current traffic
+(single-digit requests a day) that is still enormous. Raising it would
+increase the worst-case bill to buy capacity nobody is using.
 
 The buckets are per tier so a flood of anonymous traffic cannot spend what
 signed-in users depend on.
 
 **They are a bill cap, not an anti-abuse device.** A single identity can
-extract at most about $0.003 (anonymous) or $0.007 (signed in) of inference in
+extract at most about $0.005 (anonymous) or $0.010 (signed in) of inference in
 a day, so no one farms accounts for it. Read each number as "the most I am
 willing to pay for this tier on any one day", set it high enough that an
 ordinary day never reaches it, and treat a hit as an alarm —
