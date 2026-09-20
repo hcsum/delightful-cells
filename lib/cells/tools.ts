@@ -146,6 +146,54 @@ export function transformProvenance(
   };
 }
 
+/**
+ * The column index a transform_column run should fill in place, or null to
+ * take the ordinary append path.
+ *
+ * A retry is not a second concept: it is an ordinary run whose rows happen to
+ * be the ones that failed and whose target column happens to already exist.
+ * What was missing was a writer, so `runTransform` always appended and
+ * `uniquifyHeader` renamed the target to "关键词 (2)" — the answers all existed
+ * and were split across two columns, which is the user's problem to merge.
+ *
+ * Three conditions, each guarding something different, and a failure of any
+ * one degrades to exactly today's append:
+ *
+ * 1. A column by that name already exists. A first run never matches.
+ * 2. Its lineage records transform_column from the SAME source column with the
+ *    SAME instruction. Without this a sheet that arrives with its own column
+ *    called 关键词 would have AI output written into the user's data; a column
+ *    the user has since renamed loses its lineage entry and appends.
+ * 3. Every target row is empty there. The model picks `rows` and may well send
+ *    `"scope":"all"` when the user says "redo it" — a rows-only rule would
+ *    overwrite ten answers already paid for, plus any cell hand-edited since.
+ *
+ * No partial fills: one non-empty target row means this is not a gap-fill.
+ * Writing some rows and skipping others produces a result nobody can explain.
+ *
+ * Matching on the name alone is deliberately not enough. Today uniquifyHeader
+ * guarantees a fresh column, so running the same transform twice can never
+ * lose anything; a name-only rule would turn that into a destructive op.
+ */
+export function fillsOwnGaps(
+  grid: GridState,
+  newColumnName: string,
+  sourceColumn: string,
+  instruction: string,
+  targets: number[],
+): number | null {
+  if (!targets.length) return null;
+  const colIdx = findColumnIndex(grid.headers, newColumnName);
+  if (colIdx === -1) return null;
+  const lineage = grid.lineage?.[grid.headers[colIdx]];
+  if (!lineage || lineage.tool !== "transform_column") return null;
+  if (lineage.from[0] !== sourceColumn || lineage.how !== instruction) return null;
+  for (const row of targets) {
+    if ((grid.rows[row]?.[colIdx] ?? "").trim() !== "") return null;
+  }
+  return colIdx;
+}
+
 export type HighlightColor = "yellow" | "green" | "pink" | "blue";
 export const HIGHLIGHT_COLORS: HighlightColor[] = ["yellow", "green", "pink", "blue"];
 export const HIGHLIGHT_HEX: Record<HighlightColor, string> = {
@@ -184,7 +232,7 @@ export function scopeLabel(call: { scope: ToolScope; rows: number[] | null }): s
   return call.rows?.length ? `given (${call.rows.length} rows)` : call.scope;
 }
 
-export type ToolCall =
+export type ToolCall = (
   | {
       tool: "filter_rows";
       column: string;
@@ -243,12 +291,23 @@ export type ToolCall =
       rows: number[] | null;
       color: HighlightColor;
       clear: boolean;
-    };
+    }
+) & { then?: boolean };
 
 export type ToolResult = {
   ok: boolean;
   summary: string; // short human-readable badge for the tool card
   data: unknown; // structured payload sent back to the model
+  // The tool landed, but its result still needs the model to explain a
+  // shortfall or interruption before the turn can safely end.
+  //
+  // A tool that legally did nothing sets it too — nothing matched, nothing was
+  // replaced, some rows fell out. The card can say "0 replacements", and that
+  // is true, but only the model can say why: the word was spelled differently,
+  // the column holds text where the formula wanted numbers. Ending the turn on
+  // a bare zero answers a request the user made with a number they did not ask
+  // for.
+  requiresFollowup?: boolean;
 };
 
 const FILTER_OPS: FilterOp[] = [
@@ -303,6 +362,47 @@ export const IRREVERSIBLE_TOOLS: ReadonlySet<string> = new Set([
   "filter_rows_ai",
 ]);
 
+export const TERMINAL_TOOLS: ReadonlySet<string> = new Set([
+  "find_replace",
+  "filter_rows",
+  "highlight_rows",
+  "remove_column",
+  "compute_column",
+  "transform_column",
+  "filter_rows_ai",
+]);
+
+// The two tools that spend a model call per row. Everything else is local
+// arithmetic, so repeating it costs nothing worth guarding.
+export const ROW_RUN_TOOLS: ReadonlySet<string> = new Set(["transform_column", "filter_rows_ai"]);
+
+/**
+ * Same tool, same column, same question — a re-run, whatever rows it names.
+ *
+ * Naming fewer rows is the case this exists for: after a partial run the model
+ * is handed the list of rows that got no answer, and six times in eight (
+ * glm-5.3-flash, `report-unjudged-rows`) it pastes them straight back into a
+ * fresh call. Rewording retryHint moved that to about one in three, which is
+ * not a fix — a prompt cannot be the only thing standing between a user and a
+ * 54-row charge they already declined.
+ */
+export function repeatsRowRun(spent: ToolCall, next: ToolCall): boolean {
+  if (spent.tool !== next.tool) return false;
+  if (!("column" in spent) || !("column" in next) || spent.column !== next.column) return false;
+  const question = (c: ToolCall) =>
+    c.tool === "transform_column" ? c.instruction : c.tool === "filter_rows_ai" ? c.criteria : null;
+  const q = question(spent);
+  return q != null && q === question(next);
+}
+
+export function shouldEndTurnAfterTool(
+  call: ToolCall,
+  result: ToolResult,
+  enabled: boolean,
+): boolean {
+  return enabled && call.then === true && result.ok && !result.requiresFollowup;
+}
+
 export function validateToolCall(
   raw: Record<string, unknown>,
   headers: string[],
@@ -318,6 +418,12 @@ export function validateToolCall(
       unknownTool: tool || "(none)",
     };
   }
+  const finish = (call: ToolCall): { call: ToolCall } => ({
+    call:
+      raw.then === true && TERMINAL_TOOLS.has(call.tool)
+        ? { ...call, then: true }
+        : call,
+  });
   const scope: ToolScope = TOOL_SCOPES.includes(raw.scope as ToolScope)
     ? (raw.scope as ToolScope)
     : raw.scope == null && ACTS_ON_SELECTION.includes(tool as ToolCall["tool"]) && sets.selectedRows?.size
@@ -349,7 +455,7 @@ export function validateToolCall(
           'highlight_rows cannot paint the whole sheet. To highlight rows matching a condition, call filter_rows (or filter_rows_ai) with "mode":"select","highlight":"yellow" instead. For specific rows pass "rows":[3,7].',
       };
     }
-    return { call: { tool: "highlight_rows", scope, rows, color, clear } };
+    return finish({ tool: "highlight_rows", scope, rows, color, clear });
   }
   if (tool === "remove_column") {
     // Accept both "column":"A" and "columns":["A","B"].
@@ -368,7 +474,7 @@ export function validateToolCall(
     if (resolved.length >= headers.length) {
       return { error: "That would delete every column and leave an empty sheet. Keep at least one column." };
     }
-    return { call: { tool: "remove_column", columns: resolved } };
+    return finish({ tool: "remove_column", columns: resolved });
   }
   if (tool === "compute_column") {
     const formula = String(raw.formula ?? "").trim();
@@ -376,7 +482,7 @@ export function validateToolCall(
     const compiled = compileFormula(formula, headers);
     if (!compiled.ok) return { error: compiled.error };
     const newColumnName = String(raw.newColumnName ?? "").trim() || "Computed";
-    return { call: { tool: "compute_column", formula, newColumnName, scope, rows } };
+    return finish({ tool: "compute_column", formula, newColumnName, scope, rows });
   }
   const columnRaw = String(raw.column ?? "");
   const colIdx = findColumnIndex(headers, columnRaw);
@@ -393,8 +499,7 @@ export function validateToolCall(
       return { error: `Invalid op "${raw.op}". Use one of: ${FILTER_OPS.join(", ")}` };
     }
     const mode = raw.mode === "filter" ? "filter" : "select";
-    return {
-      call: {
+    return finish({
         tool: "filter_rows",
         column,
         op,
@@ -403,8 +508,7 @@ export function validateToolCall(
         scope,
         rows,
         highlight: parseHighlight(raw.highlight),
-      },
-    };
+    });
   }
   if (tool === "find_replace") {
     const find = String(raw.find ?? "");
@@ -432,8 +536,7 @@ export function validateToolCall(
           'Empty "find" overwrites whole cells, so it needs an explicit target. Name the rows with "rows":[46], or use "scope":"selection"/"visible".',
       };
     }
-    return {
-      call: {
+    return finish({
         tool: "find_replace",
         column,
         find,
@@ -441,11 +544,10 @@ export function validateToolCall(
         matchCase: raw.matchCase === true,
         scope,
         rows,
-      },
-    };
+    });
   }
   if (tool === "summarize_column") {
-    return { call: { tool: "summarize_column", column, scope, rows } };
+    return finish({ tool: "summarize_column", column, scope, rows });
   }
   if (tool === "filter_rows_ai") {
     const criteria = String(raw.criteria ?? "").trim();
@@ -467,18 +569,14 @@ export function validateToolCall(
       };
     }
     const mode = raw.mode === "filter" ? "filter" : "select";
-    return {
-      call: { tool: "filter_rows_ai", column, criteria, mode, scope, rows, highlight: parseHighlight(raw.highlight) },
-    };
+    return finish({ tool: "filter_rows_ai", column, criteria, mode, scope, rows, highlight: parseHighlight(raw.highlight) });
   }
   if (tool === "transform_column") {
     const instruction = String(raw.instruction ?? "").trim();
     if (!instruction) return { error: '"instruction" must be a non-empty string.' };
     const newColumnName =
       String(raw.newColumnName ?? "").trim() || `${column} (AI)`;
-    return {
-      call: { tool: "transform_column", column, instruction, newColumnName, scope, rows },
-    };
+    return finish({ tool: "transform_column", column, instruction, newColumnName, scope, rows });
   }
   return {
     error: `Unknown tool "${tool}". Use filter_rows, filter_rows_ai, find_replace, summarize_column, or transform_column.`,
@@ -526,7 +624,12 @@ export function dispatchTool(
       }
       const removed = (grid.highlightedRows?.size ?? 0) - (next?.size ?? 0);
       return {
-        result: { ok: true, summary: `${removed} highlight${removed === 1 ? "" : "s"} cleared`, data: { cleared: removed } },
+        result: {
+          ok: true,
+          summary: `${removed} highlight${removed === 1 ? "" : "s"} cleared`,
+          data: { cleared: removed },
+          requiresFollowup: removed === 0, // there was nothing to clear
+        },
         nextGrid: { ...grid, highlightedRows: next },
       };
     }
@@ -536,6 +639,7 @@ export function dispatchTool(
       result: {
         ok: true,
         summary: `${targets.length} row${targets.length === 1 ? "" : "s"} highlighted ${call.color}`,
+        requiresFollowup: targets.length === 0, // the scope was empty
         data: {
           rowsHighlighted: targets.length,
           color: call.color,
@@ -586,6 +690,9 @@ export function dispatchTool(
       result: {
         ok: true,
         summary: `${computed}/${total} rows → "${name}"`,
+        // Blank rows in a new column are the same shortfall the AI tools flag:
+        // the user sees gaps and the card cannot say the inputs were not numbers.
+        requiresFollowup: computed < total,
         data: {
           newColumn: name,
           formula: call.formula,
@@ -610,16 +717,21 @@ export function dispatchTool(
     const matched = matchRows(grid.rows, colIdx, call.op, call.value).filter(
       (i) => !only || only.has(i),
     );
+    const selection = nextSelection(grid, call, matched);
     let nextGrid: GridState =
       call.mode === "select"
-        ? { ...grid, selectedRows: matched.length ? new Set(matched) : null }
+        ? { ...grid, selectedRows: selection }
         : { ...grid, filterKept: matched };
     if (call.highlight && matched.length) nextGrid = paintRows(nextGrid, matched, call.highlight);
     const verb = call.mode === "select" ? "selected" : "kept";
+    const alsoSelected = (selection?.size ?? 0) - matched.length;
     return {
       result: {
         ok: true,
         summary: `${matched.length} of ${grid.rows.length} rows ${verb}`,
+        // matchOutcome's zero branch is an instruction written for the model —
+        // "Do not tell the user that rows were selected". Someone has to read it.
+        requiresFollowup: matched.length === 0,
         data: {
           rowsMatched: matched.length,
           rowsTotal: grid.rows.length,
@@ -629,6 +741,7 @@ export function dispatchTool(
             test: `(${call.column} ${call.op} ${call.value})`,
             mode: call.mode,
             highlight: call.highlight,
+            alsoSelected,
           }),
         },
       },
@@ -649,6 +762,7 @@ export function dispatchTool(
       result: {
         ok: true,
         summary: `${replacements} replacement${replacements === 1 ? "" : "s"} in ${rowsAffected} row${rowsAffected === 1 ? "" : "s"}`,
+        requiresFollowup: replacements === 0, // the text was never there to replace
         data: { replacements, rowsAffected, column: call.column, scope: call.scope },
       },
       nextGrid: { ...grid, rows },
@@ -762,7 +876,12 @@ export function buildSystemPrompt(grid: GridState, sheetName: string): string {
     '  {"type":"final","message":"还不能给表格排序 —— 我可以帮你筛选或高亮这些行。"}',
     '  {"type":"final","message":"I can\'t draw a chart yet — I can summarize that column for you instead."}',
     '  {"type":"final","message":"删掉整行我还做不到 —— 我可以帮你把那一行选中或高亮出来。"}   (emptying a cell with find_replace is NOT deleting a row)',
-    'Pick ONE of the objects above and send only that: a tool call OR a final, never both in the same reply. After a tool call, wait for its TOOL_RESULT before you say anything to the user.',
+    'Pick ONE of the objects above and send only that: a tool call OR a final, never both in the same reply.',
+    '- If you need to read the result before you can answer — including anything',
+    '  about what the data says, any summarize_column call, or any request needing',
+    '  another tool afterward — send the tool call without "then" and wait for TOOL_RESULT.',
+    '- If this tool call is the whole answer — you are changing the sheet and the',
+    '  user can see the change — add "then":true. The turn ends after the tool runs.',
     "",
     "Rules:",
     "- column must be one of the exact column names listed above.",
@@ -878,6 +997,41 @@ function describeScopes(grid: GridState): string {
  */
 export const MAX_FAILED_ROWS_LISTED = 200;
 
+export function processResultCounts(
+  results: Array<{ output: string | null }>,
+  failedIndices: number[],
+): { filled: number; empty: number; failed: number } {
+  const failedSet = new Set(failedIndices);
+  let filled = 0;
+  let empty = 0;
+  results.forEach((result, index) => {
+    if (failedSet.has(index)) return;
+    if (result.output == null || result.output.trim() === "") empty++;
+    else filled++;
+  });
+  return { filled, empty, failed: failedSet.size };
+}
+
+/**
+ * "10 got no answer and 20 more came back empty" — naming only the buckets
+ * that actually have rows in them, for a caller that has already said how many
+ * rows there were. A sentence opening with "0 of 60 rows got no answer" spends
+ * its first clause on something that did not happen.
+ */
+export function shortfallPhrase(failed: number, empty: number): string {
+  if (failed && empty) return `${failed} got no answer and ${empty} more came back empty`;
+  if (failed) return `${failed} got no answer`;
+  return `${empty} came back empty`;
+}
+
+export function rowRunRequiresFollowup(
+  counts: { empty: number; failed: number },
+  stopped: unknown,
+  keptPartial: boolean,
+): boolean {
+  return counts.empty > 0 || counts.failed > 0 || Boolean(stopped) || keptPartial;
+}
+
 export function failedRowNumbers(
   targets: number[],
   failedIndices: number[],
@@ -893,17 +1047,44 @@ export function failedRowNumbers(
  * ones already paid for before anything reaches the sheet. By the time this
  * result exists the user has dismissed that dialog and the run is final.
  *
- * Calling the tool again cannot stand in for it: transform_column would append
- * a second column holding only the retried rows, filter_rows_ai would replace
- * the selection with only the rows matched this time, and both would re-bill
- * every row in whatever scope they were given. Offering a rerun here is what
- * put the user in a loop — the rerun fails the same way and asks again.
+ * Calling the tool again cannot stand in for it, and re-billing every row in
+ * the scope is the part that does not get undone. Offering a rerun here is
+ * what put the user in a loop — the rerun fails the same way and asks again.
+ *
+ * (Two of the three ways a rerun used to go wrong have since been fixed in the
+ * executors: transform_column fills its own blank cells instead of appending a
+ * second column (`fillsOwnGaps`), and filter_rows_ai adds to the selection
+ * instead of replacing it (`nextSelection`). The charge remains, so this hint
+ * remains.)
+ *
+ * How it is worded, measured 2026-09-20 on glm-5.3-flash over `report-
+ * unjudged-rows` at 8 runs: the previous version scored 1-2/8. It opened with
+ * the unanswered rows spelled out one by one — "101, 102, 103, …" — which is
+ * `rows:[101,102,103,…]` with the punctuation changed, and then told the model
+ * not to use it. It copied the list and ignored the prohibition six times in
+ * eight. So: say what the next reply IS before saying what it is not, and
+ * collapse the numbers into ranges, which are the right shape for a sentence to
+ * a human and the wrong shape to paste into a tool call. The ranges are also a
+ * lot cheaper than 54 integers.
  */
 export function retryHint(failedRows: number[] | null): string {
   const which = failedRows
-    ? `The rows left unanswered are ${failedRows.join(", ")}.`
+    ? `The unanswered rows are ${rowRanges(failedRows)}.`
     : "There are too many to list individually.";
-  return `${which} This run is finished: do NOT call this tool again to fix them. Re-running would charge for every row in the scope and would not merge with what is already applied. Report which rows are unanswered and let the user decide; if they want another attempt, say that it starts a fresh run over the rows they name.`;
+  return `Your next reply is the answer to the user, not another tool call. This run is finished and reporting it is all that is left to do. ${which} Name them and say they were never checked. Calling this tool again — even on only those rows — charges for every row in the scope again, and spends the run the user just declined when they chose to keep what worked. If they ask for another attempt, say that it starts a fresh run over the rows they name.`;
+}
+
+/** [101,102,103,107] → "101–103, 107". A sentence to a human, not an argument. */
+export function rowRanges(rows: number[]): string {
+  const sorted = [...new Set(rows)].sort((a, b) => a - b);
+  const out: string[] = [];
+  for (let i = 0; i < sorted.length; ) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    out.push(i === j ? `${sorted[i]}` : `${sorted[i]}–${sorted[j]}`);
+    i = j + 1;
+  }
+  return out.join(", ");
 }
 
 /**
@@ -922,24 +1103,71 @@ export function matchOutcome(a: {
   test: string;
   mode: "filter" | "select";
   highlight: HighlightColor | null;
+  /**
+   * Rows that were already selected, were outside this call's rows, and are
+   * therefore still selected. Only nextSelection's additive path produces
+   * them, and the two sentences below are wrong without it: "nothing is
+   * selected" and "the selection is now cleared" would both be false.
+   */
+  alsoSelected?: number;
 }): string {
   const verb = a.mode === "select" ? "selected" : "kept";
+  const carried = a.mode === "select" ? (a.alsoSelected ?? 0) : 0;
   if (a.matched === 0) {
-    return `None of ${a.outOf} matched ${a.test}. Nothing is ${verb}${
+    return `None of ${a.outOf} matched ${a.test}. Nothing new is ${verb}${
       a.highlight ? " and nothing was highlighted" : ""
     }${
-      a.mode === "select" ? "; the selection the user had is now cleared" : ""
-    }. Do not tell the user that rows were ${verb}${a.highlight ? " or highlighted" : ""}.`;
+      a.mode === "select"
+        ? carried > 0
+          ? `; the ${carried} rows selected before this call are untouched and still selected`
+          : "; the selection the user had is now cleared"
+        : ""
+    }. Do not tell the user that these rows were ${verb}${a.highlight ? " or highlighted" : ""}.`;
   }
   return `${a.matched} of ${a.outOf} matched ${a.test} and are now ${verb}${
     a.highlight ? ` and highlighted ${a.highlight}` : ""
-  } in the user's table. ${scopeHint(a.mode)}`;
+  } in the user's table${
+    carried > 0 ? `, alongside the ${carried} rows that were already selected and that this call did not look at` : ""
+  }. ${scopeHint(a.mode)}`;
 }
 
 export function scopeHint(mode: "filter" | "select"): string {
   return mode === "select"
     ? 'These rows are now the selection: another tool can target them with "scope":"selection".'
     : 'These rows can now be targeted by another tool with "scope":"visible".';
+}
+
+/**
+ * The rows a "select" filter should leave selected — the additive counterpart
+ * to replacing the set outright.
+ *
+ * Replacing is right when the filter swept the whole sheet, or narrowed a set
+ * that already existed: every row it did not match, it did look at and reject.
+ *
+ * A call aimed at explicit "rows" is the other case, and it is the one the
+ * model sends after a partial run — the rows that came back unanswered. The
+ * rows outside that list were never in question. Replacing there drops the
+ * matches the first run already paid for, and when the retried rows match
+ * nothing it clears the selection altogether: the user loses a set they can
+ * see, to a call that only ever asked about five rows.
+ *
+ * So: re-decide exactly the rows this call examined, and leave the rest of the
+ * selection as it was.
+ *
+ * "filter" mode is deliberately not treated this way. Its result is what the
+ * user can see, and "show me only these rows" is a fair reading of a call that
+ * names rows one by one.
+ */
+export function nextSelection(
+  grid: GridState,
+  call: { scope: ToolScope; rows: number[] | null },
+  matched: number[],
+): Set<number> | null {
+  if (!call.rows?.length) return matched.length ? new Set(matched) : null;
+  const next = new Set(grid.selectedRows ?? []);
+  for (const i of resolveScope(grid, call) ?? []) next.delete(i);
+  for (const i of matched) next.add(i);
+  return next.size ? next : null;
 }
 
 export function paintRows(grid: GridState, rows: number[], color: HighlightColor): GridState {

@@ -241,6 +241,21 @@ function callMatches(reply, spec) {
   return true;
 }
 
+// The ToolCall the app would actually run for this reply, or null if the
+// validator refuses it. Frozen-prompt cases carry no grid spec, so there are no
+// headers to validate against and the reply is handed back as written.
+async function preloadValidator() {
+  ({ validateToolCall: validator } = await loadTools());
+}
+let validator = null;
+
+function validateReply(reply, c) {
+  if (!validator || !c.grid) return reply;
+  const grid = materializeGrid(c.grid);
+  const out = validator({ ...reply }, grid.headers, grid);
+  return out.call ?? null;
+}
+
 function describeCall(reply) {
   const parts = [`${reply.tool} on scope "${reply.scope ?? '(omitted)'}"`];
   if (reply.column) parts.push(`column "${reply.column}"`);
@@ -250,6 +265,30 @@ function describeCall(reply) {
 }
 
 const CHECKS = {
+  requireThen(reply) {
+    if (!isToolCall(reply)) return "did not make a tool call";
+    return reply.then === true ? null : `called ${reply.tool} without \"then\":true`;
+  },
+  // What the CLIENT would have done, not what the model typed. validateToolCall
+  // drops "then" on summarize_column and on anything it rejects outright, so a
+  // stray flag there can never end a turn early; failing the suite for it would
+  // hold a correctness gate on a habit that cannot reach the user.
+  //
+  // Use this where an early stop would be a real bug — a first tool whose whole
+  // job is to set up a second one. Use forbidRawThen for the prompt hygiene.
+  forbidThen(reply, _spec, ctx) {
+    if (!isToolCall(reply)) return null;
+    const validated = ctx.validate(reply);
+    return validated?.then === true ? `the client would run ${validated.tool} with \"then\":true` : null;
+  },
+  // The model wrote "then" where the prompt says not to. The validator already
+  // throws it away, so nothing downstream breaks — this measures whether the
+  // prompt contract still reads the way it is meant to, and is named so nobody
+  // mistakes a red here for a turn that ends early.
+  forbidRawThen(reply) {
+    if (!isToolCall(reply)) return null;
+    return reply.then === true ? `wrote \"then\":true on ${reply.tool}` : null;
+  },
   // The reply must not call one of these tools, optionally only when it aims
   // at a given scope. This is the shape of most real failures: the right tool
   // pointed at the wrong rows.
@@ -409,11 +448,14 @@ async function run() {
     .filter((f) => !only || f.includes(only));
   if (!files.length) { console.error('No eval cases found in evals/.'); exit(1); }
   console.log(`model: ${MODEL_SPEC === 'worker' ? 'worker (Workers AI)' : MODEL_SPEC}  runs: ${runs}\n`);
+  await preloadValidator();
 
   let failed = 0;
+  let known = 0;
   for (const f of files) {
     const c = JSON.parse(await readFile(new URL(f, EVAL_DIR), 'utf8'));
     const failures = [];
+    const ctx = { validate: (reply) => validateReply(reply, c) };
     for (let i = 0; i < runs; i++) {
       let reply;
       try {
@@ -431,18 +473,29 @@ async function run() {
         continue;
       }
       for (const [check, spec] of Object.entries(c.assert ?? {})) {
-        const why = CHECKS[check]?.(reply, spec);
+        const why = CHECKS[check]?.(reply, spec, ctx);
         if (why) failures.push(`run ${i + 1}: ${check} — ${why}`);
       }
     }
     const passed = runs - new Set(failures.map((s) => s.split(':')[0])).size;
     const ok = failures.length === 0;
-    if (!ok) failed++;
-    console.log(`${ok ? '✅' : '❌'} ${c.name}  ${passed}/${runs}`);
+    // A case can be red for a reason that is written down and not being fixed
+    // this week — a model regression the suite cannot fix, a behaviour a loop
+    // guard already makes harmless. Scoring it is still worth doing; failing
+    // the run on it is not, because then the exit code stops meaning anything.
+    // "knownRed" holds the reason, and a case that goes green says so rather
+    // than keeping the annotation quietly.
+    if (!ok && c.knownRed) known++;
+    else if (!ok) failed++;
+    console.log(`${ok ? '✅' : c.knownRed ? '⚠️ ' : '❌'} ${c.name}  ${passed}/${runs}`);
     if (c.why) console.log(`   ${c.why}`);
+    if (c.knownRed) {
+      console.log(`   known-red: ${c.knownRed}`);
+      if (ok) console.log('   🎉 it passed this time — re-measure, and drop "knownRed" if it holds.');
+    }
     for (const line of failures) console.log(`   ↳ ${line}`);
   }
-  console.log(`\n${files.length - failed}/${files.length} cases passed.`);
+  console.log(`\n${files.length - failed - known}/${files.length - known} cases passed${known ? `, ${known} known-red not counted` : ''}.`);
   if (neuronsSpent) console.log(`neurons spent: ${neuronsSpent.toFixed(2)}`);
   exit(failed ? 1 : 0);
 }

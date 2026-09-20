@@ -1,0 +1,76 @@
+{
+  "name": "no-terminal-before-a-second-tool",
+  "why": "The first filter only creates the selection needed by the second write, so it must not terminate the turn. filter_rows IS terminal, so a \"then\" here survives validation and really would end the turn one tool short — this is the correctness gate the flag rests on.",
+  "baseline": "not measured",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "filter_rows",
+        "column": "状态",
+        "mode": "select"
+      }
+    ],
+    "forbidThen": true
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "把待付款的订单备注都写成「已催」"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "name": "no-terminal-on-a-question",
+  "why": "summarize_column returns evidence for the model to interpret; ending at its tool card would leave the user question unanswered. The tool choice is the correctness half. The \"then\" half is prompt hygiene and is asserted as such: summarize_column is not in TERMINAL_TOOLS, so the validator drops the flag and no turn could have ended here however the model wrote the reply.",
+  "baseline": "not measured",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "summarize_column",
+        "column": "状态"
+      }
+    ],
+    "forbidRawThen": true
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "哪个状态的订单最多？"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

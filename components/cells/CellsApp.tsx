@@ -13,11 +13,16 @@ import {
   destructiveWarning,
   dispatchTool,
   failedRowNumbers,
+  fillsOwnGaps,
   HIGHLIGHT_HEX,
   matchOutcome,
+  nextSelection,
   paintRows,
   resolveScope,
   retryHint,
+  processResultCounts,
+  rowRunRequiresFollowup,
+  shortfallPhrase,
   scopeLabel,
   transformProvenance,
   withLineage,
@@ -27,6 +32,7 @@ import {
 } from "@/lib/cells/tools";
 import {
   appendColumn,
+  fillCells,
   findColumnIndex,
   uniquifyHeader,
 } from "@/lib/cells/table-ops";
@@ -90,7 +96,12 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     phase: AgentPhase;
     step: number;
     progress: { done: number; total: number } | null;
-  }>({ phase: "idle", step: 1, progress: null });
+    // Set once a tool has landed in this turn. The sheet is already updated
+    // and the card is already on screen, so the composer reopens while the
+    // trailing model call runs. "The turn is over" and "the input is usable"
+    // are two different questions; phase === "idle" only answers the first.
+    toolLanded: boolean;
+  }>({ phase: "idle", step: 1, progress: null, toolLanded: false });
 
   // The agent loop reads/writes the grid through refs so mid-turn tool calls
   // always see the latest data, independent of React's async state updates.
@@ -102,6 +113,17 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
   const lastTurnSnapshotRef = useRef<GridSnapshot | null>(null);
   const userEditsRef = useRef(0);
   const turnIdRef = useRef(0);
+  const turnAbortRef = useRef<AbortController | null>(null);
+
+  // Supersede whatever turn is running. Both halves matter: the id makes the
+  // old turn stale so it stops once its request comes back, the abort stops it
+  // waiting for one. This does not save the neurons — the server settles
+  // billing on completion whether or not the browser is still listening.
+  const supersedeTurn = useCallback(() => {
+    turnIdRef.current++;
+    turnAbortRef.current?.abort();
+    turnAbortRef.current = null;
+  }, []);
 
   // Read through refs: the agent loop's callbacks are memoized and must see
   // the current cap, not the one captured when they were created.
@@ -161,6 +183,11 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
   const partialResolverRef = useRef<((d: "retry" | "apply") => void) | null>(null);
   const aiBusy = agent.phase !== "idle" || partialPrompt != null;
   aiBusyRef.current = aiBusy;
+  // A tool running right now owns the sheet, so the composer stays shut even
+  // after an earlier tool in the same turn has landed.
+  const toolRunning = agent.phase === "executing_tool" || agent.phase === "processing_rows";
+  const inputLocked =
+    (agent.phase !== "idle" && !agent.toolLanded) || toolRunning || partialPrompt != null;
 
   const resolvePartial = useCallback((decision: "retry" | "apply") => {
     const resolve = partialResolverRef.current;
@@ -191,7 +218,12 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       values: string[],
       instruction: string,
       column: string,
-    ): Promise<{ results: ProcessResultItem[]; failedIndices: number[]; stopped?: ProcessStop }> => {
+    ): Promise<{
+      results: ProcessResultItem[];
+      failedIndices: number[];
+      stopped?: ProcessStop;
+      keptPartial: boolean;
+    }> => {
       const onProgress = (done: number, total: number) =>
         setAgent((prev) => ({ ...prev, phase: "processing_rows", progress: { done, total } }));
       const run = (rows: string[]) => {
@@ -207,6 +239,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       let results = first.results;
       let failed = first.failedIndices;
       let stopped = first.stopped;
+      let keptPartial = false;
 
       while (failed.length > 0 || stopped) {
         const decision = await awaitPartialDecision({
@@ -216,7 +249,10 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         });
         // "apply" is also the only option the dialog offers once the allowance
         // is gone, so this loop always terminates.
-        if (decision === "apply") break;
+        if (decision === "apply") {
+          keptPartial = true;
+          break;
+        }
         const idx = failed;
         const retry = await run(idx.map((i) => values[i]));
         results = results.slice();
@@ -226,7 +262,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         failed = retry.failedIndices.map((j) => idx[j]);
         stopped = retry.stopped;
       }
-      return { results, failedIndices: failed, stopped };
+      return { results, failedIndices: failed, stopped, keptPartial };
     },
     [awaitPartialDecision],
   );
@@ -254,11 +290,11 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
   }, []);
 
   const handleFile = useCallback((file: File) => {
-    turnIdRef.current++; // cancel any in-flight agent turn
+    supersedeTurn(); // cancel any in-flight agent turn
     resolvePartial("apply"); // settle a dangling result dialog, if any
     lastTurnSnapshotRef.current = null;
     userEditsRef.current = 0;
-    setAgent({ phase: "idle", step: 1, progress: null });
+    setAgent({ phase: "idle", step: 1, progress: null, toolLanded: false });
     // XLSX.read is synchronous: a big file freezes the tab for seconds, so say
     // so up front rather than looking hung.
     setWorkbookState({
@@ -284,21 +320,21 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         });
       }
     }, 0);
-  }, []);
+  }, [resolvePartial, supersedeTurn]);
 
   const handleSelectSheet = useCallback((index: number) => {
-    turnIdRef.current++;
+    supersedeTurn();
     resolvePartial("apply");
     lastTurnSnapshotRef.current = null;
     userEditsRef.current = 0;
-    setAgent({ phase: "idle", step: 1, progress: null });
+    setAgent({ phase: "idle", step: 1, progress: null, toolLanded: false });
     setWorkbookState((prev) => {
       if (prev.status !== "ready" || !prev.workbook.sheets[index]) return prev;
       const grid = gridFromSheet(prev.workbook.sheets[index]);
       gridRef.current = grid;
       return { ...prev, activeSheet: index, grid };
     });
-  }, [resolvePartial]);
+  }, [resolvePartial, supersedeTurn]);
 
   const handleReset = useCallback(() => {
     setWorkbookState((prev) => {
@@ -457,7 +493,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       // still the same one before writing row-indexed outputs back into it.
       const gridAtStart = grid;
       try {
-        const { results, failedIndices } = await runRowsWithRecovery(
+        const { results, failedIndices, stopped, keptPartial } = await runRowsWithRecovery(
           values,
           call.instruction,
           call.column,
@@ -470,44 +506,103 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           };
         }
         const current = gridAtStart;
-        const name = uniquifyHeader(current.headers, call.newColumnName);
-        const outputs = new Array<string>(current.rows.length).fill("");
-        targets.forEach((rowIdx, j) => (outputs[rowIdx] = results[j]?.output ?? ""));
-        const next = appendColumn(current.headers, current.rows, name, outputs);
-        // Remember what the new column was read from. The result below and
-        // every later prompt say so, which is the only way the model can know
-        // a column is a copy when it later tries to check it "against the source".
-        const nextGrid = withLineage(
-          { ...current, headers: next.headers, rows: next.rows },
-          name,
-          { tool: "transform_column", from: [call.column], how: call.instruction },
+        // A run whose target column is one of ours and whose rows are all
+        // blank in it is a gap-fill: write the answers into the holes rather
+        // than appending a near-empty second column beside them. Everything
+        // else — first runs, renamed columns, any overlap with a filled cell —
+        // takes the append path below unchanged.
+        const gapColIdx = fillsOwnGaps(
+          current,
+          call.newColumnName,
+          call.column,
+          call.instruction,
+          targets,
         );
+        const lineage = {
+          tool: "transform_column" as const,
+          from: [call.column],
+          how: call.instruction,
+        };
+        let name: string;
+        let nextGrid: GridState;
+        if (gapColIdx != null) {
+          name = current.headers[gapColIdx];
+          const fills = new Map<number, string>();
+          targets.forEach((rowIdx, j) => fills.set(rowIdx, results[j]?.output ?? ""));
+          nextGrid = withLineage(
+            { ...current, rows: fillCells(current.rows, gapColIdx, fills) },
+            name,
+            lineage,
+          );
+        } else {
+          name = uniquifyHeader(current.headers, call.newColumnName);
+          const outputs = new Array<string>(current.rows.length).fill("");
+          targets.forEach((rowIdx, j) => (outputs[rowIdx] = results[j]?.output ?? ""));
+          const next = appendColumn(current.headers, current.rows, name, outputs);
+          // Remember what the new column was read from. The result below and
+          // every later prompt say so, which is the only way the model can know
+          // a column is a copy when it later tries to check it "against the source".
+          nextGrid = withLineage(
+            { ...current, headers: next.headers, rows: next.rows },
+            name,
+            lineage,
+          );
+        }
         setGrid(nextGrid);
         const provenance = transformProvenance(nextGrid, name);
         // Three different empties, and the model needs to tell them apart: a
         // row the AI answered with nothing, a row we never got an answer for,
         // and a row outside the scope.
-        const failed = failedIndices.length;
+        const { filled, empty, failed } = processResultCounts(results, failedIndices);
         const failedRows = failedRowNumbers(targets, failedIndices);
-        const filled = results.filter((r) => r.output != null).length;
+        const shortfall = failed + empty;
+        const shortfallDetails = [
+          failed ? `${failed} failed` : "",
+          empty ? `${empty} empty` : "",
+        ].filter(Boolean).join(", ");
+        // The old sentence said a column was added, which is false for a fill.
+        // What the user needs to know instead is that their data is in ONE
+        // column now, and whether any of it is still missing.
+        const stillBlank =
+          gapColIdx == null
+            ? 0
+            : nextGrid.rows.filter((r) => (r[gapColIdx] ?? "").trim() === "").length;
+        const placement =
+          gapColIdx == null
+            ? ""
+            : `The answers were written into the existing column "${name}", filling rows that were blank; no second column was added and nothing the user already had was overwritten. ${
+                stillBlank > 0
+                  ? `${stillBlank} of its cells are still blank.`
+                  : `Every row of "${name}" now has a value.`
+              } `;
         return {
           ok: true,
+          requiresFollowup: rowRunRequiresFollowup({ empty, failed }, stopped, keptPartial),
           summary:
-            failed > 0
-              ? `${filled}/${results.length} rows → "${name}" (${failed} failed)`
+            shortfall > 0
+              ? `${filled}/${results.length} rows → "${name}" (${shortfallDetails})`
               : `${filled}/${results.length} rows → "${name}"`,
           data: {
-            newColumn: name,
+            ...(gapColIdx != null
+              ? { filledColumn: name, rowsStillBlank: stillBlank }
+              : { newColumn: name }),
             sourceColumn: provenance.sourceColumn,
             rowsProcessed: results.length,
             rowsFailed: failed,
+            rowsEmpty: empty,
             scope: call.scope,
             sampleOutputs: results.slice(0, 3).map((r) => r.output),
             ...(failed > 0 && failedRows ? { failedRows } : {}),
+            // The dialog only opens for rows that got no answer at all, so a run
+            // whose whole shortfall is empty answers never asked the user
+            // anything. Claiming they chose to keep these rows invents a
+            // decision, in the one sentence whose job is to be accountable.
             outcome:
-              failed > 0
-                ? `${failed} of ${results.length} rows could not be processed and were left blank in "${name}"; the user chose to keep the ${filled} rows that worked. Say so. ${retryHint(failedRows)} ${provenance.outcome}`
-                : provenance.outcome,
+              (shortfall > 0
+                ? `Of the ${results.length} rows, ${shortfallPhrase(failed, empty)}; all ${shortfall} were left blank in "${name}"${
+                    keptPartial ? `, and the user chose to keep the ${filled} rows that worked` : ""
+                  }. Say so. ${failed ? `${retryHint(failedRows)} ` : ""}`
+                : "") + placement + provenance.outcome,
           },
         };
       } catch (e) {
@@ -550,7 +645,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       }
       const gridAtStart = grid;
       try {
-        const { results, failedIndices } = await runRowsWithRecovery(
+        const { results, failedIndices, stopped, keptPartial } = await runRowsWithRecovery(
           values,
           `Answer only YES or NO: does this text match the test "${call.criteria}"?`,
           call.column,
@@ -567,48 +662,60 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           if (/^\s*yes\b/i.test(r.output ?? "")) matched.push(targets[j]);
         });
         const current = gridAtStart;
+        // A re-run named the rows it was asked about and nothing else, so it
+        // adds to the selection rather than replacing it — see nextSelection.
+        const selection = nextSelection(current, call, matched);
         let next: GridState =
           call.mode === "select"
-            ? { ...current, selectedRows: matched.length ? new Set(matched) : null }
+            ? { ...current, selectedRows: selection }
             : { ...current, filterKept: matched };
         if (call.highlight && matched.length) next = paintRows(next, matched, call.highlight);
         setGrid(next);
         const verb = call.mode === "select" ? "selected" : "kept";
+        const alsoSelected = (selection?.size ?? 0) - matched.length;
         // A row we never got an answer for is not a NO. It falls out of the
         // match set either way, so the model has to say it was undecided
         // rather than reporting it as "did not match".
-        const failed = failedIndices.length;
-        const judged = results.length - failed;
+        const { filled: judged, empty, failed } = processResultCounts(results, failedIndices);
+        const unjudged = failed + empty;
         const failedRows = failedRowNumbers(targets, failedIndices);
         const scopeNote = only ? ` (within the ${scopeLabel(call)} rows)` : "";
+        // Both kinds of shortfall are "undecided", but the badge only splits
+        // them when there is something to split.
+        const undecidedNote =
+          failed && empty ? `${unjudged} undecided: ${failed} failed, ${empty} empty` : `${unjudged} undecided`;
         return {
           ok: true,
+          requiresFollowup:
+            rowRunRequiresFollowup({ empty, failed }, stopped, keptPartial) || matched.length === 0,
           summary:
-            failed > 0
-              ? `${matched.length} of ${judged} judged rows ${verb} (${failed} undecided)`
+            unjudged > 0
+              ? `${matched.length} of ${judged} judged rows ${verb} (${undecidedNote})`
               : `${matched.length} of ${results.length} rows ${verb}`,
           data: {
             rowsMatched: matched.length,
             rowsJudged: judged,
             rowsTotal: results.length,
             rowsFailed: failed,
+            rowsEmpty: empty,
             ...(failedRows ? { failedRows } : {}),
             // The denominator is the rows that actually got an answer, never
             // the rows we set out with: a run that judged 100 of 154 must not
             // read as "154 rows checked".
             outcome:
-              (failed > 0
-                ? `Only ${judged} of the ${results.length} rows${scopeNote} could be judged; ${failed} rows got no answer at all. `
+              (unjudged > 0
+                ? `Only ${judged} of the ${results.length} rows${scopeNote} could be judged; ${shortfallPhrase(failed, empty)}. `
                 : "") +
               matchOutcome({
                 matched: matched.length,
-                outOf: failed > 0 ? `${judged} judged rows` : `${results.length} rows${scopeNote}`,
+                outOf: unjudged > 0 ? `${judged} judged rows` : `${results.length} rows${scopeNote}`,
                 test: `"${call.criteria}" (judged by AI on ${call.column})`,
                 mode: call.mode,
                 highlight: call.highlight,
+                alsoSelected,
               }) +
-              (failed > 0
-                ? ` The ${failed} unjudged rows were NOT ${verb}, and that is not the same as not matching — they are unchecked, so never report them as verified or as agreeing with the test. Tell the user. ${retryHint(failedRows)}`
+              (unjudged > 0
+                ? ` The ${unjudged} unjudged rows were NOT ${verb}, and that is not the same as not matching — they are unchecked, so never report them as verified or as agreeing with the test. Tell the user.${failed ? ` ${retryHint(failedRows)}` : ""}`
                 : ""),
           },
         };
@@ -627,7 +734,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (workbookState.status !== "ready" || agent.phase !== "idle") return;
+      if (workbookState.status !== "ready" || inputLocked) return;
       const sheetName = workbookState.workbook.sheets[workbookState.activeSheet].name;
       const userMessage: ChatMessage = {
         id: nextMessageId(),
@@ -646,12 +753,25 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         userMessage,
       ];
       setMessages(history);
-      const turnId = ++turnIdRef.current;
-      setAgent({ phase: "connecting", step: 1, progress: null });
+      // Drops the previous turn before this one starts: without the abort its
+      // reply would still land, and with it the old turn's tool card.
+      supersedeTurn();
+      const turnId = turnIdRef.current;
+      const abort = new AbortController();
+      turnAbortRef.current = abort;
+      const runTool = async (call: ToolCall): Promise<ToolResult> => {
+        if (call.tool === "transform_column") return runTransform(call);
+        if (call.tool === "filter_rows_ai") return runAiFilter(call);
+        const { result, nextGrid } = dispatchTool(call, gridRef.current!);
+        setGrid(nextGrid);
+        return result;
+      };
+      setAgent({ phase: "connecting", step: 1, progress: null, toolLanded: false });
 
       try {
         await runAgentTurn({
           history,
+          signal: abort.signal,
           sheetName,
           locale: localeRef.current,
           getGrid: () => gridRef.current!,
@@ -671,11 +791,21 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
                 },
               };
             }
-            if (call.tool === "transform_column") return runTransform(call);
-            if (call.tool === "filter_rows_ai") return runAiFilter(call);
-            const { result, nextGrid } = dispatchTool(call, gridRef.current!);
-            setGrid(nextGrid);
-            return result;
+            return runTool(call).then((result) => {
+              // The sheet the next turn must diff against is this one, not the
+              // one from before the turn started. Writing the snapshot per tool
+              // instead of once in the `finally` is what stops the agent's own
+              // new column from being reported to the model as a hand edit —
+              // whether the user types during the trailing call or the turn
+              // dies after the tool ran.
+              if (gridRef.current) {
+                lastTurnSnapshotRef.current = snapshotGrid(gridRef.current, userEditsRef.current);
+              }
+              if (turnIdRef.current === turnId) {
+                setAgent((prev) => ({ ...prev, toolLanded: true }));
+              }
+              return result;
+            });
           },
           isStale: () => turnIdRef.current !== turnId,
           emit: (message) => setMessages((prev) => [...prev, message]),
@@ -701,7 +831,8 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         }
       } finally {
         if (turnIdRef.current === turnId) {
-          setAgent({ phase: "idle", step: 1, progress: null });
+          turnAbortRef.current = null; // this turn is done; nothing left to abort
+          setAgent({ phase: "idle", step: 1, progress: null, toolLanded: false });
           if (gridRef.current) {
             lastTurnSnapshotRef.current = snapshotGrid(gridRef.current, userEditsRef.current);
           }
@@ -709,7 +840,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         setUsageRefresh((n) => n + 1);
       }
     },
-    [workbookState, agent.phase, messages, setGrid, runTransform, runAiFilter],
+    [workbookState, inputLocked, messages, setGrid, runTransform, runAiFilter, supersedeTurn],
   );
 
   return (
@@ -769,6 +900,7 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           <ChatPanel
             messages={messages}
             phase={agent.phase}
+            inputLocked={inputLocked}
             thinkingStep={agent.step}
             progress={agent.progress}
             ready={workbookState.status === "ready"}

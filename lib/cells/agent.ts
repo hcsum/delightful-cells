@@ -7,6 +7,9 @@ import { trace, traceTurn } from "../trace";
 import {
   buildSystemPrompt,
   IRREVERSIBLE_TOOLS,
+  repeatsRowRun,
+  ROW_RUN_TOOLS,
+  shouldEndTurnAfterTool,
   validateToolCall,
   type GridState,
   type ToolCall,
@@ -136,6 +139,7 @@ function newTurnId(): string {
 async function postChat(
   messages: FlatMessage[],
   locale: Locale,
+  signal?: AbortSignal,
 ): Promise<string> {
   const requestId = crypto.randomUUID();
   const res = await fetch("/api/chat", {
@@ -148,6 +152,7 @@ async function postChat(
       "x-request-id": requestId,
     },
     body: JSON.stringify({ messages }),
+    signal,
   });
   if (!res.ok) {
     let message = `Chat request failed (${res.status}).`;
@@ -221,6 +226,9 @@ export type AgentTurnOptions = {
   emit: (message: ChatMessage) => void; // stream tool cards / replies into the UI
   onStep?: (step: number) => void;
   onPhase?: (phase: AgentPhase) => void;
+  // Aborted when a newer turn supersedes this one. `isStale` alone only stops
+  // the loop once the request has come back; this stops waiting for it.
+  signal?: AbortSignal;
 };
 
 export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
@@ -230,6 +238,11 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
   // Set once a tool has rewritten data, dropped a column, or spent neurons.
   // From that point the loop stops re-prompting: see the parse-fail branch.
   let touchedTheSheet = false;
+  // A per-row AI run that came back incomplete. The turn is allowed to do other
+  // things after it, but not to run that same question again: the rows cost
+  // real money, the partial-result dialog already asked the user whether to
+  // retry, and a second run replaces the selection they are looking at.
+  let spentRowRun: ToolCall | null = null;
 
   const lastUser = [...opts.history].reverse().find((m) => m.role === "user");
   traceTurn(turnId, lastUser && "content" in lastUser ? lastUser.content : "");
@@ -247,13 +260,16 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
     let text: string;
     if (process.env.NEXT_PUBLIC_CHAT_STREAMING !== "false") {
       try {
-        text = await postChatStream(messages, opts.locale ?? "en", { onStatus: opts.onPhase });
+        text = await postChatStream(messages, opts.locale ?? "en", {
+          onStatus: opts.onPhase,
+          signal: opts.signal,
+        });
       } catch (error) {
         if (!(error instanceof StreamingUnavailableError)) throw error;
-        text = await postChat(messages, opts.locale ?? "en");
+        text = await postChat(messages, opts.locale ?? "en", opts.signal);
       }
     } else {
-      text = await postChat(messages, opts.locale ?? "en");
+      text = await postChat(messages, opts.locale ?? "en", opts.signal);
     }
     if (opts.isStale()) return;
     trace("reply", { step, text });
@@ -268,6 +284,10 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
       // to do the same job a second time, by some other route, over some
       // other set of rows. In a loop with side effects the safe failure is to
       // stop, so a reply we cannot parse becomes the final answer.
+      // This is the same judgement `then` makes, reached the other way round:
+      // there the model says up front that the tool call ends the turn, here
+      // the loop decides after the fact that an unreadable reply does. Both
+      // end at "the edit already happened, stop touching the sheet".
       if (touchedTheSheet || correctedOnce) {
         opts.emit({ id: nextMessageId(), role: "assistant", content: text.trim() || "…" });
         return;
@@ -317,6 +337,20 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
       continue;
     }
 
+    if (spentRowRun && repeatsRowRun(spentRowRun, validated.call)) {
+      trace("repeat-row-run", { step, tool: validated.call.tool });
+      history.push({ id: nextMessageId(), role: "assistant", content: text });
+      history.push({
+        id: nextMessageId(),
+        role: "user",
+        content: `TOOL_RESULT error: ${JSON.stringify({
+          error:
+            "That run already happened in this turn and came back incomplete. It was not run again: re-running charges for every row in the scope a second time and replaces the result the user is looking at. Answer the user now — say which rows were not answered — and let them ask for another attempt if they want one.",
+        })}`,
+      });
+      continue;
+    }
+
     trace("call", { step, call: validated.call });
     if (IRREVERSIBLE_TOOLS.has(validated.call.tool)) touchedTheSheet = true;
     opts.onPhase?.("executing_tool");
@@ -338,6 +372,17 @@ export async function runAgentTurn(opts: AgentTurnOptions): Promise<void> {
       result,
     };
     opts.emit(toolMessage);
+    if (result.requiresFollowup && ROW_RUN_TOOLS.has(validated.call.tool)) spentRowRun = validated.call;
+    // A terminal call has already answered through the visible tool card. The
+    // result vetoes this fast path whenever the edit failed or needs explaining.
+    if (shouldEndTurnAfterTool(
+      validated.call,
+      result,
+      process.env.NEXT_PUBLIC_TERMINAL_TOOL_CALL === "true",
+    )) {
+      trace("terminal", { step, tool: validated.call.tool });
+      return;
+    }
     history.push(toolMessage);
   }
 

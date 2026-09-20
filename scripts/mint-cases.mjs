@@ -186,6 +186,36 @@ const BASELINES = {
 const CASES = [
   // --- the ordinary path, single step -------------------------------------
   {
+    name: 'terminal-on-a-sheet-edit',
+    sheet: 'orders',
+    user: '把状态列里的已退款替换成退款完成',
+    why: 'A visible, single-tool sheet edit is the terminal happy path: the card fully describes the completed replacement, so a second model call adds nothing.',
+    assert: {
+      requireCall: [{ tool: 'find_replace', column: '状态', includes: { replace: ['退款完成'] } }],
+      requireThen: true,
+    },
+  },
+  {
+    name: 'no-terminal-on-a-question',
+    sheet: 'orders',
+    user: '哪个状态的订单最多？',
+    why: 'summarize_column returns evidence for the model to interpret; ending at its tool card would leave the user question unanswered. The tool choice is the correctness half. The "then" half is prompt hygiene and is asserted as such: summarize_column is not in TERMINAL_TOOLS, so the validator drops the flag and no turn could have ended here however the model wrote the reply.',
+    assert: {
+      requireCall: [{ tool: 'summarize_column', column: '状态' }],
+      forbidRawThen: true,
+    },
+  },
+  {
+    name: 'no-terminal-before-a-second-tool',
+    sheet: 'orders',
+    user: '把待付款的订单备注都写成「已催」',
+    why: 'The first filter only creates the selection needed by the second write, so it must not terminate the turn. filter_rows IS terminal, so a "then" here survives validation and really would end the turn one tool short — this is the correctness gate the flag rests on.',
+    assert: {
+      requireCall: [{ tool: 'filter_rows', column: '状态', mode: 'select' }],
+      forbidThen: true,
+    },
+  },
+  {
     name: 'plain-filter-selects',
     sheet: 'orders',
     user: '把状态是已退款的行选出来',

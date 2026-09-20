@@ -9,6 +9,7 @@ import MarkdownMessage from "./MarkdownMessage";
 export default function ChatPanel({
   messages,
   phase,
+  inputLocked,
   thinkingStep,
   progress,
   ready,
@@ -17,6 +18,9 @@ export default function ChatPanel({
 }: {
   messages: ChatMessage[];
   phase: AgentPhase;
+  // Not the same as "a turn is running": once a tool has landed, the sheet is
+  // updated and the user may type again while the model writes its last line.
+  inputLocked: boolean;
   thinkingStep: number;
   progress: { done: number; total: number } | null;
   ready: boolean; // a sheet is loaded
@@ -34,7 +38,7 @@ export default function ChatPanel({
 
   const send = (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || !ready || thinking) return;
+    if (!trimmed || !ready || inputLocked) return;
     setDraft("");
     onSend(trimmed);
   };
@@ -155,13 +159,13 @@ export default function ChatPanel({
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          disabled={!ready || thinking}
+          disabled={!ready || inputLocked}
           placeholder={ready ? t("placeholder") : t("uploadFirst")}
           className="min-w-0 flex-1 rounded-full border !border-black/15 bg-white px-4 py-2.5 text-sm text-black placeholder:text-black/35 focus:!border-black/40 focus:outline-none disabled:opacity-50"
         />
         <button
           type="submit"
-          disabled={!ready || thinking || !draft.trim()}
+          disabled={!ready || inputLocked || !draft.trim()}
           className="shrink-0 rounded-full px-5 py-2.5 text-sm font-bold text-black transition-transform hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
           style={{
             border: "3px solid transparent",

@@ -25,7 +25,10 @@ export default function ToolCallCard({
   result: ToolResult;
 }) {
   const t = useT();
-  const params = Object.entries(call).filter(([k]) => k !== "tool");
+  // "then" is turn plumbing, not something the user asked for: it says the
+  // turn ends here, and this card is the whole answer. What the tool did is
+  // in result.summary, which is built from the real counts.
+  const params = Object.entries(call).filter(([k]) => k !== "tool" && k !== "then");
   return (
     <div className="rounded-2xl bg-[#201112] p-4 shadow-[0_12px_32px_rgba(20,10,10,0.18)]">
       <div className="flex items-center justify-between gap-2">

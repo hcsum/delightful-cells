@@ -1,0 +1,80 @@
+{
+  "name": "terminal-on-a-sheet-edit",
+  "why": "A visible, single-tool sheet edit is the terminal happy path: the card fully describes the completed replacement, so a second model call adds nothing.",
+  "baseline": "not measured",
+  "generatedBy": "scripts/mint-cases.mjs — edit the recipe there, not this file",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "find_replace",
+        "column": "状态",
+        "includes": {
+          "replace": [
+            "退款完成"
+          ]
+        }
+      }
+    ],
+    "requireThen": true
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "把状态列里的已退款替换成退款完成"
+    }
+  ],
+  "grid": {
+    "sheetName": "订单表",
+    "headers": [
+      "订单号",
+      "客户",
+      "数量",
+      "单价",
+      "状态",
+      "备注"
+    ],
+    "rowCount": 120,
+    "sampleRows": [
+      [
+        "SO-1001",
+        "张伟",
+        "3",
+        "12.50",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1002",
+        "李娜",
+        "8",
+        "88.00",
+        "待付款",
+        ""
+      ],
+      [
+        "SO-1003",
+        "王强",
+        "1",
+        "6.90",
+        "已完成",
+        ""
+      ],
+      [
+        "SO-1004",
+        "刘洋",
+        "6",
+        "45.00",
+        "已退款",
+        "缺货"
+      ],
+      [
+        "SO-1005",
+        "陈静",
+        "2",
+        "130.00",
+        "已发货",
+        ""
+      ]
+    ]
+  }
+}

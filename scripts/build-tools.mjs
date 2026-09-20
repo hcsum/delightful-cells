@@ -39,3 +39,10 @@ export async function loadTools() {
   cached = await import(new URL('tools.js', BUILD_DIR).href);
   return cached;
 }
+
+// table-ops.ts is compiled alongside tools.ts as its dependency, so the pure
+// writers are reachable by the same route — no second tsc run.
+export async function loadTableOps() {
+  await loadTools();
+  return import(new URL('table-ops.js', BUILD_DIR).href);
+}

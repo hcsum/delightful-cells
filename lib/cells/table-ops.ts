@@ -228,3 +228,24 @@ export function removeColumns(
     rows: rows.map((row) => keep.map((i) => row[i] ?? "")),
   };
 }
+
+// Write given values into cells of one existing column, addressed by row
+// index. The counterpart to appendColumn: that one only ever widens the sheet,
+// which is why a partial run's retry used to land in a second column.
+//
+// Row-scoped copy-on-write, the same shape as findReplace — it just takes its
+// values from the caller instead of computing them from the old cell. Rows the
+// map does not name are returned unchanged, by identity.
+export function fillCells(
+  rows: string[][],
+  colIdx: number,
+  values: Map<number, string>,
+): string[][] {
+  if (values.size === 0) return rows;
+  return rows.map((row, i) => {
+    if (!values.has(i)) return row;
+    const copy = row.slice();
+    copy[colIdx] = values.get(i)!;
+    return copy;
+  });
+}
