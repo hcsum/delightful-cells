@@ -238,6 +238,13 @@ function callMatches(reply, spec) {
     const text = String(reply[field] ?? '');
     if (!wanted(needles).every((n) => text.includes(n))) return false;
   }
+  // Exact text, for the one place where "contains" is not enough: fillsOwnGaps
+  // compares the retry's instruction with the lineage entry character for
+  // character, so an instruction that merely contains the original still
+  // appends a second column.
+  for (const [field, value] of Object.entries(spec.equals ?? {})) {
+    if (String(reply[field] ?? '') !== value) return false;
+  }
   return true;
 }
 

@@ -104,6 +104,24 @@ No partial fills: if any named row already holds a value, this is not a
 gap-fill, so it appends. Writing some rows and skipping others produces a result
 nobody can explain.
 
+### The instruction has to come back identical, and it does
+
+Condition (2) compares free text the model writes with free text it wrote a
+turn or more earlier, character for character. Nothing in the tool schema
+guarantees that, and if it drifts the gate never fires and this whole plan is
+dead code that appends exactly as before.
+
+Measured 2026-09-20 on glm-5.3-flash, the model that ships: 4 runs of the retry
+turn, 4 byte-identical instructions, right column, rows 11–15 named. The reason
+it holds is unglamorous — the first call is still in the history, so copying it
+is easier than rewriting it.
+
+It is now `evals/retry-reuses-the-same-instruction.json`, with an `equals`
+matcher rather than the harness's usual `includes`, because an instruction that
+merely *contains* the original still fails the gate. That case is the early
+warning for a model switch: a red there means gap-fill silently stopped
+happening, not that anything broke.
+
 ## Changes
 
 | File | Change |
@@ -126,6 +144,7 @@ The card's badge keeps its shape (`5/5 rows → "关键词"`), so no new i18n ke
 - Unit: the predicate returns false for a fresh column, a renamed column, a
   different instruction, a different source column, and any overlap with a
   non-empty cell; true only for the gap-fill.
+- Eval: `retry-reuses-the-same-instruction`, 4/4 — done, see above.
 - **Not yet done.** End to end, with `NEXT_PUBLIC_MOCK_BATCH_FAILURE=1` and `AI_BATCH_ROWS`
   temporarily at 10 (see `docs/`-adjacent notes in the terminal-tool-call plan):
   a 15-row sheet, transform, "keep the 10 that worked", then ask for rows 11-15

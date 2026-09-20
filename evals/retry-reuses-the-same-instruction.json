@@ -1,0 +1,126 @@
+{
+  "name": "retry-reuses-the-same-instruction",
+  "why": "What fillsOwnGaps rests on. A retry fills the blank cells of the column the first run made only when the source column, the target name AND the instruction all match the lineage entry character for character; anything else appends a second column, which is the bug the gap-fill was written to remove. The instruction is free text the model writes, so nothing guarantees it comes back identical — except that the first call is still in the history to copy from. This case measures whether it does. Measured 2026-09-20 on glm-5.3-flash: 4/4, byte-identical each time, with rows 11–15 named. A red here does not break anything — the run appends, as it did before — but it means the gap-fill quietly never fires.",
+  "handWritten": "Not minted. mint-cases.mjs replays dispatchTool, which refuses transform_column because its result is built inside runTransform in the React layer. The TOOL_RESULT below is assembled by hand out of the same sentences that code emits. Pull the result building out of CellsApp into a pure function and this case can be minted like the rest.",
+  "baseline": "measured 2026-09-20: glm-5.3-flash 4/4",
+  "assert": {
+    "requireCall": [
+      {
+        "tool": "transform_column",
+        "column": "客户反馈",
+        "rows": [
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "equals": {
+          "instruction": "从每条客户反馈中提取最核心的关键词",
+          "newColumnName": "关键词"
+        }
+      }
+    ]
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "帮我从客户反馈里提取关键词，放到新列「关键词」"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\": \"tool_call\", \"tool\": \"transform_column\", \"column\": \"客户反馈\", \"instruction\": \"从每条客户反馈中提取最核心的关键词\", \"newColumnName\": \"关键词\", \"scope\": \"all\"}"
+    },
+    {
+      "role": "user",
+      "content": "TOOL_RESULT transform_column: {\"newColumn\":\"关键词\",\"sourceColumn\":\"客户反馈\",\"rowsProcessed\":15,\"rowsFailed\":5,\"rowsEmpty\":0,\"scope\":\"all\",\"failedRows\":[11,12,13,14,15],\"outcome\":\"Of the 15 rows, 5 got no answer; all 5 were left blank in \\\"关键词\\\", and the user chose to keep the 10 rows that worked. Say so. Your next reply is the answer to the user, not another tool call. This run is finished and reporting it is all that is left to do. The unanswered rows are 11–15.\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "{\"type\": \"final\", \"message\": \"已从 15 行里提取出 10 行的关键词，第 11–15 行没有拿到结果，在「关键词」列里留空了。\"}"
+    },
+    {
+      "role": "user",
+      "content": "11 到 15 行再提取一次"
+    }
+  ],
+  "grid": {
+    "sheetName": "反馈表",
+    "headers": [
+      "客户反馈",
+      "关键词"
+    ],
+    "rowCount": 15,
+    "sampleRows": [
+      [
+        "包装破损，但客服态度很好",
+        "包装破损"
+      ],
+      [
+        "物流太慢了",
+        "物流慢"
+      ],
+      [
+        "很好用，会回购",
+        "好用"
+      ],
+      [
+        "推荐给朋友了",
+        "推荐"
+      ],
+      [
+        "价格偏贵",
+        "价格贵"
+      ],
+      [
+        "客服响应很快",
+        "客服快"
+      ],
+      [
+        "包装很精致",
+        "包装精致"
+      ],
+      [
+        "不太符合描述",
+        "不符描述"
+      ],
+      [
+        "质量一般",
+        "质量一般"
+      ],
+      [
+        "发货很及时",
+        "发货及时"
+      ],
+      [
+        "颜色和图片有差",
+        ""
+      ],
+      [
+        "尺码偏小",
+        ""
+      ],
+      [
+        "售后处理满意",
+        ""
+      ],
+      [
+        "第二次购买了",
+        ""
+      ],
+      [
+        "会推荐同事",
+        ""
+      ]
+    ],
+    "lineage": {
+      "关键词": {
+        "tool": "transform_column",
+        "from": [
+          "客户反馈"
+        ],
+        "how": "从每条客户反馈中提取最核心的关键词"
+      }
+    }
+  }
+}
