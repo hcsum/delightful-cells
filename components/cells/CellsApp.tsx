@@ -849,40 +849,43 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       className="flex min-h-screen flex-col bg-[#fffdf8] text-black lg:h-screen"
       style={{ fontFamily: ROUNDED_FONT }}
     >
-      <header className="flex items-center justify-between px-6 pt-5">
-        <div className="max-w-4xl">
-          <div className="text-2xl font-extrabold tracking-tight">
-            Delightful{" "}
-            <span className="bg-gradient-to-r from-[#ff0080] via-[#ff8c00] to-[#7c4dff] bg-clip-text text-transparent">
-              Cells
-            </span>
-          </div>
-          <h1 className="mt-1 text-sm font-extrabold leading-tight text-black/80">
-            {t(locale, "heroTitle")}
-          </h1>
-          <p className="mt-1 max-w-3xl text-xs font-semibold leading-snug text-black/45">
-            {t(locale, "subtitle")}
-          </p>
+      <header className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="shrink-0 text-xl font-extrabold tracking-tight sm:text-2xl">
+          Delightful{" "}
+          <span className="bg-gradient-to-r from-[#ff0080] via-[#ff8c00] to-[#7c4dff] bg-clip-text text-transparent">
+            Cells
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-        <select
-          value={locale}
-          onChange={(event) => switchLocale(event.target.value as Locale)}
-          aria-label={locale === "zh" ? "语言" : locale === "ja" ? "言語" : "Language"}
-          className="inline-flex items-center rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
-        >
-          <option value="en">English</option>
-          <option value="zh">中文</option>
-          <option value="ja">日本語</option>
-        </select>
-        {/* AppShell early-returns on "/", so the homepage carries its own
-            header controls rather than inheriting the site chrome. */}
-        <CreditsBadge me={me} />
-        <AuthPill />
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
+          <select
+            value={locale}
+            onChange={(event) => switchLocale(event.target.value as Locale)}
+            aria-label={locale === "zh" ? "语言" : locale === "ja" ? "言語" : "Language"}
+            className="inline-flex items-center rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
+          >
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+            <option value="ja">日本語</option>
+          </select>
+          {/* AppShell early-returns on "/", so the homepage carries its own
+              header controls rather than inheriting the site chrome. */}
+          <div className="flex items-center gap-2">
+            <CreditsBadge me={me} />
+            <AuthPill />
+          </div>
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:[grid-template-rows:minmax(0,1fr)]">
+      <section className="px-4 pb-1 pt-2 sm:px-6">
+        <h1 className="text-sm font-extrabold leading-tight text-black/80">
+          {t(locale, "heroTitle")}
+        </h1>
+        <p className="mt-1 max-w-3xl text-xs font-semibold leading-snug text-black/45">
+          {t(locale, "subtitle")}
+        </p>
+      </section>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 pt-3 sm:p-6 sm:pt-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:[grid-template-rows:minmax(0,1fr)]">
         <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
           <WorkbookPanel
             state={workbookState}
