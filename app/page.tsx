@@ -4,28 +4,28 @@ import { localeAlternates, serverLocale } from "@/lib/seo";
 
 const COPY = {
   en: {
-    title: "Delightful Cells — chat with your Excel spreadsheet",
+    title: "Reliable Bulk AI for Excel & CSV | Delightful Cells",
     description:
-      "Upload an Excel or CSV file, see it instantly, and edit it by talking: summarize a column, highlight rows, batch find & replace, AI-fill a new column. Plus classic one-job tools for extracting, comparing, and de-duplicating columns.",
+      "Run AI across thousands of Excel or CSV rows with automatic retries and partial-result recovery. Completed rows are preserved, and credits never expire.",
     ogDescription:
-      "Upload an Excel or CSV, see it instantly, and edit it in plain English. Tools run locally in your browser.",
-    imageAlt: "AI working on an Excel spreadsheet",
+      "Upload an Excel or CSV, describe what each row needs, and get a complete result with automatic retries and recovery.",
+    imageAlt: "Delightful Cells processing spreadsheet rows with AI",
   },
   zh: {
-    title: "Delightful Cells —— 跟你的 Excel 表格对话",
+    title: "可靠的 Excel 与 CSV 批量 AI 处理 | Delightful Cells",
     description:
-      "上传 Excel 或 CSV 文件，立刻看到内容，然后用说话的方式改它：总结一列、高亮行、批量查找替换、让 AI 填出新的一列。还有一批只做一件事的经典工具，用来提取、比较和去重。",
+      "用 AI 批量处理数千行 Excel 或 CSV 数据。失败任务自动重试，已完成的行会保留，还能只重跑失败的行；点数一次购买、永不过期。",
     ogDescription:
-      "上传 Excel 或 CSV，立刻看到内容，用大白话就能改。工具在你的浏览器里本地运行。",
-    imageAlt: "AI working on an Excel spreadsheet",
+      "上传 Excel 或 CSV，说明每行需要做什么；失败任务自动重试，并可恢复部分结果。",
+    imageAlt: "Delightful Cells 使用 AI 批量处理表格行",
   },
   ja: {
-    title: "Delightful Cells — Excelと会話",
+    title: "Excel・CSV向けの信頼できる一括AI処理 | Delightful Cells",
     description:
-      "ExcelやCSVファイルをアップロードすると、内容をすぐに確認し、日本語で指示して編集できます。列の要約、行のハイライト、一括検索・置換、AIによる列の自動入力のほか、抽出・比較・重複削除用の個別ツールも利用できます。",
+      "ExcelやCSVの数千行をAIで一括処理。失敗した処理は自動で再試行され、完了済みの行は保持されます。失敗した行だけの再実行も可能で、クレジットに有効期限はありません。",
     ogDescription:
-      "Excel または CSV をアップロードし、内容をすぐに確認。日本語で指示するだけで編集でき、処理はブラウザ内で実行されます。",
-    imageAlt: "AI が Excel スプレッドシートを処理している様子",
+      "ExcelやCSVをアップロードし、各行の処理内容を指示。自動再試行と部分結果の復旧で、最後まで処理できます。",
+    imageAlt: "Delightful Cellsでスプレッドシートの行をAI一括処理",
   },
 };
 
@@ -33,12 +33,14 @@ export function generateMetadata() {
   const locale = serverLocale();
   const c = COPY[locale];
   return {
-    title: c.title,
+    title: { absolute: c.title },
     description: c.description,
     openGraph: {
       title: c.title,
       description: c.ogDescription,
       type: "website",
+      siteName: "Delightful Cells",
+      locale: locale === "zh" ? "zh_CN" : locale === "ja" ? "ja_JP" : "en_US",
       images: [
         {
           url: "/hero-image-3.png",
@@ -47,6 +49,12 @@ export function generateMetadata() {
           alt: c.imageAlt,
         },
       ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: c.title,
+      description: c.ogDescription,
+      images: ["/hero-image-3.png"],
     },
     alternates: localeAlternates("/", locale),
     robots: { index: true, follow: true },

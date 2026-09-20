@@ -850,14 +850,17 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       style={{ fontFamily: ROUNDED_FONT }}
     >
       <header className="flex items-center justify-between px-6 pt-5">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">
+        <div className="max-w-4xl">
+          <div className="text-2xl font-extrabold tracking-tight">
             Delightful{" "}
             <span className="bg-gradient-to-r from-[#ff0080] via-[#ff8c00] to-[#7c4dff] bg-clip-text text-transparent">
               Cells
             </span>
+          </div>
+          <h1 className="mt-1 text-sm font-extrabold leading-tight text-black/80">
+            {t(locale, "heroTitle")}
           </h1>
-          <p className="text-xs font-semibold text-black/45">
+          <p className="mt-1 max-w-3xl text-xs font-semibold leading-snug text-black/45">
             {t(locale, "subtitle")}
           </p>
         </div>

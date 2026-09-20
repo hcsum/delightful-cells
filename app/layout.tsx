@@ -11,10 +11,10 @@ import { SITE_URL } from "@/lib/site";
 // page suffixed "| Excel Data Tools" reads as an English page to a crawler.
 const SITE = {
   en: {
-    default: "Extract, summarize, classify, compare columns in Excel with AI",
+    default: "Reliable Bulk AI for Excel & CSV | Delightful Cells",
     template: "%s | Excel Data Tools",
     description:
-      "Extract, summarize, classify data from Excel or CSV files. Find duplicates, compare columns. Built for one-off cleanup tasks — upload, preview, and download results in seconds. Get jobs done without fighting Excel settings and formulas.",
+      "Run AI across thousands of Excel or CSV rows with automatic retries and partial-result recovery. Completed rows are preserved, and credits never expire.",
     keywords: [
       // High-volume core
       "find duplicates in excel",
@@ -33,13 +33,16 @@ const SITE = {
       "ai for excel",
       "ai excel tool",
       "excel ai data extraction",
+      "bulk ai spreadsheet processing",
+      "bulk ai excel",
+      "ai process csv rows",
     ],
   },
   zh: {
-    default: "用 AI 提取、总结、分类、比较 Excel 的列",
+    default: "可靠的 Excel 与 CSV 批量 AI 处理 | Delightful Cells",
     template: "%s | Excel 数据工具",
     description:
-      "从 Excel 或 CSV 文件里提取、总结、分类数据，查找重复值，比较两列。为一次性的数据整理而做 —— 上传、预览、下载，几秒钟拿到结果，不用再跟 Excel 的设置和公式较劲。",
+      "用 AI 批量处理数千行 Excel 或 CSV 数据。失败任务自动重试，已完成的行会保留，还能只重跑失败的行；点数一次购买、永不过期。",
     keywords: [
       "excel 查找重复值",
       "excel 比较两列",
@@ -52,13 +55,15 @@ const SITE = {
       "excel ai 工具",
       "ai 处理 excel",
       "excel ai 数据提取",
+      "ai 批量处理表格",
+      "ai 批量处理 excel",
     ],
   },
   ja: {
-    default: "AIでExcelの列を抽出・要約・分類・比較",
+    default: "Excel・CSV向けの信頼できる一括AI処理 | Delightful Cells",
     template: "%s | Excel データツール",
     description:
-      "ExcelやCSVのデータを抽出・要約・分類できます。重複チェックや列の比較にも対応。ファイルをアップロードして結果を確認し、そのままダウンロードできます。",
+      "ExcelやCSVの数千行をAIで一括処理。失敗した処理は自動で再試行され、完了済みの行は保持されます。失敗した行だけの再実行も可能です。",
     keywords: [
       "excel 重複 検索",
       "excel 2列 比較",
@@ -71,6 +76,7 @@ const SITE = {
       "excel ai ツール",
       "ai excel 処理",
       "excel ai データ抽出",
+      "ai 表計算 一括処理",
     ],
   },
 } as const;
