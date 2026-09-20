@@ -49,7 +49,11 @@ import WorkbookPanel, { type WorkbookState } from "./WorkbookPanel";
 import ChatPanel from "./ChatPanel";
 import UsageMeter from "./UsageMeter";
 import { LocaleContext, useStoredLocale } from "@/lib/cells/locale";
-import { describeUserChanges, snapshotGrid, type GridSnapshot } from "@/lib/cells/state-diff";
+import {
+  describeUserChanges,
+  snapshotGrid,
+  type GridSnapshot,
+} from "@/lib/cells/state-diff";
 import { presetsFor } from "@/lib/cells/demo";
 import { t, type Locale } from "@/lib/cells/i18n";
 import {
@@ -62,6 +66,7 @@ import {
 import { useMe } from "@/lib/billing/useMe";
 import AuthPill from "@/components/billing/AuthPill";
 import CreditsBadge from "@/components/billing/CreditsBadge";
+import { trackEvent } from "@/lib/analytics";
 
 // Rounded system font stack — no build-time font download, fork-friendly.
 const ROUNDED_FONT =
@@ -79,7 +84,11 @@ function gridFromSheet(sheet: ParsedSheet): GridState {
   };
 }
 
-export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Locale }) {
+export default function CellsApp({
+  initialLocale = "en",
+}: {
+  initialLocale?: Locale;
+}) {
   const [locale, switchLocale] = useStoredLocale(initialLocale);
 
   const [workbookState, setWorkbookState] = useState<WorkbookState>({
@@ -161,7 +170,9 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
 
   const confirmLargeAiRun = useCallback((rows: number) => {
     if (rows <= LARGE_AI_RUN_ROWS) return true;
-    const seconds = Math.ceil(Math.ceil(rows / AI_BATCH_ROWS) * MEASURED_SECONDS_PER_BATCH);
+    const seconds = Math.ceil(
+      Math.ceil(rows / AI_BATCH_ROWS) * MEASURED_SECONDS_PER_BATCH,
+    );
     const minutes = Math.ceil(seconds / 60);
     return window.confirm(
       t(localeRef.current, "largeRunConfirm", {
@@ -180,14 +191,19 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     failed: number;
     stopped?: ProcessStop;
   } | null>(null);
-  const partialResolverRef = useRef<((d: "retry" | "apply") => void) | null>(null);
+  const partialResolverRef = useRef<((d: "retry" | "apply") => void) | null>(
+    null,
+  );
   const aiBusy = agent.phase !== "idle" || partialPrompt != null;
   aiBusyRef.current = aiBusy;
   // A tool running right now owns the sheet, so the composer stays shut even
   // after an earlier tool in the same turn has landed.
-  const toolRunning = agent.phase === "executing_tool" || agent.phase === "processing_rows";
+  const toolRunning =
+    agent.phase === "executing_tool" || agent.phase === "processing_rows";
   const inputLocked =
-    (agent.phase !== "idle" && !agent.toolLanded) || toolRunning || partialPrompt != null;
+    (agent.phase !== "idle" && !agent.toolLanded) ||
+    toolRunning ||
+    partialPrompt != null;
 
   const resolvePartial = useCallback((decision: "retry" | "apply") => {
     const resolve = partialResolverRef.current;
@@ -225,14 +241,25 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       keptPartial: boolean;
     }> => {
       const onProgress = (done: number, total: number) =>
-        setAgent((prev) => ({ ...prev, phase: "processing_rows", progress: { done, total } }));
+        setAgent((prev) => ({
+          ...prev,
+          phase: "processing_rows",
+          progress: { done, total },
+        }));
       const run = (rows: string[]) => {
         onProgress(0, rows.length);
-        return processRows(rows, instruction, column, AI_BATCH_ROWS, undefined, {
-          action: "download",
-          locale: localeRef.current as "en" | "zh",
-          onProgress,
-        });
+        return processRows(
+          rows,
+          instruction,
+          column,
+          AI_BATCH_ROWS,
+          undefined,
+          {
+            action: "download",
+            locale: localeRef.current as "en" | "zh",
+            onProgress,
+          },
+        );
       };
 
       const first = await run(values);
@@ -289,52 +316,75 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     );
   }, []);
 
-  const handleFile = useCallback((file: File) => {
-    supersedeTurn(); // cancel any in-flight agent turn
-    resolvePartial("apply"); // settle a dangling result dialog, if any
-    lastTurnSnapshotRef.current = null;
-    userEditsRef.current = 0;
-    setAgent({ phase: "idle", step: 1, progress: null, toolLanded: false });
-    // XLSX.read is synchronous: a big file freezes the tab for seconds, so say
-    // so up front rather than looking hung.
-    setWorkbookState({
-      status: "parsing",
-      fileName: file.name,
-      big: file.size > 5 * 1024 * 1024,
-    });
-    // Let the "parsing" frame paint before the (synchronous) parse work.
-    window.setTimeout(async () => {
-      try {
-        const workbook = await parseWorkbookFile(file);
-        const grid = gridFromSheet(workbook.sheets[0]);
-        gridRef.current = grid;
-        setWorkbookState({ status: "ready", workbook, activeSheet: 0, grid });
-        setMessages([]);
-      } catch (e) {
-        setWorkbookState({
-          status: "error",
-          message:
-            e instanceof WorkbookError
-              ? e.message
-              : t(localeRef.current, "openError"),
-        });
-      }
-    }, 0);
-  }, [resolvePartial, supersedeTurn]);
+  const handleFile = useCallback(
+    (file: File) => {
+      const fileType = file.name.split(".").pop()?.toLowerCase() ?? "unknown";
+      trackEvent("workbook_open_started", {
+        file_type: fileType,
+        file_size_kb: Math.ceil(file.size / 1024),
+      });
+      supersedeTurn(); // cancel any in-flight agent turn
+      resolvePartial("apply"); // settle a dangling result dialog, if any
+      lastTurnSnapshotRef.current = null;
+      userEditsRef.current = 0;
+      setAgent({ phase: "idle", step: 1, progress: null, toolLanded: false });
+      // XLSX.read is synchronous: a big file freezes the tab for seconds, so say
+      // so up front rather than looking hung.
+      setWorkbookState({
+        status: "parsing",
+        fileName: file.name,
+        big: file.size > 5 * 1024 * 1024,
+      });
+      // Let the "parsing" frame paint before the (synchronous) parse work.
+      window.setTimeout(async () => {
+        try {
+          const workbook = await parseWorkbookFile(file);
+          const grid = gridFromSheet(workbook.sheets[0]);
+          gridRef.current = grid;
+          setWorkbookState({ status: "ready", workbook, activeSheet: 0, grid });
+          setMessages([]);
+          trackEvent("workbook_opened", {
+            file_type: fileType,
+            rows: grid.rows.length,
+            columns: grid.headers.length,
+            sheets: workbook.sheets.length,
+          });
+        } catch (e) {
+          trackEvent("workbook_open_failed", {
+            file_type: fileType,
+            error_type:
+              e instanceof WorkbookError ? "workbook_error" : "unknown_error",
+          });
+          setWorkbookState({
+            status: "error",
+            message:
+              e instanceof WorkbookError
+                ? e.message
+                : t(localeRef.current, "openError"),
+          });
+        }
+      }, 0);
+    },
+    [resolvePartial, supersedeTurn],
+  );
 
-  const handleSelectSheet = useCallback((index: number) => {
-    supersedeTurn();
-    resolvePartial("apply");
-    lastTurnSnapshotRef.current = null;
-    userEditsRef.current = 0;
-    setAgent({ phase: "idle", step: 1, progress: null, toolLanded: false });
-    setWorkbookState((prev) => {
-      if (prev.status !== "ready" || !prev.workbook.sheets[index]) return prev;
-      const grid = gridFromSheet(prev.workbook.sheets[index]);
-      gridRef.current = grid;
-      return { ...prev, activeSheet: index, grid };
-    });
-  }, [resolvePartial, supersedeTurn]);
+  const handleSelectSheet = useCallback(
+    (index: number) => {
+      supersedeTurn();
+      resolvePartial("apply");
+      lastTurnSnapshotRef.current = null;
+      userEditsRef.current = 0;
+      setAgent({ phase: "idle", step: 1, progress: null, toolLanded: false });
+      setWorkbookState((prev) => {
+        if (prev.status !== "ready" || !prev.workbook.sheets[index])
+          return prev;
+        const grid = gridFromSheet(prev.workbook.sheets[index]);
+        gridRef.current = grid;
+        return { ...prev, activeSheet: index, grid };
+      });
+    },
+    [resolvePartial, supersedeTurn],
+  );
 
   const handleReset = useCallback(() => {
     setWorkbookState((prev) => {
@@ -354,7 +404,9 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       if (!grid) return;
       const cur = new Set(grid.selectedRows ?? []);
       if (mods.shift && selectionAnchorRef.current != null) {
-        const [a, b] = [selectionAnchorRef.current, rowIdx].sort((x, y) => x - y);
+        const [a, b] = [selectionAnchorRef.current, rowIdx].sort(
+          (x, y) => x - y,
+        );
         for (let i = a; i <= b; i++) cur.add(i);
       } else if (mods.meta) {
         cur.has(rowIdx) ? cur.delete(rowIdx) : cur.add(rowIdx);
@@ -412,9 +464,11 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = workbookState.workbook.fileName.replace(/\.[^.]+$/, "") + "-cells.csv";
+    a.download =
+      workbookState.workbook.fileName.replace(/\.[^.]+$/, "") + "-cells.csv";
     a.click();
     URL.revokeObjectURL(url);
+    trackEvent("workbook_downloaded", { format: "csv", rows: kept.length });
   }, [workbookState]);
 
   // Export the whole workbook as .xlsx: the active sheet gets the edited grid
@@ -444,23 +498,31 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
     );
     const fileName =
       workbookState.workbook.fileName.replace(/\.[^.]+$/, "") + "-cells.xlsx";
-    void downloadWorkbookXlsx(fileName, sheets).catch((e) => {
-      // The styled writer refuses past MAX_STYLED_EXPORT_ROWS; the CSV and
-      // unhighlighted paths still work, so say which way out is available.
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: nextMessageId(),
-          role: "note",
-          content:
-            e instanceof ExportTooLargeError
-              ? t(localeRef.current, "exportTooLarge", {
-                  n: Number(e.message).toLocaleString(),
-                })
-              : t(localeRef.current, "genericError"),
-        },
-      ]);
-    });
+    void downloadWorkbookXlsx(fileName, sheets)
+      .then(() => {
+        trackEvent("workbook_downloaded", {
+          format: "xlsx",
+          rows: kept.length,
+        });
+      })
+      .catch((e) => {
+        trackEvent("workbook_download_failed", { format: "xlsx" });
+        // The styled writer refuses past MAX_STYLED_EXPORT_ROWS; the CSV and
+        // unhighlighted paths still work, so say which way out is available.
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nextMessageId(),
+            role: "note",
+            content:
+              e instanceof ExportTooLargeError
+                ? t(localeRef.current, "exportTooLarge", {
+                    n: Number(e.message).toLocaleString(),
+                  })
+                : t(localeRef.current, "genericError"),
+          },
+        ]);
+      });
   }, [workbookState]);
 
   // transform_column: run the instruction on every row via the batched LLM
@@ -472,7 +534,9 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       const grid = gridRef.current!;
       const colIdx = findColumnIndex(grid.headers, call.column);
       const only = resolveScope(grid, call);
-      const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
+      const targets = grid.rows
+        .map((_, i) => i)
+        .filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
       if (values.length > maxRowsRef.current) {
         return {
@@ -493,11 +557,8 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       // still the same one before writing row-indexed outputs back into it.
       const gridAtStart = grid;
       try {
-        const { results, failedIndices, stopped, keptPartial } = await runRowsWithRecovery(
-          values,
-          call.instruction,
-          call.column,
-        );
+        const { results, failedIndices, stopped, keptPartial } =
+          await runRowsWithRecovery(values, call.instruction, call.column);
         if (gridRef.current !== gridAtStart) {
           return {
             ok: false,
@@ -528,7 +589,9 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         if (gapColIdx != null) {
           name = current.headers[gapColIdx];
           const fills = new Map<number, string>();
-          targets.forEach((rowIdx, j) => fills.set(rowIdx, results[j]?.output ?? ""));
+          targets.forEach((rowIdx, j) =>
+            fills.set(rowIdx, results[j]?.output ?? ""),
+          );
           nextGrid = withLineage(
             { ...current, rows: fillCells(current.rows, gapColIdx, fills) },
             name,
@@ -537,8 +600,15 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         } else {
           name = uniquifyHeader(current.headers, call.newColumnName);
           const outputs = new Array<string>(current.rows.length).fill("");
-          targets.forEach((rowIdx, j) => (outputs[rowIdx] = results[j]?.output ?? ""));
-          const next = appendColumn(current.headers, current.rows, name, outputs);
+          targets.forEach(
+            (rowIdx, j) => (outputs[rowIdx] = results[j]?.output ?? ""),
+          );
+          const next = appendColumn(
+            current.headers,
+            current.rows,
+            name,
+            outputs,
+          );
           // Remember what the new column was read from. The result below and
           // every later prompt say so, which is the only way the model can know
           // a column is a copy when it later tries to check it "against the source".
@@ -553,20 +623,26 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
         // Three different empties, and the model needs to tell them apart: a
         // row the AI answered with nothing, a row we never got an answer for,
         // and a row outside the scope.
-        const { filled, empty, failed } = processResultCounts(results, failedIndices);
+        const { filled, empty, failed } = processResultCounts(
+          results,
+          failedIndices,
+        );
         const failedRows = failedRowNumbers(targets, failedIndices);
         const shortfall = failed + empty;
         const shortfallDetails = [
           failed ? `${failed} failed` : "",
           empty ? `${empty} empty` : "",
-        ].filter(Boolean).join(", ");
+        ]
+          .filter(Boolean)
+          .join(", ");
         // The old sentence said a column was added, which is false for a fill.
         // What the user needs to know instead is that their data is in ONE
         // column now, and whether any of it is still missing.
         const stillBlank =
           gapColIdx == null
             ? 0
-            : nextGrid.rows.filter((r) => (r[gapColIdx] ?? "").trim() === "").length;
+            : nextGrid.rows.filter((r) => (r[gapColIdx] ?? "").trim() === "")
+                .length;
         const placement =
           gapColIdx == null
             ? ""
@@ -577,7 +653,11 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
               } `;
         return {
           ok: true,
-          requiresFollowup: rowRunRequiresFollowup({ empty, failed }, stopped, keptPartial),
+          requiresFollowup: rowRunRequiresFollowup(
+            { empty, failed },
+            stopped,
+            keptPartial,
+          ),
           summary:
             shortfall > 0
               ? `${filled}/${results.length} rows → "${name}" (${shortfallDetails})`
@@ -600,9 +680,13 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
             outcome:
               (shortfall > 0
                 ? `Of the ${results.length} rows, ${shortfallPhrase(failed, empty)}; all ${shortfall} were left blank in "${name}"${
-                    keptPartial ? `, and the user chose to keep the ${filled} rows that worked` : ""
+                    keptPartial
+                      ? `, and the user chose to keep the ${filled} rows that worked`
+                      : ""
                   }. Say so. ${failed ? `${retryHint(failedRows)} ` : ""}`
-                : "") + placement + provenance.outcome,
+                : "") +
+              placement +
+              provenance.outcome,
           },
         };
       } catch (e) {
@@ -627,7 +711,9 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       const grid = gridRef.current!;
       const colIdx = findColumnIndex(grid.headers, call.column);
       const only = resolveScope(grid, call);
-      const targets = grid.rows.map((_, i) => i).filter((i) => !only || only.has(i));
+      const targets = grid.rows
+        .map((_, i) => i)
+        .filter((i) => !only || only.has(i));
       const values = targets.map((i) => grid.rows[i][colIdx] ?? "");
       if (values.length > maxRowsRef.current) {
         return {
@@ -645,11 +731,12 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       }
       const gridAtStart = grid;
       try {
-        const { results, failedIndices, stopped, keptPartial } = await runRowsWithRecovery(
-          values,
-          `Answer only YES or NO: does this text match the test "${call.criteria}"?`,
-          call.column,
-        );
+        const { results, failedIndices, stopped, keptPartial } =
+          await runRowsWithRecovery(
+            values,
+            `Answer only YES or NO: does this text match the test "${call.criteria}"?`,
+            call.column,
+          );
         if (gridRef.current !== gridAtStart) {
           return {
             ok: false,
@@ -669,25 +756,33 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           call.mode === "select"
             ? { ...current, selectedRows: selection }
             : { ...current, filterKept: matched };
-        if (call.highlight && matched.length) next = paintRows(next, matched, call.highlight);
+        if (call.highlight && matched.length)
+          next = paintRows(next, matched, call.highlight);
         setGrid(next);
         const verb = call.mode === "select" ? "selected" : "kept";
         const alsoSelected = (selection?.size ?? 0) - matched.length;
         // A row we never got an answer for is not a NO. It falls out of the
         // match set either way, so the model has to say it was undecided
         // rather than reporting it as "did not match".
-        const { filled: judged, empty, failed } = processResultCounts(results, failedIndices);
+        const {
+          filled: judged,
+          empty,
+          failed,
+        } = processResultCounts(results, failedIndices);
         const unjudged = failed + empty;
         const failedRows = failedRowNumbers(targets, failedIndices);
         const scopeNote = only ? ` (within the ${scopeLabel(call)} rows)` : "";
         // Both kinds of shortfall are "undecided", but the badge only splits
         // them when there is something to split.
         const undecidedNote =
-          failed && empty ? `${unjudged} undecided: ${failed} failed, ${empty} empty` : `${unjudged} undecided`;
+          failed && empty
+            ? `${unjudged} undecided: ${failed} failed, ${empty} empty`
+            : `${unjudged} undecided`;
         return {
           ok: true,
           requiresFollowup:
-            rowRunRequiresFollowup({ empty, failed }, stopped, keptPartial) || matched.length === 0,
+            rowRunRequiresFollowup({ empty, failed }, stopped, keptPartial) ||
+            matched.length === 0,
           summary:
             unjudged > 0
               ? `${matched.length} of ${judged} judged rows ${verb} (${undecidedNote})`
@@ -708,7 +803,10 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
                 : "") +
               matchOutcome({
                 matched: matched.length,
-                outOf: unjudged > 0 ? `${judged} judged rows` : `${results.length} rows${scopeNote}`,
+                outOf:
+                  unjudged > 0
+                    ? `${judged} judged rows`
+                    : `${results.length} rows${scopeNote}`,
                 test: `"${call.criteria}" (judged by AI on ${call.column})`,
                 mode: call.mode,
                 highlight: call.highlight,
@@ -735,7 +833,13 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
   const handleSend = useCallback(
     async (text: string) => {
       if (workbookState.status !== "ready" || inputLocked) return;
-      const sheetName = workbookState.workbook.sheets[workbookState.activeSheet].name;
+      trackEvent("agent_prompt_submitted", {
+        rows: workbookState.grid.rows.length,
+        columns: workbookState.grid.headers.length,
+        locale: localeRef.current,
+      });
+      const sheetName =
+        workbookState.workbook.sheets[workbookState.activeSheet].name;
       const userMessage: ChatMessage = {
         id: nextMessageId(),
         role: "user",
@@ -745,11 +849,16 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       // model reads before the new request (and a gray line in the chat).
       const prevSnap = lastTurnSnapshotRef.current;
       const note = prevSnap
-        ? describeUserChanges(prevSnap, snapshotGrid(gridRef.current!, userEditsRef.current))
+        ? describeUserChanges(
+            prevSnap,
+            snapshotGrid(gridRef.current!, userEditsRef.current),
+          )
         : null;
       const history: ChatMessage[] = [
         ...messages,
-        ...(note ? [{ id: nextMessageId(), role: "note" as const, content: note }] : []),
+        ...(note
+          ? [{ id: nextMessageId(), role: "note" as const, content: note }]
+          : []),
         userMessage,
       ];
       setMessages(history);
@@ -760,13 +869,27 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       const abort = new AbortController();
       turnAbortRef.current = abort;
       const runTool = async (call: ToolCall): Promise<ToolResult> => {
-        if (call.tool === "transform_column") return runTransform(call);
-        if (call.tool === "filter_rows_ai") return runAiFilter(call);
-        const { result, nextGrid } = dispatchTool(call, gridRef.current!);
-        setGrid(nextGrid);
+        let result: ToolResult;
+        if (call.tool === "transform_column") result = await runTransform(call);
+        else if (call.tool === "filter_rows_ai")
+          result = await runAiFilter(call);
+        else {
+          const dispatched = dispatchTool(call, gridRef.current!);
+          result = dispatched.result;
+          setGrid(dispatched.nextGrid);
+        }
+        trackEvent("agent_tool_completed", {
+          tool_name: call.tool,
+          success: result.ok,
+        });
         return result;
       };
-      setAgent({ phase: "connecting", step: 1, progress: null, toolLanded: false });
+      setAgent({
+        phase: "connecting",
+        step: 1,
+        progress: null,
+        toolLanded: false,
+      });
 
       try {
         await runAgentTurn({
@@ -799,7 +922,10 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
               // whether the user types during the trailing call or the turn
               // dies after the tool ran.
               if (gridRef.current) {
-                lastTurnSnapshotRef.current = snapshotGrid(gridRef.current, userEditsRef.current);
+                lastTurnSnapshotRef.current = snapshotGrid(
+                  gridRef.current,
+                  userEditsRef.current,
+                );
               }
               if (turnIdRef.current === turnId) {
                 setAgent((prev) => ({ ...prev, toolLanded: true }));
@@ -809,16 +935,25 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
           },
           isStale: () => turnIdRef.current !== turnId,
           emit: (message) => setMessages((prev) => [...prev, message]),
-          onStep: (step) => setAgent((prev) => ({
-            ...prev,
-            phase: process.env.NEXT_PUBLIC_CHAT_STREAMING !== "false"
-              ? (step === 1 ? "connecting" : "checking_result")
-              : (step === 1 ? "analyzing" : "checking_result"),
-            step,
-          })),
+          onStep: (step) =>
+            setAgent((prev) => ({
+              ...prev,
+              phase:
+                process.env.NEXT_PUBLIC_CHAT_STREAMING !== "false"
+                  ? step === 1
+                    ? "connecting"
+                    : "checking_result"
+                  : step === 1
+                    ? "analyzing"
+                    : "checking_result",
+              step,
+            })),
           onPhase: (phase) => setAgent((prev) => ({ ...prev, phase })),
         });
       } catch (e) {
+        trackEvent("agent_turn_failed", {
+          error_type: e instanceof Error ? e.name : "unknown_error",
+        });
         if (turnIdRef.current === turnId) {
           setMessages((prev) => [
             ...prev,
@@ -832,109 +967,128 @@ export default function CellsApp({ initialLocale = "en" }: { initialLocale?: Loc
       } finally {
         if (turnIdRef.current === turnId) {
           turnAbortRef.current = null; // this turn is done; nothing left to abort
-          setAgent({ phase: "idle", step: 1, progress: null, toolLanded: false });
+          setAgent({
+            phase: "idle",
+            step: 1,
+            progress: null,
+            toolLanded: false,
+          });
           if (gridRef.current) {
-            lastTurnSnapshotRef.current = snapshotGrid(gridRef.current, userEditsRef.current);
+            lastTurnSnapshotRef.current = snapshotGrid(
+              gridRef.current,
+              userEditsRef.current,
+            );
           }
         }
         setUsageRefresh((n) => n + 1);
       }
     },
-    [workbookState, inputLocked, messages, setGrid, runTransform, runAiFilter, supersedeTurn],
+    [
+      workbookState,
+      inputLocked,
+      messages,
+      setGrid,
+      runTransform,
+      runAiFilter,
+      supersedeTurn,
+    ],
   );
 
   return (
     <LocaleContext.Provider value={locale}>
-    <div
-      className="flex min-h-screen flex-col bg-[#fffdf8] text-black lg:h-screen"
-      style={{ fontFamily: ROUNDED_FONT }}
-    >
-      <header className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="shrink-0 text-xl font-extrabold tracking-tight sm:text-2xl">
-          Delightful{" "}
-          <span className="bg-gradient-to-r from-[#ff0080] via-[#ff8c00] to-[#7c4dff] bg-clip-text text-transparent">
-            Cells
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-2 sm:justify-end">
-          <select
-            value={locale}
-            onChange={(event) => switchLocale(event.target.value as Locale)}
-            aria-label={locale === "zh" ? "语言" : locale === "ja" ? "言語" : "Language"}
-            className="inline-flex items-center rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
-          >
-            <option value="en">English</option>
-            <option value="zh">中文</option>
-            <option value="ja">日本語</option>
-          </select>
-          {/* AppShell early-returns on "/", so the homepage carries its own
+      <div
+        className="flex min-h-screen flex-col bg-[#fffdf8] text-black lg:h-screen"
+        style={{ fontFamily: ROUNDED_FONT }}
+      >
+        <header className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="shrink-0 text-xl font-extrabold tracking-tight sm:text-2xl">
+            Delightful{" "}
+            <span className="bg-gradient-to-r from-[#ff0080] via-[#ff8c00] to-[#7c4dff] bg-clip-text text-transparent">
+              Cells
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2 sm:justify-end">
+            <select
+              value={locale}
+              onChange={(event) => switchLocale(event.target.value as Locale)}
+              aria-label={
+                locale === "zh" ? "语言" : locale === "ja" ? "言語" : "Language"
+              }
+              className="inline-flex items-center rounded-full border !border-black/15 bg-white px-3 py-1.5 text-xs font-semibold !text-black/70 hover:bg-[#fff3d6]"
+            >
+              <option value="en">English</option>
+              <option value="zh">中文</option>
+              <option value="ja">日本語</option>
+            </select>
+            {/* AppShell early-returns on "/", so the homepage carries its own
               header controls rather than inheriting the site chrome. */}
-          <div className="flex items-center gap-2">
-            <CreditsBadge me={me} />
-            <AuthPill />
+            <div className="flex items-center gap-2">
+              <CreditsBadge me={me} />
+              <AuthPill />
+            </div>
+          </div>
+        </header>
+
+        <section className="px-4 pb-1 pt-2 sm:px-6">
+          <h1 className="text-sm font-extrabold leading-tight text-black/80">
+            {t(locale, "heroTitle")}
+          </h1>
+          <p className="mt-1 max-w-3xl text-xs font-semibold leading-snug text-black/45">
+            {t(locale, "subtitle")}
+          </p>
+        </section>
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 pt-3 sm:p-6 sm:pt-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:[grid-template-rows:minmax(0,1fr)]">
+          <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
+            <WorkbookPanel
+              state={workbookState}
+              onFile={handleFile}
+              onEditCell={aiBusy ? undefined : handleEditCell}
+              onSelectRow={handleSelectRow}
+              onClearSelection={handleClearSelection}
+              onSelectSheet={handleSelectSheet}
+              onClearHighlights={handleClearHighlights}
+              onShowAllRows={handleShowAllRows}
+              onReset={handleReset}
+              onDownload={handleDownload}
+              onDownloadXlsx={handleDownloadXlsx}
+            />
+          </div>
+          <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
+            <UsageMeter me={me} />
+            <ChatPanel
+              messages={messages}
+              phase={agent.phase}
+              inputLocked={inputLocked}
+              thinkingStep={agent.step}
+              progress={agent.progress}
+              ready={workbookState.status === "ready"}
+              presets={
+                workbookState.status === "ready"
+                  ? presetsFor(
+                      workbookState.workbook.fileName,
+                      workbookState.workbook.sheets[workbookState.activeSheet]
+                        .name,
+                      workbookState.grid.headers,
+                      locale,
+                    )
+                  : []
+              }
+              onSend={handleSend}
+            />
           </div>
         </div>
-      </header>
-
-      <section className="px-4 pb-1 pt-2 sm:px-6">
-        <h1 className="text-sm font-extrabold leading-tight text-black/80">
-          {t(locale, "heroTitle")}
-        </h1>
-        <p className="mt-1 max-w-3xl text-xs font-semibold leading-snug text-black/45">
-          {t(locale, "subtitle")}
-        </p>
-      </section>
-
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 pt-3 sm:p-6 sm:pt-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:[grid-template-rows:minmax(0,1fr)]">
-        <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
-          <WorkbookPanel
-            state={workbookState}
-            onFile={handleFile}
-            onEditCell={aiBusy ? undefined : handleEditCell}
-            onSelectRow={handleSelectRow}
-            onClearSelection={handleClearSelection}
-            onSelectSheet={handleSelectSheet}
-            onClearHighlights={handleClearHighlights}
-            onShowAllRows={handleShowAllRows}
-            onReset={handleReset}
-            onDownload={handleDownload}
-            onDownloadXlsx={handleDownloadXlsx}
-          />
-        </div>
-        <div className="flex min-h-[50vh] max-h-[85vh] flex-col lg:min-h-0 lg:max-h-none">
-          <UsageMeter me={me} />
-          <ChatPanel
-            messages={messages}
-            phase={agent.phase}
-            inputLocked={inputLocked}
-            thinkingStep={agent.step}
-            progress={agent.progress}
-            ready={workbookState.status === "ready"}
-            presets={
-              workbookState.status === "ready"
-                ? presetsFor(
-                    workbookState.workbook.fileName,
-                    workbookState.workbook.sheets[workbookState.activeSheet].name,
-                    workbookState.grid.headers,
-                    locale,
-                  )
-                : []
-            }
-            onSend={handleSend}
-          />
-        </div>
+        <PartialResultDialog
+          open={partialPrompt != null}
+          locale={locale}
+          total={partialPrompt?.total ?? 0}
+          succeeded={(partialPrompt?.total ?? 0) - (partialPrompt?.failed ?? 0)}
+          failed={partialPrompt?.failed ?? 0}
+          stopped={partialPrompt?.stopped}
+          onRetryFailed={() => resolvePartial("retry")}
+          onApplyPartial={() => resolvePartial("apply")}
+        />
       </div>
-      <PartialResultDialog
-        open={partialPrompt != null}
-        locale={locale}
-        total={partialPrompt?.total ?? 0}
-        succeeded={(partialPrompt?.total ?? 0) - (partialPrompt?.failed ?? 0)}
-        failed={partialPrompt?.failed ?? 0}
-        stopped={partialPrompt?.stopped}
-        onRetryFailed={() => resolvePartial("retry")}
-        onApplyPartial={() => resolvePartial("apply")}
-      />
-    </div>
     </LocaleContext.Provider>
   );
 }

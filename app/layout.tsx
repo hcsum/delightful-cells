@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import AppShell from "@/components/AppShell";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 import { serverLocale } from "@/lib/seo";
 import { SITE_URL } from "@/lib/site";
 
@@ -101,6 +102,7 @@ export default function RootLayout({
   return (
     <html lang={locale === "zh" ? "zh-CN" : locale}>
       <body>
+        <GoogleAnalytics />
         <AppShell initialLocale={locale}>{children}</AppShell>
       </body>
     </html>

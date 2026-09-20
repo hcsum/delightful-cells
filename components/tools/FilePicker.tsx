@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useRef, useState } from "react";
 import { useT } from "@/lib/cells/locale";
+import { trackEvent } from "@/lib/analytics";
 
 /**
  * The upload control every single-use tool shares: a real button, drag & drop,
@@ -31,7 +32,13 @@ export default function FilePicker({
 
   const take = useCallback(
     (file: File | undefined | null) => {
-      if (file) onFile(file);
+      if (file) {
+        trackEvent("file_selected", {
+          file_type: file.name.split(".").pop()?.toLowerCase() ?? "unknown",
+          file_size_kb: Math.ceil(file.size / 1024),
+        });
+        onFile(file);
+      }
     },
     [onFile],
   );
@@ -95,7 +102,9 @@ export default function FilePicker({
         )}
       </div>
       {hint && (
-        <p className={`mt-2 text-xs ${light ? "text-black/45" : "text-white/60"}`}>
+        <p
+          className={`mt-2 text-xs ${light ? "text-black/45" : "text-white/60"}`}
+        >
           {hint}
         </p>
       )}
