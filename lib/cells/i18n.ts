@@ -166,8 +166,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     signInToBuy: "Sign in to buy credits.",
     // --- pricing page ---
     pricingTitle: "Credits",
-    pricingSubtitle:
-      "Pay once, use whenever. Credits never expire. One credit is about one AI call, and a chat turn takes a few of them.",
+    pricingSubtitle: "One-time payment · no subscription · never expires",
+    pricingSupportCopy: "Keep working after today's free allowance runs out.",
     pricingCredits: "{n} credits",
     pricingPerCredit: "≈ {n} chat turns",
     // A turn is several billed calls, so this is derived, approximate, and
@@ -175,11 +175,11 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     creditsAmount: "{n} credits",
     pricingBuy: "Buy",
     pricingBusy: "Opening checkout…",
-    pricingNoExpiry: "Never expires · one-time payment · no subscription",
+    pricingUsageTitle: "How credits are used",
     // A floor, not a quote: the bill follows input length, so long columns
     // cost more than this. Never state it without the "short text" caveat.
     pricingRowCost:
-      "AI rows are billed by the compute they use. On short text like addresses that is about {c} credits per 1,000 rows — measured, not estimated. Long text such as comments or descriptions costs more.",
+      "AI usage is billed by actual compute. Short text like addresses uses about {c} credits per 1,000 rows; longer comments or descriptions cost more. One credit is about one AI call, and a chat turn usually uses a few.",
     pricingCompare: "What you get",
     pricingColAnon: "Anonymous",
     pricingColFree: "Signed in",
@@ -405,15 +405,16 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     signInToBuy: "登录后才能购买点数。",
     // --- pricing page ---
     pricingTitle: "点数",
-    pricingSubtitle: "一次买断，随时用。点数永不过期。1 点大约够一次 AI 调用，一轮对话通常要好几次。",
+    pricingSubtitle: "一次性付款 · 不自动续费 · 永不过期",
+    pricingSupportCopy: "当天免费额度用完后仍可继续使用。",
     pricingCredits: "{n} 点",
     pricingPerCredit: "约 {n} 轮对话",
     creditsAmount: "{n} 点",
     pricingBuy: "购买",
     pricingBusy: "正在打开付款页…",
-    pricingNoExpiry: "永不过期 · 一次性付款 · 不自动续费",
+    pricingUsageTitle: "点数如何消耗",
     pricingRowCost:
-      "AI 处理行数按实际算力扣点。地址这类短文本大约 {c} 点 / 1,000 行 —— 这是实测值，不是估算。评论、描述这类长文本会更高。",
+      "AI 按实际算力扣点。地址这类短文本每 1,000 行约需 {c} 点；评论、描述等长文本消耗更多。1 点约等于一次 AI 调用，一轮对话通常需要数次调用。",
     pricingCompare: "各档能做什么",
     pricingColAnon: "未登录",
     pricingColFree: "已登录",
@@ -621,14 +622,15 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     siteQuotaFree: "サイト全体で共有している本日のAI無料枠を使い切りました。クレジットを購入すると、この上限に関係なく続けられます。UTC 0時にリセットされます。",
     signInToBuy: "クレジットを購入するにはログインしてください。",
     pricingTitle: "クレジット",
-    pricingSubtitle: "必要なときに購入でき、有効期限はありません。1クレジットはAI処理約1回分で、1回のチャット操作では通常数クレジットを使います。",
+    pricingSubtitle: "都度購入・定期購入なし・有効期限なし",
+    pricingSupportCopy: "本日の無料枠を使い切った後も、そのまま続けられます。",
     pricingCredits: "{n} クレジット",
     pricingPerCredit: "約 {n} 回のチャット操作",
     creditsAmount: "{n} クレジット",
     pricingBuy: "購入",
     pricingBusy: "決済ページを開いています…",
-    pricingNoExpiry: "有効期限なし・都度購入・定期購入なし",
-    pricingRowCost: "AIの行処理では、実際の計算量に応じてクレジットを消費します。住所のような短いテキストでは、1,000行あたり約 {c} クレジットが目安です。コメントや説明文など、長いテキストでは消費量が増えます。",
+    pricingUsageTitle: "クレジットの消費について",
+    pricingRowCost: "AIは実際の計算量に応じてクレジットを消費します。住所のような短いテキストでは1,000行あたり約 {c} クレジットで、コメントや説明文など長いテキストでは消費量が増えます。1クレジットはAI処理約1回分で、1回のチャット操作では通常数クレジットを使います。",
     pricingCompare: "利用条件ごとの違い",
     pricingColAnon: "ログインなし",
     pricingColFree: "ログイン済み",

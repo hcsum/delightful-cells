@@ -5,13 +5,8 @@ import { LocaleContext, useStoredLocale } from "@/lib/cells/locale";
 import { t, type Locale } from "@/lib/cells/i18n";
 import { PACKS, PACK_ORDER, type PackId } from "@/lib/billing/packs";
 import {
-  MAX_FILE_BYTES,
-  MAX_IMPORT_ROWS,
-  TIER_LIMITS,
   NEURONS_PER_CREDIT,
-  dailyNeurons,
   minCreditsForRows,
-  rowsAffordable,
   turnsAffordable,
 } from "@/lib/limits";
 import { useAuth } from "@/lib/auth/useAuth";
@@ -60,17 +55,20 @@ export default function PricingClient({ initialLocale = "en" }: { initialLocale?
 
   return (
     <LocaleContext.Provider value={locale}>
-      <div className="py-10">
+      <div className="py-14 sm:py-16">
         {/* No language toggle here: AppShell's header already carries one, and
             two on the same screen read as two different settings. */}
         <div>
           <h1 className="text-3xl font-extrabold">{tr("pricingTitle")}</h1>
-          <p className="mt-2 max-w-xl text-sm text-black/60">
+          <p className="mt-3 max-w-xl text-base leading-7 text-black/60">
             {tr("pricingSubtitle")}
+          </p>
+          <p className="mt-5 max-w-xl text-sm leading-6 text-black/45">
+            {tr("pricingSupportCopy")}
           </p>
         </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-10 grid gap-5 sm:grid-cols-3">
           {PACK_ORDER.map((id) => {
             const p = PACKS[id];
             return (
@@ -101,65 +99,15 @@ export default function PricingClient({ initialLocale = "en" }: { initialLocale?
             );
           })}
         </div>
-        <p className="mt-3 text-xs text-black/45">{tr("pricingNoExpiry")}</p>
-        {/* Rows are the part people mis-estimate, and the measured cost came
-            in 3x the original planning figure. State the floor and say it is a
-            floor, rather than quoting a number long columns will blow past. */}
-        <p className="mt-2 max-w-2xl text-xs text-black/45">
-          {tr("pricingRowCost", { c: Math.round(minCreditsForRows(1000)) })}
-        </p>
         {error && (
           <p className="mt-3 text-sm font-semibold text-[#b3003c]">{error}</p>
         )}
 
-        <h2 className="mt-12 text-xl font-extrabold">{tr("pricingCompare")}</h2>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-black/45">
-                <th className="py-2 pr-4 font-semibold"> </th>
-                <th className="py-2 pr-4 font-semibold">{tr("pricingColAnon")}</th>
-                <th className="py-2 pr-4 font-semibold">{tr("pricingColFree")}</th>
-                <th className="py-2 font-semibold">{tr("pricingColPaid")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <Row
-                label={tr("rowDailyCredits")}
-                anon={TIER_LIMITS.anon.dailyCredits.toLocaleString()}
-                free={TIER_LIMITS.free.dailyCredits.toLocaleString()}
-                paid={tr("valMetered")}
-              />
-              {/* The row underneath is the same allowance, read as rows. It is
-                  derived, not a second limit — and only exact on short text,
-                  which is why the label carries the ≈ and the caveat. */}
-              <Row
-                label={tr("rowRowsPerDay")}
-                anon={rowsAffordable(dailyNeurons("anon")).toLocaleString()}
-                free={rowsAffordable(dailyNeurons("free")).toLocaleString()}
-                paid={tr("valMetered")}
-              />
-              {/* Import and the mechanical tools run entirely in the browser,
-                  so they cost us nothing and are the same at every tier. */}
-              <Row
-                label={tr("rowImport")}
-                anon={tr("valSameForAll", {
-                  r: MAX_IMPORT_ROWS.toLocaleString(),
-                  m: Math.round(MAX_FILE_BYTES / 1024 / 1024),
-                })}
-                free="—"
-                paid="—"
-                span
-              />
-              <Row
-                label={tr("rowMechanical")}
-                anon={tr("valUnlimited")}
-                free="—"
-                paid="—"
-                span
-              />
-            </tbody>
-          </table>
+        <div className="mt-8 grid w-full gap-3 rounded-3xl border border-black/10 bg-black/[0.025] px-6 py-6 sm:grid-cols-[180px_1fr] sm:gap-10 sm:px-7">
+          <h2 className="text-sm font-bold leading-6">{tr("pricingUsageTitle")}</h2>
+          <p className="text-sm leading-6 text-black/60">
+            {tr("pricingRowCost", { c: Math.round(minCreditsForRows(1000)) })}
+          </p>
         </div>
         <LoginPromptDialog
           open={askSignIn}
@@ -168,36 +116,5 @@ export default function PricingClient({ initialLocale = "en" }: { initialLocale?
         />
       </div>
     </LocaleContext.Provider>
-  );
-}
-
-function Row({
-  label,
-  anon,
-  free,
-  paid,
-  span,
-}: {
-  label: string;
-  anon: string;
-  free: string;
-  paid: string;
-  span?: boolean;
-}) {
-  return (
-    <tr className="border-t border-black/10">
-      <td className="py-2.5 pr-4 font-semibold text-black/70">{label}</td>
-      {span ? (
-        <td className="py-2.5 pr-4 text-black/70" colSpan={3}>
-          {anon}
-        </td>
-      ) : (
-        <>
-          <td className="py-2.5 pr-4 text-black/70">{anon}</td>
-          <td className="py-2.5 pr-4 text-black/70">{free}</td>
-          <td className="py-2.5 text-black/70">{paid}</td>
-        </>
-      )}
-    </tr>
   );
 }

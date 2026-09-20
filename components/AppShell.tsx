@@ -39,13 +39,15 @@ export default function AppShell({
             </span>
           </Link>
           <nav className="flex items-center gap-2 text-sm">
-            <Link
-              href={localizePath("/pricing", locale)}
-              title={labels.credits}
-              className="rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
-            >
-              {labels.credits}
-            </Link>
+            {barePathname !== "/pricing" && (
+              <Link
+                href={localizePath("/pricing", locale)}
+                title={labels.credits}
+                className="rounded-full px-3 py-1 font-semibold !text-black/60 hover:bg-[#fff3d6]"
+              >
+                {labels.credits}
+              </Link>
+            )}
             <select
               value={locale}
               onChange={(event) => setLocale(event.target.value as AppLocale)}
