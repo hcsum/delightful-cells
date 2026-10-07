@@ -17,7 +17,7 @@ const COPY = {
       "**Define the Target:** Describe what you want to extract in plain English (for example, “feedback summary”, “SKU”, “model”).",
       "**Pick the Source column:** Choose it from the dropdown of your file’s own headers.",
       "**Preview sample rows:** Run a short preview to check the output on a handful of rows and adjust the description if needed.",
-      "**Process full file and download results:** When you are happy with the preview, process the full file and download the result — in the same format you uploaded.",
+      "**Process full file and download results:** When you are happy with the preview, process the selected sheet and download it with the extracted column. Excel files are exported as .xlsx; CSV files stay .csv. Other sheets, formulas, and cell formatting aren't preserved.",
     ],
   },
   zh: {
@@ -32,7 +32,7 @@ const COPY = {
       "**写清楚目标：**用大白话描述要提取什么（例如「反馈摘要」「SKU」「型号」）。",
       "**选择来源列：**从下拉框里挑，选项就是你自己文件的表头。",
       "**预览几行：**先跑一小段，看看几行的结果，不满意就改描述。",
-      "**处理整个文件并下载：**预览没问题之后处理整份文件，下载结果 —— 格式和你上传的一样。",
+      "**处理文件并下载：**确认预览后处理所选工作表，并在末尾添加提取结果列。Excel 文件统一导出为 .xlsx；CSV 仍为 .csv。其他工作表、公式和单元格格式不会保留。",
     ],
   },
   ja: {
@@ -47,7 +47,7 @@ const COPY = {
       "**抽出対象を指定：** 抽出したい内容を日本語で入力します（例：「フィードバックの要約」「SKU」「型番」）。",
       "**元の列を選択：** ファイルの列名が表示されるプルダウンから選びます。",
       "**サンプル行をプレビュー：** 数行の出力を確認し、必要に応じて抽出内容の説明を調整します。",
-      "**ファイル全体を処理してダウンロード：** プレビューに問題がなければファイル全体を処理し、アップロード時と同じ形式で結果をダウンロードします。",
+      "**ファイルを処理してダウンロード：** プレビューを確認したら、選択したシートを処理して抽出結果の列を追加します。Excelファイルは .xlsx、CSVファイルは .csv で出力されます。他のシート、数式、セルの書式は保持されません。",
     ],
   },
 };

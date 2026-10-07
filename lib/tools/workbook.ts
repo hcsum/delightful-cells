@@ -4,10 +4,9 @@
 // playground already reads .xlsx/.xls/.csv and writes both .xlsx and .csv, so
 // the tools reuse that rather than keeping a second, CSV-only parser around.
 //
-// The one rule these tools add on top: the download comes back in the format
-// the upload arrived in. Someone who hands us an .xlsx should not get a .csv
-// back and have to re-import it — that round trip is the whole reason these
-// pages exist.
+// Excel workbooks are exported as .xlsx and CSV files remain .csv. The tools
+// operate on one selected sheet and export its cell values with the result
+// column; they do not round-trip formulas, formatting, or other sheets.
 
 import {
   parseWorkbookFile,
@@ -44,7 +43,11 @@ export async function parseToolFile(file: File): Promise<ToolWorkbook> {
     maxRows: MAX_TOOL_IMPORT_ROWS,
     maxCols: MAX_TOOL_COLS,
   });
-  return { fileName: wb.fileName, kind: fileKind(file.name), sheets: wb.sheets };
+  return {
+    fileName: wb.fileName,
+    kind: fileKind(file.name),
+    sheets: wb.sheets,
+  };
 }
 
 function stripExtension(fileName: string): string {
@@ -52,8 +55,8 @@ function stripExtension(fileName: string): string {
 }
 
 /**
- * Write one sheet back out with the tool's extra column already appended by the
- * caller, in the same format it came in as.
+ * Write the selected sheet back out with the tool's extra column already
+ * appended by the caller. CSV remains CSV; Excel workbooks are exported as XLSX.
  *
  * Only the sheet that was worked on is written. Carrying the untouched sheets
  * along would look tidier, but every one of them has been through the parser's

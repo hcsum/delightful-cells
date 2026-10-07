@@ -1,3 +1,4 @@
+import Link from "next/link";
 import CompareColumnsClient from "@/components/CompareColumnsClient";
 import { rich, shared } from "@/lib/landing-copy";
 import { localizedMetadata, serverLocale } from "@/lib/seo";
@@ -8,10 +9,10 @@ const COPY = {
   en: {
     title: "Compare Two Columns in Excel (Excel & CSV Tool)",
     description:
-      "Compare 2 columns in Excel to find duplicates, matches, or missing values. Excel column comparison guide — upload an Excel file or CSV and download results fast.",
+      "Compare two Excel or CSV columns to find values that match, are missing, or appear in both lists. Choose the comparison and download a copy with results.",
     h1: "Compare Two Columns in Excel",
     intro:
-      "Here you can compare 2 columns in Excel to find matching or missing values without writing formulas. This tool acts as a column comparison helper for Excel and CSV data. Compare 2 columns in Excel to identify differences, duplicates, or missing values in your dataset.",
+      "Compare two lists in an Excel or CSV file without writing a formula. Choose whether to find values from one column that also appear in the other, values that are missing, or rows where both columns match.",
     tasksTitle: "Typical Column Comparison Tasks",
     tasks: [
       "Row-by-row comparisons to see if Column A equals Column B",
@@ -27,12 +28,38 @@ const COPY = {
       "Validating merges, migrations, or deduplication tasks",
     ],
     tryTitle: "Try the tool now:",
+    detailsTitle: "How to compare two Excel columns",
+    details: [
+      {
+        question: "What is the difference between the three comparison types?",
+        answer:
+          "Duplicates checks whether each non-empty value in Column A appears anywhere in Column B. Missing items marks values from A that do not appear in B. Matches compares A and B on the same row. The first two compare lists regardless of row order; Matches does not.",
+      },
+      {
+        question:
+          "Does the comparison work if the columns are different lengths or unsorted?",
+        answer:
+          "Yes for Duplicates and Missing items: each value in A is looked up across all of B, so the lists do not need to be sorted or have the same number of rows. Matches is a row-by-row comparison, so row order matters.",
+      },
+      {
+        question: "Are spaces, capitalization, or blank cells considered?",
+        answer:
+          "Leading and trailing spaces are trimmed. Comparisons are case-insensitive by default; turn on Case sensitive to distinguish capitalization. Blank cells in Column B are ignored, and blank values in Column A are not marked as matches or duplicates.",
+      },
+      {
+        question: "Will the original spreadsheet be changed?",
+        answer:
+          "No. Your original file stays unchanged. The download contains only the selected sheet and the result column; Excel uploads are exported as .xlsx. Formulas, formatting, and other sheets aren't preserved.",
+      },
+    ],
+    relatedTitle: "Related Excel tools",
+    relatedDuplicates: "Find duplicates in one Excel column",
     steps: [
       "**Upload your file:** Select an .xlsx, .xls, or .csv file (up to 20 MB). All processing happens in your browser. If the workbook has several sheets, pick the one you want.",
       "**Pick Column A and Column B:** Both dropdowns are filled from your file’s own headers — nothing to type.",
       "**Choose comparison type:** Select *duplicates*, *matches*, or *missing items*.",
       "**Choose case sensitivity (optional):** Leave off to compare case-insensitively; turn on to make comparisons case-sensitive.",
-      "**Process and download:** You get a copy in the same format you uploaded, with a new comparison column appended.",
+      "**Process and download:** Download the selected sheet with a new comparison column. Excel files are exported as .xlsx; CSV files stay .csv. Other sheets, formulas, and cell formatting aren't preserved.",
     ],
     source: "order_number_entered → order_number_master",
     modes: {
@@ -80,9 +107,34 @@ const COPY = {
       "**选择 A 列和 B 列：**两个下拉框的选项都来自你自己文件的表头，不用手打。",
       "**选择比对方式：**可选*重复值*、*相同值*或*缺失项*。",
       "**要不要区分大小写（可选）：**关着就不区分大小写；打开则严格区分。",
-      "**处理并下载：**得到一份格式和上传时一致的副本，末尾多一列比对结果。",
+      "**处理并下载：**下载所选工作表，并在末尾添加比对结果列。Excel 文件统一导出为 .xlsx；CSV 仍为 .csv。其他工作表、公式和单元格格式不会保留。",
     ],
     source: "order_number_entered → order_number_master",
+    detailsTitle: "如何比较 Excel 中的两列",
+    details: [
+      {
+        question: "三种比对方式有什么区别？",
+        answer:
+          "“重复值”检查 A 列每个非空值是否在 B 列任意位置出现；“缺失项”标记 A 列中未出现在 B 列的值；“相同值”逐行比较 A、B 两列。前两种不受行顺序影响，“相同值”按行对应比较。",
+      },
+      {
+        question: "两列长度不同或没有排序也能比较吗？",
+        answer:
+          "可以。“重复值”和“缺失项”会在 B 列的所有值中查找，因此两列不必排序，也不必有相同行数。“相同值”是逐行比较，所以行顺序会影响结果。",
+      },
+      {
+        question: "空格、大小写和空白单元格怎么处理？",
+        answer:
+          "比较前会去掉首尾空格。默认不区分大小写；打开“区分大小写”后会区分大小写。B 列空白会忽略，A 列空白不会被标记为匹配或重复。",
+      },
+      {
+        question: "工具会修改我的原始表格吗？",
+        answer:
+          "不会，原文件不会被改动。下载文件只包含所选工作表和新增结果列；Excel 文件统一导出为 .xlsx，公式、单元格格式和其他工作表不会保留。",
+      },
+    ],
+    relatedTitle: "相关 Excel 工具",
+    relatedDuplicates: "查找 Excel 单列中的重复值",
     modes: {
       duplicates: {
         heading: "示例 —— 重复值（A 的值在 B 里出现过）",
@@ -125,9 +177,34 @@ const COPY = {
       "**A列とB列を選択：**どちらのドロップダウンにも、アップロードしたファイルの見出しが表示されます。入力する必要はありません。",
       "**比較方法を選択：***両方にある値*、*同じ行で一致する値*、*B列にない値*から選びます。",
       "**大文字と小文字の区別（任意）：**オフの場合は区別せず、オンの場合は区別して比較します。",
-      "**処理してダウンロード：**比較結果の列が末尾に追加されたファイルを、アップロード時と同じ形式でダウンロードできます。",
+      "**処理してダウンロード：**選択したシートに比較結果の列を追加してダウンロードします。Excelファイルは .xlsx、CSVファイルは .csv で出力されます。他のシート、数式、セルの書式は保持されません。",
     ],
     source: "入力された注文番号 → マスターの注文番号",
+    detailsTitle: "Excelの2列を比較する方法",
+    details: [
+      {
+        question: "3つの比較方法はどう違いますか？",
+        answer:
+          "「両方にある値」はA列の各非空値がB列のどこかにあるかを確認します。「B列にない値」はA列にありB列にはない値をマークします。「同じ行で一致」は同じ行のA列とB列を比較します。最初の2つは行順に関係なく、最後は行ごとの比較です。",
+      },
+      {
+        question: "列の長さが違ったり、並べ替えられていなくても使えますか？",
+        answer:
+          "「両方にある値」と「B列にない値」では、A列の値をB列全体から検索するため、並べ替えや同じ行数は必要ありません。「同じ行で一致」は行ごとに比較するため、行順が重要です。",
+      },
+      {
+        question: "空白、大文字・小文字、空のセルはどう扱われますか？",
+        answer:
+          "前後の空白は取り除きます。デフォルトでは大文字・小文字を区別せず、設定を有効にすると区別します。B列の空セルは無視され、A列の空セルは一致・重複としてマークされません。",
+      },
+      {
+        question: "元のスプレッドシートは変更されますか？",
+        answer:
+          "いいえ。元ファイルは変更されません。ダウンロードには選択したシートと追加した結果列のみが含まれます。Excelファイルは .xlsx で出力され、数式、セルの書式、他のシートは保持されません。",
+      },
+    ],
+    relatedTitle: "関連するExcelツール",
+    relatedDuplicates: "Excelの1列から重複値を見つける",
     modes: {
       duplicates: {
         heading: "例 — 両方にある値（A列の値がB列にもある）",
@@ -209,32 +286,25 @@ export default function Page() {
       <h1 className="text-2xl font-semibold">{c.h1}</h1>
       <p className="text-white/80 max-w-2xl text-muted">{c.intro}</p>
 
-      {/* SEO sub-content: tasks/use cases to strengthen topical relevance */}
-      <section className="space-y-4">
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium">{c.tasksTitle}</h3>
-            <ul className="list-disc pl-5 text-white/80">
-              {c.tasks.map((task, i) => (
-                <li key={i}>{task}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium">{c.useCasesTitle}</h3>
-            <ul className="list-disc pl-5 text-white/80">
-              {c.useCases.map((useCase, i) => (
-                <li key={i}>{useCase}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
       <h2 className="text-xl font-semibold pt-2">{c.tryTitle}</h2>
       <CompareColumnsClient />
 
       <div className="space-y-8 pt-12">
         <hr />
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">{c.tasksTitle}</h2>
+          <ul className="list-disc pl-5 space-y-1 text-white/80">
+            {c.tasks.map((task, i) => (
+              <li key={i}>{task}</li>
+            ))}
+          </ul>
+          <h3 className="text-lg font-medium">{c.useCasesTitle}</h3>
+          <ul className="list-disc pl-5 space-y-1 text-white/80">
+            {c.useCases.map((useCase, i) => (
+              <li key={i}>{useCase}</li>
+            ))}
+          </ul>
+        </section>
         <section className="space-y-3">
           <h2 className="text-xl font-semibold">{shared(locale, "howTo")}</h2>
           <ol className="list-decimal pl-6 space-y-2 text-white/80">
@@ -296,6 +366,32 @@ export default function Page() {
             </article>
           ))}
         </section>
+
+        <section className="space-y-4" aria-labelledby="compare-faq-heading">
+          <h2 id="compare-faq-heading" className="text-xl font-semibold">
+            {c.detailsTitle}
+          </h2>
+          <div className="space-y-4">
+            {c.details.map((item) => (
+              <article key={item.question} className="space-y-1">
+                <h3 className="font-medium">{item.question}</h3>
+                <p className="max-w-3xl text-white/80 text-muted">
+                  {item.answer}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <nav aria-label={c.relatedTitle} className="space-y-2">
+          <h2 className="text-xl font-semibold">{c.relatedTitle}</h2>
+          <Link
+            className="underline underline-offset-4"
+            href="/find-duplicates-in-excel"
+          >
+            {c.relatedDuplicates}
+          </Link>
+        </nav>
       </div>
     </div>
   );

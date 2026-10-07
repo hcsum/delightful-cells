@@ -3,18 +3,23 @@
 
 export type Locale = "en" | "zh" | "ja";
 
-
 const STRINGS: Record<Locale, Record<string, string>> = {
   en: {
-    heroTitle: "Run AI across thousands of spreadsheet rows without losing your progress.",
-    subtitle: "Upload an Excel or CSV, describe what each row needs, and get a complete result. Failed batches are retried automatically, completed rows are preserved, and you can rerun only the rows that failed.",
+    heroTitle:
+      "Run AI across thousands of spreadsheet rows without losing your progress.",
+    subtitle:
+      "Upload an Excel or CSV, describe what each row needs, and get a complete result. Failed batches are retried automatically, completed rows are preserved, and you can rerun only the rows that failed.",
     dropTitle: "Drop your spreadsheet here",
-    dropDesc1: ".xlsx, .xls, or .csv — works in your browser, with no Excel add-in.",
-    dropDesc2: "Filtering, replacing, and calculations run locally. AI sends only the selected cell content for processing.",
+    dropDesc1:
+      ".xlsx, .xls, or .csv — works in your browser, with no Excel add-in.",
+    dropDesc2:
+      "Filtering, replacing, and calculations run locally. AI sends only the selected cell content for processing.",
     workbookLimitLabel: "Workbook row limit",
     workbookLimitInfo: "Loads up to {i} rows per workbook.",
-    limitsHint: "Loads up to {i} rows per workbook. {c} credits available — about {r} AI rows on short text.",
-    limitsHintUnlimited: "Loads up to {i} rows per workbook. Unlimited credits available.",
+    limitsHint:
+      "Loads up to {i} rows per workbook. {c} credits available — about {r} AI rows on short text.",
+    limitsHintUnlimited:
+      "Loads up to {i} rows per workbook. Unlimited credits available.",
     rowsLimitNote:
       "Note: without signing in, the free allowance is about {anon} AI rows a day on short text. Signing in raises that to about {free}; credits remove the daily cap.",
     quotaChecking: "Checking remaining rows…",
@@ -25,7 +30,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     tryDemo: "try with demo data",
     opening: "Opening {name}…",
     openingBig: "Opening {name} — big file, this takes a few seconds…",
-    truncatedRowsMsg: "Cut off — this workbook is capped at {i} rows in total. ",
+    truncatedRowsMsg:
+      "Cut off — this workbook is capped at {i} rows in total. ",
     truncatedColsMsg: "Truncated to the first {c} columns.",
     exportTooLarge:
       "Highlighted exports top out at {n} rows. Clear the highlights to export everything, or download as CSV.",
@@ -40,15 +46,18 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     noMatch: "No rows match the current filter. 🫥",
     hiddenByFilter: "{n} rows hidden by the current filter.",
     highlightedRows: "{n} rows highlighted.",
-    selectedHint: '{n} rows selected — say "these rows" in chat, or ⌘/Ctrl-click to adjust.',
+    selectedHint:
+      '{n} rows selected — say "these rows" in chat, or ⌘/Ctrl-click to adjust.',
     editHint: "Double-click any cell to edit it. Click a row number to select.",
     rowSelectTitle: "Click to select row (Shift: range, ⌘/Ctrl: toggle)",
     dblclickEdit: "(double-click to edit)",
     talkToSheet: "💬 Talk to your sheet",
     sheetIn: "Your sheet is in! Try one of these:",
-    uploadFirstPanel: "AI jobs run in reliable batches with automatic retry and partial-result recovery. One-time credits, no subscription, and credits never expire.",
+    uploadFirstPanel:
+      "AI jobs run in reliable batches with automatic retry and partial-result recovery. One-time credits, no subscription, and credits never expire.",
     processing: "processing rows… {d}/{t}",
-    processingBatchHint: "Large files may wait up to 20 seconds between batches.",
+    processingBatchHint:
+      "Large files may wait up to 20 seconds between batches.",
     phaseConnecting: "connecting…",
     phaseAccepted: "request accepted…",
     phaseAnalyzing: "analyzing your sheet…",
@@ -87,7 +96,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     param_clear: "Clear highlights",
     usageTitle: "⚡ Today's AI usage, all visitors",
     usageFree: "{p}% left today",
-    usagePaused: "Free budget used up for today — AI is paused until midnight UTC.",
+    usagePaused:
+      "Free budget used up for today — AI is paused until midnight UTC.",
     usageHover: "{c} AI calls today, across all visitors",
     unknownTool: `I can't do that yet — there's no "{tool}" tool. Right now I can filter/highlight rows (by rule or by meaning), find & replace, summarize a column, compute a new column with a formula, delete columns, or fill a new column row by row with AI. 🐣`,
     genericError: "Something went wrong.",
@@ -113,7 +123,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     meterCreditsTitle: "⚡ Credits",
     meterCreditsDetail: "Free allowance is used up — AI now runs on credits.",
     meterUsingPaid: "⚡ Using paid credits",
-    meterFreeExhaustedBuy: "Today's free credits are used up. Get more credits to continue.",
+    meterFreeExhaustedBuy:
+      "Today's free credits are used up. Get more credits to continue.",
     meterSignInHint: "Sign in for a larger daily allowance.",
     meterAvailableTitle: "Credits available",
     meterAvailableTotal: "{n} credits",
@@ -143,8 +154,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     partialTitle: "{f} of {n} rows didn't come back",
     partialBody:
       "{s} rows came through. The other {f} failed after we retried them and split them into smaller batches. Retrying just those {f} costs only those rows.",
-    partialFatalBody:
-      "{s} rows came through before the run had to stop: {m}",
+    partialFatalBody: "{s} rows came through before the run had to stop: {m}",
     partialAbortedBody:
       "You stopped the run after {s} of {n} rows. Nothing is lost — apply what finished, or run the remaining {f} rows now.",
     partialRetryFailed: "Retry the {f} failed rows",
@@ -240,7 +250,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ctProgressRows: "Processing {d}/{t} rows…",
     ctDefaultColumn: "Extracted",
     ctDownloadNote:
-      "The download keeps every original column and adds the new extracted one, in the same format you uploaded. Without signing in: about {anon} rows a day, signed in: about {free}. Credits remove the daily cap.",
+      "The download contains the selected sheet's columns plus the extracted column. Excel uploads are exported as .xlsx; CSV uploads stay .csv. Other sheets, formulas, and cell formatting aren't preserved. Without signing in: about {anon} rows a day, signed in: about {free}. Credits remove the daily cap.",
     ctDailyLimitAnon:
       "Daily row limit reached. Sign in for a bigger allowance, or try again tomorrow.",
     ctDailyLimitFree:
@@ -254,20 +264,24 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ccModeMatches: "matches",
     ccModeMissing: "missing items",
     ccDownloadNote:
-      "Download includes all original columns plus one new comparison column.",
+      "Download contains the selected sheet's columns plus the comparison column. Excel exports as .xlsx; CSV stays .csv. Other sheets, formulas, and formatting aren't preserved.",
     dfFindIn: "Find duplicates in",
     dfDownloadNote:
-      "Download includes all original columns plus one new duplicates column.",
+      "Download contains the selected sheet's columns plus the duplicates column. Excel exports as .xlsx; CSV stays .csv. Other sheets, formulas, and formatting aren't preserved.",
   },
   zh: {
     heroTitle: "让 AI 批量处理数千行表格，进度不会丢失。",
-    subtitle: "上传 Excel 或 CSV，说明每一行需要做什么，即可获得完整结果。失败批次会自动重试，已完成的行会保留，你也可以只重跑失败的行。",
+    subtitle:
+      "上传 Excel 或 CSV，说明每一行需要做什么，即可获得完整结果。失败批次会自动重试，已完成的行会保留，你也可以只重跑失败的行。",
     dropTitle: "把表格拖到这里",
-    dropDesc1: "支持 .xlsx、.xls、.csv —— 直接在浏览器中使用，无需安装 Excel 加载项。",
-    dropDesc2: "筛选、替换和计算在本地运行；AI 功能会发送选中的单元格内容进行处理。",
+    dropDesc1:
+      "支持 .xlsx、.xls、.csv —— 直接在浏览器中使用，无需安装 Excel 加载项。",
+    dropDesc2:
+      "筛选、替换和计算在本地运行；AI 功能会发送选中的单元格内容进行处理。",
     workbookLimitLabel: "工作簿行数上限",
     workbookLimitInfo: "整个工作簿最多载入 {i} 行。",
-    limitsHint: "整个工作簿最多载入 {i} 行；可用点数 {c}，按短文本估算约可处理 {r} 行。",
+    limitsHint:
+      "整个工作簿最多载入 {i} 行；可用点数 {c}，按短文本估算约可处理 {r} 行。",
     limitsHintUnlimited: "整个工作簿最多载入 {i} 行；可用点数无限。",
     rowsLimitNote:
       "提示：未登录时，每天的免费额度按短文本估算约够 {anon} 行 AI 处理。登录后约 {free} 行；使用点数可移除每日上限。",
@@ -281,7 +295,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     openingBig: "正在打开 {name} —— 文件较大，解析要几秒…",
     truncatedRowsMsg: "已截断 —— 整个工作簿最多载入 {i} 行。",
     truncatedColsMsg: "只载入了前 {c} 列。",
-    exportTooLarge: "带高亮的导出最多 {n} 行。清除高亮可以导出全部，或者下载 CSV。",
+    exportTooLarge:
+      "带高亮的导出最多 {n} 行。清除高亮可以导出全部，或者下载 CSV。",
     newFile: "换个文件",
     selectedClear: "已选 {n} 行 · 取消",
     clearHighlights: "清除高亮",
@@ -299,7 +314,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     dblclickEdit: "（双击编辑）",
     talkToSheet: "💬 跟表格说话",
     sheetIn: "表格就位！试试这些：",
-    uploadFirstPanel: "AI 任务分批处理，自动重试并可恢复部分结果。点数一次购买，无订阅，永不过期。",
+    uploadFirstPanel:
+      "AI 任务分批处理，自动重试并可恢复部分结果。点数一次购买，无订阅，永不过期。",
     processing: "正在处理行… {d}/{t}",
     processingBatchHint: "大文件每批可能要等 20 秒。",
     phaseConnecting: "正在连接…",
@@ -342,7 +358,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     usageFree: "今天还剩 {p}%",
     usagePaused: "今日免费额度已用完 —— AI 暂停到 UTC 零点恢复。",
     usageHover: "今日全站 {c} 次 AI 调用",
-    unknownTool: "我还做不到——没有「{tool}」这个工具。目前我可以：按规则或语义筛选/高亮行、查找替换、列摘要、公式计算新列、删除列、AI 逐行填充新列。🐣",
+    unknownTool:
+      "我还做不到——没有「{tool}」这个工具。目前我可以：按规则或语义筛选/高亮行、查找替换、列摘要、公式计算新列、删除列、AI 逐行填充新列。🐣",
     genericError: "出错了。",
     openError: "打开这个文件时出了点问题。",
     // --- auth & credits ---
@@ -377,9 +394,12 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     creditsEstimateUnlimited: "可用点数无限。",
     dailyCreditsExhausted: "今日免费点数已用完，登录或充值可以接着用。",
     // --- conversion prompts ---
-    maxRowsAnonDailyError: "这个 AI 操作选了 {n} 行，但今天的访客额度大约只够再处理 {m} 行。",
-    maxRowsFreeDailyError: "这个 AI 操作选了 {n} 行，但你今天的额度大约只够再处理 {m} 行。",
-    maxRowsWorkbookError: "这个 AI 操作选了 {n} 行，但整个工作簿最多载入 {m} 行。",
+    maxRowsAnonDailyError:
+      "这个 AI 操作选了 {n} 行，但今天的访客额度大约只够再处理 {m} 行。",
+    maxRowsFreeDailyError:
+      "这个 AI 操作选了 {n} 行，但你今天的额度大约只够再处理 {m} 行。",
+    maxRowsWorkbookError:
+      "这个 AI 操作选了 {n} 行，但整个工作簿最多载入 {m} 行。",
     largeRunConfirm:
       "这次预计消耗约 {c} 点，耗时约 {m} 分钟（{s} 秒）。中途请勿关闭页面。",
     largeRunCanceled: "已取消，AI 处理尚未开始。",
@@ -398,8 +418,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     sheetChangedDuringRun:
       "AI 运行期间表格变了，结果没有写入，以免落到错误的行上。什么都没有应用 —— 请重新运行一次。",
     switchedToCredits: "今天的免费额度用完了 —— 接下来 AI 按点数扣。⚡",
-    siteQuotaAnon:
-      "今天的访客体验点数已用完。登录即可获得更多免费点数。",
+    siteQuotaAnon: "今天的访客体验点数已用完。登录即可获得更多免费点数。",
     siteQuotaFree:
       "全站共用的免费 AI 额度今天用完了。点数不受这个额度限制，充值就能接着跑。UTC 零点重置。🍃",
     signInToBuy: "登录后才能购买点数。",
@@ -445,7 +464,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ctUploadDesc:
       "拖一个 .xlsx、.xls 或 .csv 进来，不用先转格式。最大 20 MB。我们不会保存你的文件。",
     ctUploadDropLine: "拖一个 .xlsx、.xls 或 .csv 进来，不用先转格式。",
-    ctUploadLocalLine: "文件在浏览器中打开；AI 功能会发送选中的单元格内容进行处理。",
+    ctUploadLocalLine:
+      "文件在浏览器中打开；AI 功能会发送选中的单元格内容进行处理。",
     ctUploadHint: "Excel 或 CSV，最大 20 MB。",
     ctFileInfo: "{name} · {rows} 行 · {cols} 列",
     ctSheet: "工作表",
@@ -473,9 +493,11 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ctProgressRows: "正在处理 {d}/{t} 行…",
     ctDefaultColumn: "提取结果",
     ctDownloadNote:
-      "下载的文件保留全部原始列，并新增一列提取结果，格式和你上传的一致。未登录：每天约 {anon} 行；登录后：每天约 {free} 行。有点数则没有每日上限。",
-    ctDailyLimitAnon: "今天的行数额度用完了。登录可以拿到更多额度，或者明天再来。",
-    ctDailyLimitFree: "今天的行数额度用完了。获取点数就能接着跑，或者明天再来。",
+      "下载文件包含所选工作表的原有列和新增结果列。Excel 文件统一导出为 .xlsx；CSV 仍为 .csv。其他工作表、公式和单元格格式不会保留。未登录：每天约 {anon} 行；登录后：每天约 {free} 行。有点数则没有每日上限。",
+    ctDailyLimitAnon:
+      "今天的行数额度用完了。登录可以拿到更多额度，或者明天再来。",
+    ctDailyLimitFree:
+      "今天的行数额度用完了。获取点数就能接着跑，或者明天再来。",
     ctPartialRunConfirm:
       "这次最多只能处理 {total} 行里的 {allowed} 行。现在就处理前 {allowed} 行吗？",
     ccCompare: "比较",
@@ -484,21 +506,29 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ccModeDuplicates: "重复值",
     ccModeMatches: "相同值",
     ccModeMissing: "缺失项",
-    ccDownloadNote: "下载的文件保留全部原始列，并新增一列比对结果。",
+    ccDownloadNote:
+      "下载文件包含所选工作表的原有列和新增比对结果列。Excel 统一导出为 .xlsx，CSV 仍为 .csv；其他工作表、公式和单元格格式不会保留。",
     dfFindIn: "在这一列里找重复值：",
-    dfDownloadNote: "下载的文件保留全部原始列，并新增一列重复标记。",
+    dfDownloadNote:
+      "下载文件包含所选工作表的原有列和新增重复标记列。Excel 统一导出为 .xlsx，CSV 仍为 .csv；其他工作表、公式和单元格格式不会保留。",
   },
   ja: {
     heroTitle: "数千行のスプレッドシートを、進捗を失わずにAIで処理。",
-    subtitle: "ExcelまたはCSVをアップロードし、各行に必要な処理を指示するだけで、完全な結果を取得できます。失敗した処理は自動で再試行され、完了済みの行は保持されます。失敗した行だけを再実行することもできます。",
+    subtitle:
+      "ExcelまたはCSVをアップロードし、各行に必要な処理を指示するだけで、完全な結果を取得できます。失敗した処理は自動で再試行され、完了済みの行は保持されます。失敗した行だけを再実行することもできます。",
     dropTitle: "スプレッドシートをここにドロップ",
-    dropDesc1: ".xlsx、.xls、.csv をブラウザで利用できます。Excelアドインは不要です。",
-    dropDesc2: "絞り込み、置換、計算はローカルで実行。AI機能では、選択したセルの内容が処理のために送信されます。",
+    dropDesc1:
+      ".xlsx、.xls、.csv をブラウザで利用できます。Excelアドインは不要です。",
+    dropDesc2:
+      "絞り込み、置換、計算はローカルで実行。AI機能では、選択したセルの内容が処理のために送信されます。",
     workbookLimitLabel: "ブックの行数上限",
     workbookLimitInfo: "1つのブックにつき最大 {i} 行を読み込めます。",
-    limitsHint: "1つのブックにつき最大 {i} 行を読み込めます。利用可能なクレジット：{c}（短いテキストで約 {r} 行）。",
-    limitsHintUnlimited: "1つのブックにつき最大 {i} 行を読み込めます。利用可能なクレジットは無制限です。",
-    rowsLimitNote: "注: ログインなしの場合、短いテキストなら1日約 {anon} 行まで無料です。ログインすると約 {free} 行になり、クレジットを使えば1日の上限はなくなります。",
+    limitsHint:
+      "1つのブックにつき最大 {i} 行を読み込めます。利用可能なクレジット：{c}（短いテキストで約 {r} 行）。",
+    limitsHintUnlimited:
+      "1つのブックにつき最大 {i} 行を読み込めます。利用可能なクレジットは無制限です。",
+    rowsLimitNote:
+      "注: ログインなしの場合、短いテキストなら1日約 {anon} 行まで無料です。ログインすると約 {free} 行になり、クレジットを使えば1日の上限はなくなります。",
     quotaChecking: "残りの処理可能行数を確認中…",
     quotaMetered: "クレジットを使用中。1日の行数上限はありません",
     quotaRemaining: "本日の残り：約 {remaining} 行（上限 {limit} 行）",
@@ -507,9 +537,11 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     tryDemo: "サンプルデータを試す",
     opening: "{name} を開いています…",
     openingBig: "{name} を開いています。大きなファイルのため、数秒かかります…",
-    truncatedRowsMsg: "一部のみ読み込みました。このブックから読み込めるのは合計 {i} 行までです。",
+    truncatedRowsMsg:
+      "一部のみ読み込みました。このブックから読み込めるのは合計 {i} 行までです。",
     truncatedColsMsg: "先頭の {c} 列のみ読み込みました。",
-    exportTooLarge: "ハイライト付きで書き出せるのは最大 {n} 行です。ハイライトを解除してすべて書き出すか、CSV でダウンロードしてください。",
+    exportTooLarge:
+      "ハイライト付きで書き出せるのは最大 {n} 行です。ハイライトを解除してすべて書き出すか、CSV でダウンロードしてください。",
     newFile: "別のファイルを開く",
     selectedClear: "{n} 行を選択中・選択を解除",
     clearHighlights: "ハイライトを解除",
@@ -521,15 +553,20 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     noMatch: "現在のフィルターに一致する行はありません。",
     hiddenByFilter: "現在のフィルターで {n} 行が非表示です。",
     highlightedRows: "{n} 行をハイライトしました。",
-    selectedHint: "{n} 行を選択中です。チャットで「選択した行」と指定できます。",
-    editHint: "セルをダブルクリックすると編集できます。行番号をクリックすると行を選択できます。",
-    rowSelectTitle: "クリックで行を選択（Shift：範囲選択、⌘/Ctrl：選択を切り替え）",
+    selectedHint:
+      "{n} 行を選択中です。チャットで「選択した行」と指定できます。",
+    editHint:
+      "セルをダブルクリックすると編集できます。行番号をクリックすると行を選択できます。",
+    rowSelectTitle:
+      "クリックで行を選択（Shift：範囲選択、⌘/Ctrl：選択を切り替え）",
     dblclickEdit: "（ダブルクリックで編集）",
     talkToSheet: "シートに指示する",
     sheetIn: "シートを読み込みました。こんな操作を試せます:",
-    uploadFirstPanel: "AI処理は分割して実行され、自動再試行と部分結果の復旧に対応。クレジットは都度購入で、定期購入も有効期限もありません。",
+    uploadFirstPanel:
+      "AI処理は分割して実行され、自動再試行と部分結果の復旧に対応。クレジットは都度購入で、定期購入も有効期限もありません。",
     processing: "行を処理中… {d}/{t}",
-    processingBatchHint: "大きなファイルでは、処理の区切りごとに最大20秒ほど待つことがあります。",
+    processingBatchHint:
+      "大きなファイルでは、処理の区切りごとに最大20秒ほど待つことがあります。",
     phaseConnecting: "接続中…",
     phaseAccepted: "リクエストを受け付けました…",
     phaseAnalyzing: "シートを分析中…",
@@ -568,17 +605,21 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     param_clear: "ハイライトを解除",
     usageTitle: "本日のサイト全体のAI使用量",
     usageFree: "本日の無料枠：残り {p}%",
-    usagePaused: "本日の無料枠を使い切りました。AI は UTC 0時まで一時停止します。",
+    usagePaused:
+      "本日の無料枠を使い切りました。AI は UTC 0時まで一時停止します。",
     usageHover: "本日のAI利用回数（サイト全体）：{c}回",
-    unknownTool: "「{tool}」にはまだ対応していません。現在は、条件や内容に応じた行の絞り込み・ハイライト、検索と置換、列の要約、数式を使った列の追加、列の削除、AIによる列データの生成ができます。",
+    unknownTool:
+      "「{tool}」にはまだ対応していません。現在は、条件や内容に応じた行の絞り込み・ハイライト、検索と置換、列の要約、数式を使った列の追加、列の削除、AIによる列データの生成ができます。",
     genericError: "エラーが発生しました。",
     openError: "ファイルを開けませんでした。",
     signIn: "ログイン",
     signOut: "ログアウト",
     signInGoogle: "Google で続ける",
     loginPromptTitle: "ログインして続ける",
-    loginPromptRows: "AI で処理できる行数が1日約 {anon} 行から約 {free} 行に増えます",
-    loginPromptBudget: "ゲストとの共有枠ではなく、自分専用の1日分のAI無料枠を利用できます",
+    loginPromptRows:
+      "AI で処理できる行数が1日約 {anon} 行から約 {free} 行に増えます",
+    loginPromptBudget:
+      "ゲストとの共有枠ではなく、自分専用の1日分のAI無料枠を利用できます",
     notNow: "後で",
     account: "アカウント",
     pricing: "クレジット",
@@ -590,9 +631,11 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     meterFreeDetail: "残り {n} クレジット",
     meterFreeUnlimited: "無制限",
     meterCreditsTitle: "クレジット",
-    meterCreditsDetail: "無料枠を使い切ったため、以降のAI処理にはクレジットを使用します。",
+    meterCreditsDetail:
+      "無料枠を使い切ったため、以降のAI処理にはクレジットを使用します。",
     meterUsingPaid: "⚡ 有料クレジットを使用中",
-    meterFreeExhaustedBuy: "本日の無料クレジットを使い切りました。続けるにはクレジットを追加してください。",
+    meterFreeExhaustedBuy:
+      "本日の無料クレジットを使い切りました。続けるにはクレジットを追加してください。",
     meterSignInHint: "ログインすると1日の無料枠が増えます。",
     meterAvailableTitle: "利用可能なクレジット",
     meterAvailableTotal: "{n} クレジット",
@@ -601,25 +644,37 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     creditsEstimateLabel: "AIで処理できる行数の目安",
     creditsEstimate: "短いテキストで約 {r} 行を処理できます。",
     creditsEstimateUnlimited: "利用可能なクレジットは無制限です。",
-    dailyCreditsExhausted: "本日の無料クレジットを使い切りました。ログインするかクレジットを追加すると続けられます。",
-    maxRowsAnonDailyError: "この AI 操作では {n} 行が選択されていますが、本日のゲスト枠で処理できるのはあと約 {m} 行です。",
-    maxRowsFreeDailyError: "この AI 操作では {n} 行が選択されていますが、本日の枠で処理できるのはあと約 {m} 行です。",
-    maxRowsWorkbookError: "この AI 操作では {n} 行が選択されていますが、1つのブックで読み込めるのは最大 {m} 行です。",
-    largeRunConfirm: "約 {c} クレジットを使用し、完了まで約 {m} 分（{s} 秒）かかります。完了するまでこのタブを開いたままにしてください。",
+    dailyCreditsExhausted:
+      "本日の無料クレジットを使い切りました。ログインするかクレジットを追加すると続けられます。",
+    maxRowsAnonDailyError:
+      "この AI 操作では {n} 行が選択されていますが、本日のゲスト枠で処理できるのはあと約 {m} 行です。",
+    maxRowsFreeDailyError:
+      "この AI 操作では {n} 行が選択されていますが、本日の枠で処理できるのはあと約 {m} 行です。",
+    maxRowsWorkbookError:
+      "この AI 操作では {n} 行が選択されていますが、1つのブックで読み込めるのは最大 {m} 行です。",
+    largeRunConfirm:
+      "約 {c} クレジットを使用し、完了まで約 {m} 分（{s} 秒）かかります。完了するまでこのタブを開いたままにしてください。",
     largeRunCanceled: "AI 処理を開始する前にキャンセルしました。",
     declinedByUser: "この変更をキャンセルしました",
     partialTitle: "{n} 行中 {f} 行の結果を取得できませんでした",
-    partialBody: "{s} 行は完了しました。残り {f} 行は、小分けにして再試行しても処理できませんでした。この {f} 行だけを再試行すれば、消費するクレジットもその行分だけです。",
+    partialBody:
+      "{s} 行は完了しました。残り {f} 行は、小分けにして再試行しても処理できませんでした。この {f} 行だけを再試行すれば、消費するクレジットもその行分だけです。",
     partialFatalBody: "処理が停止するまでに {s} 行が完了しました: {m}",
-    partialAbortedBody: "{n} 行中 {s} 行を処理した時点で停止しました。完了分は失われません。そのまま適用するか、残り {f} 行を今すぐ実行できます。",
+    partialAbortedBody:
+      "{n} 行中 {s} 行を処理した時点で停止しました。完了分は失われません。そのまま適用するか、残り {f} 行を今すぐ実行できます。",
     partialRetryFailed: "失敗した {f} 行を再試行",
     partialApplyPartial: "完了した {s} 行を適用",
     partialRetrying: "{f} 行を再試行中…",
-    partialUndecided: "{f} 行は判定できなかったため、結果から除外されています。",
-    sheetChangedDuringRun: "AIの処理中にシートが変更されたため、誤った行への書き込みを避けるために結果を破棄しました。変更は適用されていません。もう一度実行してください。",
-    switchedToCredits: "本日の無料枠を使い切りました。これ以降、AIはクレジットを使用します。",
-    siteQuotaAnon: "本日のゲスト向けお試しクレジットは終了しました。ログインすると、さらに無料クレジットを利用できます。",
-    siteQuotaFree: "サイト全体で共有している本日のAI無料枠を使い切りました。クレジットを購入すると、この上限に関係なく続けられます。UTC 0時にリセットされます。",
+    partialUndecided:
+      "{f} 行は判定できなかったため、結果から除外されています。",
+    sheetChangedDuringRun:
+      "AIの処理中にシートが変更されたため、誤った行への書き込みを避けるために結果を破棄しました。変更は適用されていません。もう一度実行してください。",
+    switchedToCredits:
+      "本日の無料枠を使い切りました。これ以降、AIはクレジットを使用します。",
+    siteQuotaAnon:
+      "本日のゲスト向けお試しクレジットは終了しました。ログインすると、さらに無料クレジットを利用できます。",
+    siteQuotaFree:
+      "サイト全体で共有している本日のAI無料枠を使い切りました。クレジットを購入すると、この上限に関係なく続けられます。UTC 0時にリセットされます。",
     signInToBuy: "クレジットを購入するにはログインしてください。",
     pricingTitle: "クレジット",
     pricingSubtitle: "都度購入・定期購入なし・有効期限なし",
@@ -630,7 +685,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     pricingBuy: "購入",
     pricingBusy: "決済ページを開いています…",
     pricingUsageTitle: "クレジットの消費について",
-    pricingRowCost: "AIは実際の計算量に応じてクレジットを消費します。住所のような短いテキストでは1,000行あたり約 {c} クレジットで、コメントや説明文など長いテキストでは消費量が増えます。1クレジットはAI処理約1回分で、1回のチャット操作では通常数クレジットを使います。",
+    pricingRowCost:
+      "AIは実際の計算量に応じてクレジットを消費します。住所のような短いテキストでは1,000行あたり約 {c} クレジットで、コメントや説明文など長いテキストでは消費量が増えます。1クレジットはAI処理約1回分で、1回のチャット操作では通常数クレジットを使います。",
     pricingCompare: "利用条件ごとの違い",
     pricingColAnon: "ログインなし",
     pricingColFree: "ログイン済み",
@@ -656,9 +712,12 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     reasonAdjust: "調整",
     ctUploadTitle: "Excel ファイルをアップロード",
     ctUploadStep: "1. Excelファイルを選択",
-    ctUploadDesc: ".xlsx、.xls、.csv をそのままドロップできます。事前の変換は不要です。最大20 MB。ファイルは保存されません。",
-    ctUploadDropLine: ".xlsx、.xls、.csv をドロップしてください。変換は不要です。",
-    ctUploadLocalLine: "ファイルはブラウザで開きます。AI機能では、選択したセルの内容が処理のために送信されます。",
+    ctUploadDesc:
+      ".xlsx、.xls、.csv をそのままドロップできます。事前の変換は不要です。最大20 MB。ファイルは保存されません。",
+    ctUploadDropLine:
+      ".xlsx、.xls、.csv をドロップしてください。変換は不要です。",
+    ctUploadLocalLine:
+      "ファイルはブラウザで開きます。AI機能では、選択したセルの内容が処理のために送信されます。",
     ctUploadHint: "Excel または CSV、最大20 MB。",
     ctFileInfo: "{name}・{rows} 行・{cols} 列",
     ctSheet: "シート",
@@ -674,7 +733,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ctExtractLabel: "抽出する内容",
     ctFromColumn: "抽出元の列",
     ctTargetPlaceholder: "例: 都道府県、SKU、メールアドレス",
-    ctColumnHint: "上でファイルをアップロードすると、実際の列名から選べるようになります。",
+    ctColumnHint:
+      "上でファイルをアップロードすると、実際の列名から選べるようになります。",
     ctRunStep: "3. プレビューして実行",
     ctPreviewBtn: "先頭3行をプレビュー",
     ctRetryPreview: "プレビューを再試行",
@@ -685,19 +745,25 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     ctExtractedValue: "抽出結果",
     ctProgressRows: "{d}/{t} 行を処理中…",
     ctDefaultColumn: "抽出結果",
-    ctDownloadNote: "ダウンロードするファイルには元の列がすべて残り、抽出結果の列が追加されます。ファイル形式も元のままです。ログインなしでは1日約 {anon} 行、ログイン後は約 {free} 行を処理できます。クレジットを使えば1日の上限はありません。",
-    ctDailyLimitAnon: "本日の行数上限に達しました。ログインして無料枠を増やすか、明日もう一度お試しください。",
-    ctDailyLimitFree: "本日の行数上限に達しました。クレジットを追加して続けるか、明日もう一度お試しください。",
-    ctPartialRunConfirm: "今回は {total} 行中 {allowed} 行まで処理できます。先頭の {allowed} 行を今すぐ処理しますか？",
+    ctDownloadNote:
+      "ダウンロードには選択したシートの列と抽出結果の列が含まれます。Excelファイルは .xlsx で、CSVファイルは .csv で出力されます。他のシート、数式、セルの書式は保持されません。ログインなしでは1日約 {anon} 行、ログイン後は約 {free} 行を処理できます。クレジットを使えば1日の上限はありません。",
+    ctDailyLimitAnon:
+      "本日の行数上限に達しました。ログインして無料枠を増やすか、明日もう一度お試しください。",
+    ctDailyLimitFree:
+      "本日の行数上限に達しました。クレジットを追加して続けるか、明日もう一度お試しください。",
+    ctPartialRunConfirm:
+      "今回は {total} 行中 {allowed} 行まで処理できます。先頭の {allowed} 行を今すぐ処理しますか？",
     ccCompare: "比較元",
     ccTo: "比較先",
     ccFor: "比較内容",
     ccModeDuplicates: "両方にある値",
     ccModeMatches: "同じ行で一致する値",
     ccModeMissing: "比較先にない値",
-    ccDownloadNote: "ダウンロードファイルには元の列がすべて保持され、新しい比較結果の列が追加されます。",
+    ccDownloadNote:
+      "ダウンロードには選択したシートの列と比較結果の列が含まれます。Excelは .xlsx、CSVは .csv で出力されます。他のシート、数式、セルの書式は保持されません。",
     dfFindIn: "重複を検索する列",
-    dfDownloadNote: "ダウンロードファイルには元の列がすべて保持され、新しい重複チェック列が追加されます。",
+    dfDownloadNote:
+      "ダウンロードには選択したシートの列と重複チェック列が含まれます。Excelは .xlsx、CSVは .csv で出力されます。他のシート、数式、セルの書式は保持されません。",
   },
 };
 
@@ -707,6 +773,8 @@ export function t(
   vars?: Record<string, string | number>,
 ): string {
   let out = STRINGS[locale][key] ?? STRINGS.en[key] ?? key;
-  if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
+  if (vars)
+    for (const [k, v] of Object.entries(vars))
+      out = out.split(`{${k}}`).join(String(v));
   return out;
 }
