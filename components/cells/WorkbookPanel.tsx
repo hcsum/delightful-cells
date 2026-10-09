@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 import { MAX_COLS, MAX_IMPORT_ROWS, type ParsedWorkbook } from "@/lib/cells/workbook";
 import type { GridState } from "@/lib/cells/tools";
 import DataTable from "./DataTable";
@@ -84,7 +85,13 @@ export default function WorkbookPanel({
           </div>
         ) : (
           <div className="text-center">
-            <div className="text-6xl">🐣</div>
+            <Image
+              src="/spreadsheet-chick.webp"
+              alt="Delightful Cells spreadsheet chick"
+              width={128}
+              height={85}
+              className="mx-auto h-auto w-32"
+            />
             <h2 className="mt-4 text-xl font-extrabold text-black">
               {t("dropTitle")}
             </h2>
