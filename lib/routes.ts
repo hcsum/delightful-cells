@@ -7,7 +7,7 @@ export type UseCase = { href: Route; title: string; titleZh: string; titleJa: st
 
 // Curated list shown on the Home page and included in the sitemap
 export const USE_CASES: UseCase[] = [
-  { href: '/extract-state-from-address-excel', title: 'Excel: Extract State from Address', titleZh: 'Excel：从地址提取州', titleJa: 'Excel：住所から州を抽出' },
+  { href: '/extract-state-from-address-excel', title: 'Excel: Extract State from Address', titleZh: 'Excel：从地址提取州', titleJa: 'Excel：住所から都道府県を抽出' },
   { href: '/extract-city-from-address-excel', title: 'Excel: Extract City from Address', titleZh: 'Excel：从地址提取城市', titleJa: 'Excel：住所から市区町村を抽出' },
   { href: '/extract-zip-from-address-excel', title: 'Excel: Extract ZIP / Postal Code from Address', titleZh: 'Excel：从地址提取邮编', titleJa: 'Excel：住所から郵便番号を抽出' },
   { href: '/extract-first-name-from-full-name-excel', title: 'Excel: Extract First Name from Full Name', titleZh: 'Excel：从姓名提取名', titleJa: 'Excel：氏名から名を抽出' },

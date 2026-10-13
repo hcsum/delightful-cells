@@ -1,5 +1,6 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
+import { JAPANESE_EXTRACTION, JapaneseExtractionGuide, japaneseExample } from "@/lib/japanese-extraction";
 import { localizedMetadata, serverLocale } from "@/lib/seo";
 
 const PATH = "/extract-state-from-address-excel";
@@ -36,18 +37,18 @@ const COPY = {
     ],
   },
   ja: {
-    title: "Excel の住所から州を抽出（Excel・CSV ツール）",
+    title: "Excel 住所から都道府県を抽出（Excel・CSV対応）",
     description:
-      "Excel または CSV ファイルをアップロードし、AI を使って住所列から米国の州を自動抽出します。",
-    h1: "住所から州を抽出",
+      "Excel・CSVの住所から東京都、北海道、大阪府などの都道府県名をAIで抽出。都道府県が省略された住所は推測せず、プレビューで結果を確認して一括処理できます。",
+    h1: "Excelの住所から都道府県を抽出",
     intro:
-      "Excel ファイルの住所列から米国の州を抽出します。数行をプレビューして結果を確認するか、そのままファイル全体を処理できます。",
+      "日本の住所列から都道府県名だけを取り出し、新しい列に追加します。「東京都」「北海道」「大阪府」「神奈川県」のように、都・道・府・県を含む表記で出力します。",
     steps: [
       "**Excel ファイルをアップロード** — .xlsx、.xls、.csv に対応しています。",
       "住所全体が入力された**抽出元の列**を選びます。",
-      "**抽出対象**を「米国の州コード（2文字）」に設定します。",
-      "**プレビュー**して、州が正しく抽出されることを確認します。",
-      "**ファイル全体を処理**し、州の列が追加されたファイルをダウンロードします。",
+      "**抽出対象**を「都道府県名」に設定します。",
+      "**プレビュー**して、都道府県名と、省略された住所のnull出力を確認します。",
+      "**ファイル全体を処理**し、都道府県の列が追加されたファイルをダウンロードします。",
     ],
   },
 };
@@ -55,7 +56,7 @@ const COPY = {
 const DEFAULTS = {
   en: { target: "US state as a two-letter abbreviation", source: "address" },
   zh: { target: "US state as a two-letter abbreviation", source: "address" },
-  ja: { target: "米国の州コード（2文字）", source: "住所" },
+  ja: { target: "都道府県名", source: "住所" },
 };
 
 const EXAMPLES = [
@@ -86,6 +87,7 @@ export function generateMetadata() {
 }
 
 export default function Page() {
+  const isJa = serverLocale() === "ja";
   const defaults = DEFAULTS[serverLocale()];
   return (
     <ToolLanding
@@ -94,9 +96,12 @@ export default function Page() {
         <CustomToolClient
           initialTarget={defaults.target}
           initialSource={defaults.source}
+          initialInstructions={isJa ? JAPANESE_EXTRACTION.prefecture.instructions : undefined}
         />
       }
-      examples={EXAMPLES}
-    />
+      examples={isJa ? japaneseExample("prefecture") : EXAMPLES}
+    >
+      {isJa && <JapaneseExtractionGuide task="prefecture" />}
+    </ToolLanding>
   );
 }

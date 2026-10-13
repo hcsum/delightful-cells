@@ -1,5 +1,6 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
+import { JAPANESE_EXTRACTION, JapaneseExtractionGuide, japaneseExample } from "@/lib/japanese-extraction";
 import type { LandingEntry } from "@/lib/landing-copy";
 import { localizedMetadata, serverLocale } from "@/lib/seo";
 
@@ -37,17 +38,17 @@ const COPY: LandingEntry = {
     ],
   },
   ja: {
-    title: "フルネームから名を抽出（Excel・CSVツール）",
+    title: "Excel 氏名を姓・名に分割：名を抽出（スペースなしも確認）",
     description:
-      "Excel（.xlsx）またはCSVファイルをアップロードし、フルネームの列から名を抽出できます。",
-    h1: "フルネームから名を抽出",
+      "Excel・CSVの日本語の氏名から名を抽出。半角・全角スペースのある名前を分割し、スペースなしの名前はAIの判断をプレビューで確認。姓・名を別々の列にする手順も紹介します。",
+    h1: "Excelの氏名を分割して名を抽出",
     intro:
-      "Excelファイルのフルネーム列から名を抽出します。数行だけ試すことも、ファイル全体をそのまま処理することもできます。",
+      "「山田 太郎」から「太郎」のように、日本語の氏名列から名だけを取り出します。姓・名の順で扱い、半角・全角スペースに対応。スペースなしの氏名は境界が曖昧になるため、結果の確認が必要です。",
     steps: [
       "**Excelファイルをアップロード** — .xlsx、.xls、.csvに対応しています。",
       "フルネームが入っている**元の列**（例：「氏名」）を選びます。",
       "**抽出対象**を「名」に設定します。",
-      "数行を**プレビュー**します。ミドルネームや複数語からなる姓にも対応しています。",
+      "数行を**プレビュー**し、姓・名の境界を確認します。スペースなしの氏名やnullの行は特に確認してください。",
       "**ファイル全体を処理**し、名の列が追加されたファイルをダウンロードします。",
     ],
   },
@@ -67,9 +68,10 @@ export default function Page() {
         <CustomToolClient
           initialTarget={isJa ? "名" : "first name"}
           initialSource={isJa ? "氏名" : "full name"}
+          initialInstructions={isJa ? JAPANESE_EXTRACTION.givenName.instructions : undefined}
         />
       }
-      examples={[
+      examples={isJa ? japaneseExample("givenName") : [
         {
           heading: {
             en: "Example — Extract first name from full name",
@@ -87,6 +89,8 @@ export default function Page() {
           ],
         },
       ]}
-    />
+    >
+      {isJa && <JapaneseExtractionGuide task="givenName" />}
+    </ToolLanding>
   );
 }

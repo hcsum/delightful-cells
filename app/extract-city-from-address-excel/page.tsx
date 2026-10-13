@@ -1,5 +1,6 @@
 import CustomToolClient from "@/components/CustomToolClient";
 import ToolLanding from "@/components/ToolLanding";
+import { JAPANESE_EXTRACTION, JapaneseExtractionGuide, japaneseExample } from "@/lib/japanese-extraction";
 import { localizedMetadata, serverLocale } from "@/lib/seo";
 
 const PATH = "/extract-city-from-address-excel";
@@ -36,12 +37,12 @@ const COPY = {
     ],
   },
   ja: {
-    title: "Excel の住所から市区町村名を抽出（Excel・CSV ツール）",
+    title: "Excel 住所から市区町村を抽出・住所分割（CSV対応）",
     description:
-      "Excel または CSV ファイルをアップロードし、AI を使って住所列から市区町村名を自動抽出します。",
-    h1: "住所から市区町村名を抽出",
+      "Excel・CSVの日本の住所から市区町村をAIで抽出。新宿区、横浜市中区、郡を含む町村の例とともに、住所分割の手順を紹介。数行をプレビューしてから一括処理できます。",
+    h1: "Excelの住所から市区町村を抽出",
     intro:
-      "Excel ファイルの住所列から市区町村名を抽出します。数行をプレビューして結果を確認するか、そのままファイル全体を処理できます。",
+      "日本の住所を都道府県・市区町村に分けたいとき、住所列から市区町村だけを新しい列に抽出します。関数を組まずにAIへ指示し、政令指定都市の区や郡を含む町村の結果をプレビューで確認できます。",
     steps: [
       "**Excel ファイルをアップロード** — .xlsx、.xls、.csv に対応しています。",
       "住所全体が入力された**抽出元の列**を選びます。",
@@ -82,6 +83,7 @@ export function generateMetadata() {
 }
 
 export default function Page() {
+  const isJa = serverLocale() === "ja";
   const defaults = DEFAULTS[serverLocale()];
   return (
     <ToolLanding
@@ -90,9 +92,12 @@ export default function Page() {
         <CustomToolClient
           initialTarget={defaults.target}
           initialSource={defaults.source}
+          initialInstructions={isJa ? JAPANESE_EXTRACTION.city.instructions : undefined}
         />
       }
-      examples={EXAMPLES}
-    />
+      examples={isJa ? japaneseExample("city") : EXAMPLES}
+    >
+      {isJa && <JapaneseExtractionGuide task="city" />}
+    </ToolLanding>
   );
 }

@@ -46,9 +46,11 @@ const PREVIEW_ROWS = 3;
 export default function CustomToolClient({
   initialTarget = "",
   initialSource = "",
+  initialInstructions = "",
 }: {
   initialTarget?: string;
   initialSource?: string;
+  initialInstructions?: string;
 }) {
   const form = useForm<FormValues>({
     defaultValues: { target: initialTarget, source: initialSource },
@@ -60,6 +62,10 @@ export default function CustomToolClient({
 
   const target = watch("target");
   const source = watch("source");
+  // Page-specific rules apply only while the user keeps the preset task.
+  const extractionTarget = (target || "").trim() === initialTarget.trim() && initialInstructions
+    ? `${initialTarget}. ${initialInstructions}`
+    : (target || "").trim();
 
   const [workbook, setWorkbook] = useState<ToolWorkbook | null>(null);
   const [sheetIndex, setSheetIndex] = useState(0);
@@ -150,7 +156,7 @@ export default function CustomToolClient({
     setPreviewInputsSnap(inputs);
     if (inputs.length === 0) return;
     setPreviewLoading(true);
-    processRows(inputs, (target || "").trim(), (source || "").trim(), 5, undefined, {
+    processRows(inputs, extractionTarget, (source || "").trim(), 5, undefined, {
       action: "preview",
     })
       .then((res) => {
@@ -169,7 +175,7 @@ export default function CustomToolClient({
         setPreviewFailed(true);
       })
       .finally(() => setPreviewLoading(false));
-  }, [canProcess, dataRows, sourceIdx, source, target, t]);
+  }, [canProcess, dataRows, sourceIdx, source, extractionTarget, t]);
 
   const downloadRun = useCallback(
     async (run: PendingRun) => {
@@ -254,7 +260,7 @@ export default function CustomToolClient({
     try {
       outcome = await processRows(
         inputs,
-        (target || "").trim(),
+        extractionTarget,
         (source || "").trim(),
         AI_BATCH_ROWS,
         ac.signal,
@@ -290,7 +296,7 @@ export default function CustomToolClient({
     // A clean run downloads without asking. Anything else is the user's call.
     if (!run.stopped && run.failedIndices.length === 0) void downloadRun(run);
     else setPendingRun(run);
-  }, [canProcess, dataRowCount, headers, dataRows, sourceIdx, source, target, downloadRun, t]);
+  }, [canProcess, dataRowCount, headers, dataRows, sourceIdx, source, target, extractionTarget, downloadRun, t]);
 
   const onCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -307,7 +313,7 @@ export default function CustomToolClient({
     try {
       outcome = await processRows(
         idx.map((i) => run.inputs[i]),
-        (target || "").trim(),
+        extractionTarget,
         (source || "").trim(),
         AI_BATCH_ROWS,
         ac.signal,
@@ -336,7 +342,7 @@ export default function CustomToolClient({
     } else {
       setPendingRun(next);
     }
-  }, [pendingRun, source, target, downloadRun, t]);
+  }, [pendingRun, source, extractionTarget, downloadRun, t]);
 
   const onApplyPartial = useCallback(() => {
     if (!pendingRun) return;
