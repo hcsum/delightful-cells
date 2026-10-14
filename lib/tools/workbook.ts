@@ -75,7 +75,8 @@ export async function downloadSheet(
   const name = `${base}-with-${kebab(suffix)}`;
   if (source.kind === "csv") {
     downloadBlob(
-      new Blob([toCsv(headers, rows)], { type: "text/csv;charset=utf-8;" }),
+      // Excel uses the BOM to recognize Japanese UTF-8 text on direct open.
+      new Blob(["\uFEFF", toCsv(headers, rows)], { type: "text/csv;charset=utf-8;" }),
       `${name}.csv`,
     );
     return;

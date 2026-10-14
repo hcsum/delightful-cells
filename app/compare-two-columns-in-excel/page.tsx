@@ -1,5 +1,7 @@
 import Link from "next/link";
 import CompareColumnsClient from "@/components/CompareColumnsClient";
+import JapaneseComparisonGuide from "@/components/JapaneseComparisonGuide";
+import { localizePath } from "@/lib/locale-routing";
 import { rich, shared } from "@/lib/landing-copy";
 import { localizedMetadata, serverLocale } from "@/lib/seo";
 
@@ -151,12 +153,12 @@ const COPY = {
     },
   },
   ja: {
-    title: "Excelで2つの列を比較（Excel・CSVツール）",
+    title: "Excelで2つの列を比較｜A列にあってB列にない値を探す",
     description:
-      "Excelの2つの列を比較し、重複する値、一致する値、一方の列にしかない値を見つけます。数式は不要です。ExcelまたはCSVファイルをアップロードして、結果をすぐにダウンロードできます。",
-    h1: "Excelで2つの列を比較",
+      "ExcelでA列にあってB列にない値や、2つの列で一致しない値を確認。並び順が違うリストの照合と同じ行の比較を使い分け、COUNTIF関数の方法と、関数なしで結果列を追加するExcel・CSVツールを紹介します。",
+    h1: "Excelで2つの列を比較 — A列にあってB列にない値を見つける",
     intro:
-      "数式を書かずにExcelの2つの列を比較し、一致する値や、片方の列にしかない値を確認できます。ExcelとCSVに対応し、2列間の差分や共通する値を見つけられます。",
+      "商品マスターと入荷リストを照合したいときは、ファイルをアップロードして2列を選択。「比較先にない値」でA列にあってB列にない商品コードをマークできます。並び順が違うリストの比較にも対応。関数で確認する方法はツールの下で紹介します。",
     tasksTitle: "よくある列の比較",
     tasks: [
       "行ごとにA列とB列が等しいか比較する",
@@ -175,7 +177,7 @@ const COPY = {
     steps: [
       "**ファイルをアップロード：**.xlsx、.xls、.csvファイル（最大20 MB）を選びます。処理はすべてブラウザ内で行われます。複数のシートがある場合は、使用するシートを選びます。",
       "**A列とB列を選択：**どちらのドロップダウンにも、アップロードしたファイルの見出しが表示されます。入力する必要はありません。",
-      "**比較方法を選択：***両方にある値*、*同じ行で一致する値*、*B列にない値*から選びます。",
+      "**比較方法を選択：***両方にある値*、*同じ行で一致する値*、*比較先にない値*から選びます。A列にあってB列にない値を探す場合は「比較先にない値」です。",
       "**大文字と小文字の区別（任意）：**オフの場合は区別せず、オンの場合は区別して比較します。",
       "**処理してダウンロード：**選択したシートに比較結果の列を追加してダウンロードします。Excelファイルは .xlsx、CSVファイルは .csv で出力されます。他のシート、数式、セルの書式は保持されません。",
     ],
@@ -185,17 +187,27 @@ const COPY = {
       {
         question: "3つの比較方法はどう違いますか？",
         answer:
-          "「両方にある値」はA列の各非空値がB列のどこかにあるかを確認します。「B列にない値」はA列にありB列にはない値をマークします。「同じ行で一致」は同じ行のA列とB列を比較します。最初の2つは行順に関係なく、最後は行ごとの比較です。",
+          "「両方にある値」はA列の各非空値がB列のどこかにあるかを確認します。「比較先にない値」はA列にありB列にはない値をマークします。「同じ行で一致する値」は同じ行のA列とB列を比較します。最初の2つは行順に関係なく、最後は行ごとの比較です。",
       },
       {
         question: "列の長さが違ったり、並べ替えられていなくても使えますか？",
         answer:
-          "「両方にある値」と「B列にない値」では、A列の値をB列全体から検索するため、並べ替えや同じ行数は必要ありません。「同じ行で一致」は行ごとに比較するため、行順が重要です。",
+          "「両方にある値」と「比較先にない値」では、A列の値をB列全体から検索するため、並べ替えや同じ行数は必要ありません。「同じ行で一致する値」は行ごとに比較するため、行順が重要です。B列にだけある値を探す場合は、比較元と比較先を入れ替えます。",
       },
       {
         question: "空白、大文字・小文字、空のセルはどう扱われますか？",
         answer:
-          "前後の空白は取り除きます。デフォルトでは大文字・小文字を区別せず、設定を有効にすると区別します。B列の空セルは無視され、A列の空セルは一致・重複としてマークされません。",
+          "前後の空白は取り除きます。デフォルトでは大文字・小文字を区別せず、設定を有効にすると区別します。B列の空セルは検索対象外です。A列の空セルは「両方にある値」「同じ行で一致する値」ではマークされませんが、「比較先にない値」ではTrueになります。空白の行は結果を確認するときに除外してください。",
+      },
+      {
+        question: "2つの列で一致しない値だけをダウンロードできますか？",
+        answer:
+          "このツールは行を絞り込まず、選択したシートの全データに結果列を追加します。条件に当てはまる行は文字列True、それ以外は空欄です。ダウンロード後、Excelのフィルターで結果列のTrueだけを表示してください。同じ行で一致しない値を探す場合は「同じ行で一致する値」の結果が空欄の行を確認します。両方空白の行も空欄になるため、必要に応じて除外してください。",
+      },
+      {
+        question: "関数なしで使えますか？データはサーバーに送信されますか？",
+        answer:
+          "この2列比較ツールは関数やアドインなしで使え、ファイルの読み込み・比較・出力はブラウザ内で行います。別のAI抽出ツールは選択したセルの内容をサーバーへ送信するため、処理方式が異なります。",
       },
       {
         question: "元のスプレッドシートは変更されますか？",
@@ -236,13 +248,13 @@ const EXAMPLES: {
     mode: "duplicates",
     column: "duplicates_order_number_entered_order_number_master",
     rows: [
-      ["1001", "AC105", ""],
-      ["1002", "AC106", ""],
+      ["1001", "AC105", "True"],
+      ["1002", "AC106", "True"],
       ["1003", "AC107", ""],
-      ["1004", "1001", "True"],
+      ["1004", "1001", ""],
       ["1005", "AC109", ""],
       ["1006", "AC110", ""],
-      ["1007", "1002", "True"],
+      ["1007", "1002", ""],
     ],
   },
   {
@@ -291,6 +303,7 @@ export default function Page() {
 
       <div className="space-y-8 pt-12">
         <hr />
+        {locale === "ja" ? <JapaneseComparisonGuide /> : null}
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">{c.tasksTitle}</h2>
           <ul className="list-disc pl-5 space-y-1 text-white/80">
@@ -314,9 +327,13 @@ export default function Page() {
           </ol>
         </section>
 
-        <h2 className="text-xl font-semibold">{shared(locale, "examples")}</h2>
+        {locale !== "ja" ? (
+          <h2 className="text-xl font-semibold">
+            {shared(locale, "examples")}
+          </h2>
+        ) : null}
         <section className="space-y-12">
-          {EXAMPLES.map((ex) => (
+          {(locale === "ja" ? [] : EXAMPLES).map((ex) => (
             <article key={ex.mode} className="space-y-3">
               <h3 className="text-lg font-medium">
                 {c.modes[ex.mode].heading}
@@ -387,7 +404,7 @@ export default function Page() {
           <h2 className="text-xl font-semibold">{c.relatedTitle}</h2>
           <Link
             className="underline underline-offset-4"
-            href="/find-duplicates-in-excel"
+            href={localizePath("/find-duplicates-in-excel", locale)}
           >
             {c.relatedDuplicates}
           </Link>

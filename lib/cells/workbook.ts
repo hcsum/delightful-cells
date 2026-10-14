@@ -56,7 +56,17 @@ export async function parseWorkbookFile(
   const XLSX = await import("xlsx");
   let wb: import("xlsx").WorkBook;
   try {
-    wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const bytes = await file.arrayBuffer();
+    let codepage: number | undefined;
+    if (/\.csv$/i.test(file.name)) {
+      try {
+        // SheetJS otherwise treats BOM-less UTF-8 as a legacy encoding.
+        // Keep its existing fallback for files that are not valid UTF-8.
+        new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        codepage = 65001;
+      } catch {}
+    }
+    wb = XLSX.read(bytes, { type: "array", codepage });
   } catch {
     throw new WorkbookError(
       "Couldn't read that file. It should be an .xlsx, .xls, or .csv file.",
