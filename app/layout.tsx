@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import AppShell from "@/components/AppShell";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import MicrosoftClarity from "@/components/MicrosoftClarity";
 import { serverLocale } from "@/lib/seo";
 import { SITE_URL } from "@/lib/site";
 
@@ -51,6 +52,7 @@ export default function RootLayout({
     <html lang={locale === "zh" ? "zh-CN" : locale}>
       <body>
         <GoogleAnalytics />
+        <MicrosoftClarity />
         <AppShell initialLocale={locale}>{children}</AppShell>
       </body>
     </html>
