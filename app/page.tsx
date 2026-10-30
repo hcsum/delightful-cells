@@ -29,8 +29,8 @@ const COPY = {
   },
 };
 
-export function generateMetadata() {
-  const locale = serverLocale();
+export async function generateMetadata() {
+  const locale = await serverLocale();
   const c = COPY[locale];
   return {
     title: { absolute: c.title },
@@ -61,8 +61,8 @@ export function generateMetadata() {
   };
 }
 
-export default function HomePage() {
-  const locale = serverLocale();
+export default async function HomePage() {
+  const locale = await serverLocale();
   return (
     <>
       <CellsApp initialLocale={locale} />

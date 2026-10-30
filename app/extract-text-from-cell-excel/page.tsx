@@ -121,8 +121,8 @@ export function generateMetadata() {
   return localizedMetadata(PATH, COPY);
 }
 
-export default function Page() {
-  const locale = serverLocale();
+export default async function Page() {
+  const locale = await serverLocale();
   return (
     <ToolLanding copy={COPY} tool={<CustomToolClient />} examples={EXAMPLES}>
       {/* Bottom CTA: scroll back to the tool header */}

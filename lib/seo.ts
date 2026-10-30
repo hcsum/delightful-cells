@@ -9,8 +9,8 @@ import {
 
 // The locale the middleware resolved for this request. Every page is a server
 // component, so this is the only place that needs to know how it travels.
-export function serverLocale(): AppLocale {
-  const localeHeader = headers().get("x-locale");
+export async function serverLocale(): Promise<AppLocale> {
+  const localeHeader = (await headers()).get("x-locale");
   return isAppLocale(localeHeader) ? localeHeader : DEFAULT_LOCALE;
 }
 
@@ -34,12 +34,12 @@ export function localeAlternates(path: string, locale: AppLocale) {
 
 // Builds the head for a page that exists in both locales. `extra` wins over the
 // defaults, so a page with its own og:image passes it through.
-export function localizedMetadata(
+export async function localizedMetadata(
   path: string,
   copy: Record<AppLocale, LocalizedCopy>,
   extra?: Metadata,
-): Metadata {
-  const locale = serverLocale();
+): Promise<Metadata> {
+  const locale = await serverLocale();
   const { title, description } = copy[locale];
   return {
     title,

@@ -14,8 +14,8 @@ import { serverLocale } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 
 // Signed-in only, so there is nothing here to index in either language.
-export function generateMetadata(): Metadata {
-  const locale = serverLocale();
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await serverLocale();
   const title = {
     en: "Account — Delightful Cells",
     zh: "我的账户 —— Delightful Cells",
@@ -28,7 +28,7 @@ export function generateMetadata(): Metadata {
 }
 
 export default async function AccountPage() {
-  const locale = serverLocale();
+  const locale = await serverLocale();
   const userId = await getUserIdFromRequest();
   if (!userId) return <AccountClient signedIn={false} initialLocale={locale} />;
 

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { serverLocale } from '@/lib/seo'
 
-export function generateMetadata(): Metadata {
-  const locale = serverLocale()
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await serverLocale()
   const isJapanese = locale === 'ja'
   return {
     title: isJapanese ? '利用規約' : 'Terms of Service',
@@ -14,10 +14,10 @@ export function generateMetadata(): Metadata {
   }
 }
 
-export default function TermsPage() {
+export default async function TermsPage() {
   const today = new Date();
   const lastUpdated = today.toISOString().slice(0, 10); // YYYY-MM-DD
-  const locale = serverLocale();
+  const locale = await serverLocale();
   if (locale === 'ja') {
     return <JapaneseTerms lastUpdated={lastUpdated} />
   }

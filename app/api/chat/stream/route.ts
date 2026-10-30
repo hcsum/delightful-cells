@@ -4,6 +4,7 @@ import { getClientIp } from "@/lib/client-ip";
 import { t } from "@/lib/cells/i18n";
 import { encodeSse, encodeSseComment, readSse, type SseEnvelope } from "@/lib/cells/sse";
 import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
+import { finishInference, refundRejectedInference, reserveInferenceBudget, withInferenceLock } from "@/lib/billing/guard";
 
 type FlatMessage = { role: string; content: string };
 const MAX_MESSAGES = 30;
@@ -22,13 +23,14 @@ function requestIdFor(request: Request): string {
   return request.headers.get("x-request-id") || crypto.randomUUID();
 }
 
-export async function POST(request: Request) {
+export const POST = withInferenceLock(handlePost);
+
+async function handlePost(request: Request, settlementRef: string) {
   if (process.env.CHAT_STREAMING_ENABLED === "false" && process.env.MOCK_LLM !== "true") {
     return json({ error: "not_found", message: "Streaming chat is not enabled." }, 404);
   }
   const receivedAt = Date.now();
   const requestId = requestIdFor(request);
-  const settlementRef = crypto.randomUUID();
   let body: { messages?: FlatMessage[] };
   try {
     body = await request.json();
@@ -68,16 +70,27 @@ export async function POST(request: Request) {
     if (billing.mode === "paid") entitlement = asPaid(entitlement);
   }
 
+  if (!await reserveInferenceBudget(entitlement, settlementRef)) {
+    if (entitlement.balanceNeurons > 0) {
+      entitlement = asPaid(entitlement);
+      await reserveInferenceBudget(entitlement, settlementRef);
+    }
+    else return json({ error: "quota_exceeded", message: "AI budget is exhausted. Try again tomorrow." }, 429);
+  }
+
   const workerUrl = process.env.LLM_WORKER_URL;
   if (process.env.MOCK_LLM !== "true" && !workerUrl) {
+    await refundRejectedInference(settlementRef);
     return json({ error: "not_configured", message: "LLM_WORKER_URL is not set. For local dev without a worker, set MOCK_LLM=true." }, 500);
   }
 
   try {
     if (await reserveSettlement(settlementRef, "chat") !== "claimed") {
+      await refundRejectedInference(settlementRef);
       return json({ error: "settlement_conflict", message: "Request settlement conflict." }, 409);
     }
   } catch {
+    await refundRejectedInference(settlementRef);
     return json({ error: "billing_unavailable", message: "Billing is temporarily unavailable." }, 503);
   }
 
@@ -138,7 +151,11 @@ export async function POST(request: Request) {
             body: JSON.stringify({ messages }),
             signal: upstreamController.signal,
           });
-          if (!upstream.ok || !upstream.body) throw new Error(`LLM worker error (${upstream.status})`);
+          if (!upstream.ok) {
+            await refundRejectedInference(settlementRef);
+            throw new Error(`LLM worker error (${upstream.status})`);
+          }
+          if (!upstream.body) throw new Error("Missing upstream stream");
           await readSse(upstream.body, (event) => {
             if (!firstChunkAt) firstChunkAt = Date.now();
             if (event.requestId !== requestId) throw new Error("Upstream request ID mismatch");
@@ -185,6 +202,12 @@ export async function POST(request: Request) {
       send("error", { code: "upstream_stream_failed", message: "The model response was interrupted.", retrySafe: false });
     } finally {
       if (heartbeat) clearInterval(heartbeat);
+      try {
+        await finishInference(settlementRef);
+      } catch (error) {
+        console.error("[billing] streaming settlement failed", String(error));
+        send("error", { code: "billing_unavailable", message: "Billing is temporarily unavailable.", retrySafe: false });
+      }
       if (browserWritable) await writer.close().catch(() => {});
     }
   })();

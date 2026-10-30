@@ -86,9 +86,10 @@ export function generateMetadata() {
   return localizedMetadata(PATH, COPY);
 }
 
-export default function Page() {
-  const isJa = serverLocale() === "ja";
-  const defaults = DEFAULTS[serverLocale()];
+export default async function Page() {
+  const locale = await serverLocale();
+  const isJa = locale === "ja";
+  const defaults = DEFAULTS[locale];
   return (
     <ToolLanding
       copy={COPY}

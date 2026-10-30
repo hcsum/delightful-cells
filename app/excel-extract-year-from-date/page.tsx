@@ -81,8 +81,8 @@ export function generateMetadata() {
   return localizedMetadata(PATH, COPY);
 }
 
-export default function Page() {
-  const defaults = DEFAULTS[serverLocale()];
+export default async function Page() {
+  const defaults = DEFAULTS[await serverLocale()];
   return (
     <ToolLanding
       copy={COPY}

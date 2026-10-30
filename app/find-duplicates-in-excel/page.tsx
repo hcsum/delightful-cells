@@ -148,8 +148,8 @@ export function generateMetadata() {
   return localizedMetadata(PATH, COPY);
 }
 
-export default function Page() {
-  const locale = serverLocale();
+export default async function Page() {
+  const locale = await serverLocale();
   const c = COPY[locale];
   return (
     <div className="space-y-6">

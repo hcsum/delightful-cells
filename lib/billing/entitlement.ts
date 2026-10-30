@@ -86,12 +86,10 @@ export function asPaid(ent: Entitlement): Entitlement {
  * counter; what the call actually cost is only known afterwards and lands via
  * `commitFreeNeurons`.
  *
- * That means the last call of the day is allowed to overshoot: a user sitting
- * at 239 of 240 neurons gets one more full call. This is on purpose, and it is
- * the same rule paid balances follow ("balance > 0, spend it, settle after") —
- * refusing a call because it *might* exceed the allowance would mean quoting a
- * cost we do not have yet, and a batch nobody can predict the price of is a
- * worse experience than a few neurons of slippage.
+ * The D1 inference guard serializes each identity and reserves both the site
+ * and personal budget before inference. The final free call may still overshoot
+ * its personal allowance, but concurrent calls cannot all spend that last turn.
+ * Paid calls prepay a hold instead; see lib/billing/guard.ts.
  */
 export async function billFreeCall(ent: Entitlement): Promise<Billing> {
   const limit = allowanceNeurons(ent);
@@ -102,7 +100,8 @@ export async function billFreeCall(ent: Entitlement): Promise<Billing> {
 }
 
 /**
- * Spend what the call actually cost against today's allowance. The amount is
+ * Mirror measured free usage into the legacy KV counter. The authoritative D1
+ * allowance was already settled atomically by the inference guard. The amount is
  * llm-worker's `x-usage-neurons`, i.e. Cloudflare's own bill — never a local
  * estimate, so a chat turn and a 100-row batch are compared on the same scale.
  *

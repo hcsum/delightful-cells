@@ -21,13 +21,13 @@ const COPY = {
   },
 };
 
-export function generateMetadata() {
-  const c = COPY[serverLocale()];
+export async function generateMetadata() {
+  const c = COPY[await serverLocale()];
   return localizedMetadata(PATH, COPY, {
     openGraph: { title: c.title, description: c.description, type: "website" },
   });
 }
 
-export default function PricingPage() {
-  return <PricingClient initialLocale={serverLocale()} />;
+export default async function PricingPage() {
+  return <PricingClient initialLocale={await serverLocale()} />;
 }

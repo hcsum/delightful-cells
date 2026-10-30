@@ -5,10 +5,11 @@
 // stored in neurons: a 50-row batch costs a fraction of a credit and rounding
 // each call up to a whole credit would overcharge several times over.
 
-import { spendNeurons, type LedgerReason } from "@/lib/billing/credits";
+import type { LedgerReason } from "@/lib/billing/credits";
 import { getDb } from "@/lib/billing/db";
 import { commitFreeNeurons, type Entitlement } from "@/lib/billing/entitlement";
 import { recordMeasuredUsage, recordUsageFromHeaders } from "@/lib/usage";
+import { settleCreditReservation, settleInferenceBudget } from "@/lib/billing/guard";
 
 export type MeasuredUsage = {
   inputTokens: number;
@@ -43,13 +44,7 @@ export async function chargeNeurons(
   ref: string,
 ): Promise<number> {
   if (ent.tier !== "paid" || !ent.userId || neurons <= 0) return 0;
-  try {
-    return await spendNeurons(ent.userId, neurons, reason, ref);
-  } catch {
-    // Losing a deduction is better than failing a call the user already got the
-    // result of; the site-wide meter still recorded the spend.
-    return 0;
-  }
+  return await settleCreditReservation(ref, neurons);
 }
 
 /**
@@ -71,6 +66,7 @@ export async function meterAndCharge(
     if (claim === "duplicate") return 0;
   }
   const neurons = await recordSiteUsage(headers, ent);
+  await settleInferenceBudget(ref, neurons > 0 ? neurons : null);
   const charged = await chargeNeurons(ent, neurons, reason, ref);
   if (ent.tier !== "paid") await commitFreeNeurons(ent, neurons);
   return charged;
@@ -88,6 +84,7 @@ export async function meterAndChargeUsage(
     if (claim === "duplicate") return 0;
   }
   const neurons = await recordMeasuredUsage(usage, ent.tier);
+  await settleInferenceBudget(ref, neurons > 0 ? neurons : null);
   const charged = await chargeNeurons(ent, neurons, reason, ref);
   if (ent.tier !== "paid") await commitFreeNeurons(ent, neurons);
   return charged;

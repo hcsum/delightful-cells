@@ -10,6 +10,7 @@ import { chargeNeurons, recordSiteUsage } from "@/lib/billing/meter";
 import { t } from "@/lib/cells/i18n";
 import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
 import { getClientIp } from "@/lib/client-ip";
+import { refundRejectedInference, reserveInferenceBudget, settleInferenceBudget, withInferenceLock } from "@/lib/billing/guard";
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -39,7 +40,9 @@ export async function GET() {
   });
 }
 
-export async function POST(request: Request) {
+export const POST = withInferenceLock(handlePost);
+
+async function handlePost(request: Request, settlementRef: string) {
   // Get worker URL and shared API key from environment variables
   const workerUrl = process.env.LLM_WORKER_URL;
   const apiKey = process.env.LLM_API_KEY || "";
@@ -67,7 +70,6 @@ export async function POST(request: Request) {
       crypto.randomUUID();
     // One server request is one billable inference. Keep the client ID for
     // logs only; retries and batches must each get an independent ledger ref.
-    const settlementRef = crypto.randomUUID();
     const action = request.headers.get("x-action") || "preview";
     const rid = request.headers.get("x-request-id") || "";
     const app = request.headers.get("x-app") || "excel-extract-column-app";
@@ -77,6 +79,9 @@ export async function POST(request: Request) {
 
     // Get request body
     const body = await request.json();
+    if (JSON.stringify(body).length > 24_000) {
+      return Response.json({ error: "too_large", message: "Request exceeds 24,000 characters." }, { status: 400 });
+    }
     // Debug: log inbound request payload (truncated)
     try {
       const bodyStr = JSON.stringify(body);
@@ -180,6 +185,14 @@ export async function POST(request: Request) {
       }
     }
 
+    if (!await reserveInferenceBudget(ent, settlementRef, "process")) {
+      if (ent.balanceNeurons > 0) {
+        ent = asPaid(ent);
+        await reserveInferenceBudget(ent, settlementRef, "process");
+      }
+      else return Response.json({ error: "quota_exceeded", message: "AI budget is exhausted. Try again tomorrow." }, { status: 429 });
+    }
+
     // Forward request to LLM worker (include pre-encoded TOON)
     const workerResponse = await fetch(workerUrl, {
       method: "POST",
@@ -198,6 +211,7 @@ export async function POST(request: Request) {
         ...body,
         ...(toonForWorker ? { toon: toonForWorker } : {}),
       }),
+      signal: AbortSignal.timeout(120_000),
     });
 
     // Get response body
@@ -218,12 +232,12 @@ export async function POST(request: Request) {
     } catch {}
     // If worker responded OK, extract results and only then charge the user.
     if (workerResponse.ok) {
-      // Cloudflare billed us for this call whether or not we can read the
-      // answer, so the site-wide meter records it either way. What the USER
-      // pays waits until we know we have rows to hand back: the client retries
-      // a bad batch several times, and charging each attempt would bill someone
-      // five times over for a column they never received.
+      // Settle measured usage even if the model returned malformed output:
+      // refunding a prepaid call here would allow deliberate parse failures to
+      // turn an exhausted free allowance into an unmetered paid AI proxy.
       const neurons = await recordSiteUsage(workerResponse.headers, ent);
+      await settleInferenceBudget(settlementRef, neurons > 0 ? neurons : null);
+      await chargeNeurons(ent, neurons, "process", settlementRef);
       const expected = Array.isArray(body?.rows) ? body.rows.length : 0;
       let decoded: any = null;
       try {
@@ -326,7 +340,6 @@ export async function POST(request: Request) {
           missing: missing.length,
         });
       }
-      await chargeNeurons(ent, neurons, "process", settlementRef);
       // Free batches settle against the same measured cost, into the same daily
       // neuron counter chat uses. Note this is the whole call, not the delivered
       // rows: Cloudflare billed us for every row the worker read, including the
@@ -343,6 +356,7 @@ export async function POST(request: Request) {
     }
 
     // Non-OK: forward error body and relevant headers
+    await refundRejectedInference(settlementRef);
     const headers: Record<string, string> = {
       "content-type":
         workerResponse.headers.get("content-type") ||

@@ -3,9 +3,7 @@ const isTurbopack = Boolean(process.env.TURBOPACK);
 
 const nextConfig = {
   reactStrictMode: true,
-  // typedRoutes is not supported by Turbopack in Next 14.
-  // Enable it only when not running with Turbopack.
-  ...(isTurbopack ? {} : { experimental: { typedRoutes: true } }),
+  ...(isTurbopack ? {} : { typedRoutes: true }),
   // OpenNext Cloudflare will handle routing/worker generation;
   // no need to force standalone output.
   eslint: {

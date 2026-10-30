@@ -16,7 +16,7 @@ export type LandingExample = {
 // The single-task pages were fourteen copies of one layout, which is why the
 // Chinese routes rendered English: there was no one place to translate. The
 // layout lives here now and each page is just its own words.
-export default function ToolLanding({
+export default async function ToolLanding({
   copy,
   tool,
   examples = [],
@@ -27,7 +27,7 @@ export default function ToolLanding({
   examples?: LandingExample[];
   children?: ReactNode;
 }) {
-  const locale = serverLocale();
+  const locale = await serverLocale();
   const c = copy[locale];
   const hasGuide = c.steps.length > 0 || examples.length > 0;
 

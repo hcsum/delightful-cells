@@ -9,6 +9,7 @@ import { meterAndCharge, reserveSettlement } from "@/lib/billing/meter";
 import { t } from "@/lib/cells/i18n";
 import { isFreeTierExhausted, localeFromRequest, siteQuotaMessage } from "@/lib/usage";
 import { getClientIp } from "@/lib/client-ip";
+import { refundRejectedInference, reserveInferenceBudget, withInferenceLock } from "@/lib/billing/guard";
 
 type FlatMessage = { role: string; content: string };
 
@@ -31,7 +32,9 @@ export async function GET() {
   return json({ status: "ok", note: "api-chat" });
 }
 
-export async function POST(request: Request) {
+export const POST = withInferenceLock(handlePost);
+
+async function handlePost(request: Request, settlementRef: string) {
   let body: { messages?: FlatMessage[] };
   try {
     body = await request.json();
@@ -63,7 +66,6 @@ export async function POST(request: Request) {
   // The browser-provided ID is correlation-only. Settlement IDs must never be
   // caller-controlled, otherwise reusing one turns idempotency into free calls.
   const requestId = requestIdFor(request);
-  const settlementRef = crypto.randomUUID();
 
   let ent = await resolveEntitlement(request);
 
@@ -98,11 +100,21 @@ export async function POST(request: Request) {
     if (billing.mode === "paid") ent = asPaid(ent);
   }
 
+  if (!await reserveInferenceBudget(ent, settlementRef)) {
+    if (ent.balanceNeurons > 0) {
+      ent = asPaid(ent);
+      await reserveInferenceBudget(ent, settlementRef);
+    }
+    else return json({ error: "quota_exceeded", message: "AI budget is exhausted. Try again tomorrow." }, 429);
+  }
+
   try {
     if (await reserveSettlement(settlementRef, "chat") !== "claimed") {
+      await refundRejectedInference(settlementRef);
       return json({ error: "settlement_conflict", message: "Request settlement conflict." }, 409);
     }
   } catch {
+    await refundRejectedInference(settlementRef);
     return json({ error: "billing_unavailable", message: "Billing is temporarily unavailable." }, 503);
   }
 
@@ -128,6 +140,7 @@ export async function POST(request: Request) {
   const workerUrl = process.env.LLM_WORKER_URL;
   const apiKey = process.env.LLM_API_KEY || "";
   if (!workerUrl) {
+    await refundRejectedInference(settlementRef);
     return json(
       { error: "not_configured", message: "LLM_WORKER_URL is not set. For local dev without a worker, set MOCK_LLM=true." },
       500,
@@ -146,9 +159,11 @@ export async function POST(request: Request) {
       "x-tier": ent.tier,
     },
     body: JSON.stringify({ messages }),
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!upstream.ok) {
+    await refundRejectedInference(settlementRef);
     const retryAfter = upstream.headers.get("Retry-After") || undefined;
     let message = `LLM worker error (${upstream.status})`;
     try {

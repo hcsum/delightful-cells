@@ -285,13 +285,13 @@ const EXAMPLES: {
   },
 ];
 
-export function generateMetadata() {
-  const locale = serverLocale();
+export async function generateMetadata() {
+  const locale = await serverLocale();
   return localizedMetadata(PATH, COPY);
 }
 
-export default function Page() {
-  const locale = serverLocale();
+export default async function Page() {
+  const locale = await serverLocale();
   const c = COPY[locale];
   return (
     <div className="space-y-6">

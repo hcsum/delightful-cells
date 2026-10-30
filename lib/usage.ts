@@ -5,6 +5,7 @@
 import { secondsUntilNextUtcDay } from "@/lib/date";
 import { SITE_NEURON_BUDGET, type Tier } from "@/lib/limits";
 import { t, type Locale } from "@/lib/cells/i18n";
+import { readSiteBudget } from "@/lib/billing/guard";
 
 export type DailyUsage = { inputTokens: number; outputTokens: number; calls: number; neurons: number };
 
@@ -19,7 +20,7 @@ export const FREE_NEURONS_PER_DAY = SITE_NEURON_BUDGET.anon;
 // they draw on a balance the user already paid for.
 export async function isFreeTierExhausted(tier: Tier = "anon"): Promise<boolean> {
   if (tier === "paid") return false;
-  const used = neuronsFor(await getUsageToday(tier));
+  const used = await readSiteBudget(tier);
   const budget = SITE_NEURON_BUDGET[tier];
   if (used < budget) return false;
   // The budget is meant to be a circuit breaker, not a rationing device: if

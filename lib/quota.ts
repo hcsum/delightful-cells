@@ -3,6 +3,7 @@
 
 import { secondsUntilNextUtcDay } from "@/lib/date";
 import { dailyNeurons } from "@/lib/limits";
+import { getDb } from "@/lib/billing/db";
 
 // Try Cloudflare KV first (stores cumulative rows used for the day)
 async function checkAndConsumeRowsKV(
@@ -101,6 +102,16 @@ export async function addRowsToDailyQuota(
 
 // Read current used rows for the day without mutating state.
 export async function getRowsUsedToday(userKey: string): Promise<number> {
+  if (userKey.startsWith("neurons:")) {
+    const db = await getDb();
+    if (db) {
+      const key = `user:${new Date().toISOString().slice(0, 10)}:${userKey}`;
+      const row = await db.prepare("SELECT used + reserved AS used FROM ai_budget WHERE key = ?").bind(key).first<{ used: number }>();
+      if (row) return row.used;
+    } else if (process.env.NODE_ENV === "production") {
+      throw new Error("D1 quota storage unavailable");
+    }
+  }
   // Try KV
   try {
     const mod = await import("@opennextjs/cloudflare");

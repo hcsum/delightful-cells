@@ -32,8 +32,8 @@ const SITE = {
   },
 } as const;
 
-export function generateMetadata(): Metadata {
-  const site = SITE[serverLocale()];
+export async function generateMetadata(): Promise<Metadata> {
+  const site = SITE[await serverLocale()];
   return {
     metadataBase: new URL(SITE_URL),
     title: { default: site.default, template: site.template },
@@ -42,12 +42,12 @@ export function generateMetadata(): Metadata {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const locale = serverLocale();
+  const locale = await serverLocale();
   return (
     <html lang={locale === "zh" ? "zh-CN" : locale}>
       <body>

@@ -33,11 +33,36 @@ Neurons are the storage unit; credits are the only unit a user ever sees.
 `floor(neurons / 30)` — a 50-row batch costs 17 neurons, i.e. 0.57 credits, and
 rounding each call up to a whole credit would overcharge a 1,000-row job ~2x.
 
-One consequence: a call is *checked* before the worker runs and *charged*
-after, because its cost is not knowable in advance. So the last call of the day
-overshoots — someone sitting at 239 of 240 neurons still gets a whole call.
-That is the same rule paid balances follow, and it is cheaper than the
-alternative, which is quoting a price we do not have yet.
+The final free call may overshoot its personal allowance. A D1 identity lock
+allows only one in-flight call across `/api/chat`, `/api/chat/stream`, and
+`/api/process`, so concurrency cannot multiply that last free turn.
+
+### Atomic admission and settlement (2026-10-30)
+
+Apply `migrations/0004_inference_guards.sql` before deploying this code. The
+normal `pnpm cf` command applies remote migrations before building/deploying;
+for a separate rollout use `pnpm exec wrangler d1 migrations apply delightful-cells --remote --env prod`.
+
+- Free calls atomically reserve 2,048 neurons against both the personal D1
+  allowance and the shared tier budget. The site must have the full reservation
+  available; the personal allowance only needs a positive remainder. Actual
+  measured usage replaces the reservation exactly once. Existing KV counts seed
+  each D1 daily counter once; KV usage totals remain display-only thereafter.
+- Paid calls atomically hold `min(balance, 2048)` neurons before inference,
+  then refund the unused part after measured settlement. Credits are never
+  released just because the browser disconnected. The final small balance can
+  cover at most one call, rather than an arbitrary number of parallel calls.
+- Known upstream HTTP rejections refund the hold/reservation. An unknown result
+  (timeout, missing usage, crashed isolate) retains the conservative reservation
+  or prepaid hold for reconciliation. Malformed extraction output with measured
+  usage is charged for the inference, preventing deliberate parse-failure abuse.
+- Locks expire after ten minutes, beyond the two-minute upstream timeout. An
+  expired lock does **not** release its outstanding reservations. Orphaned rows
+  can be inspected in `ai_budget_reservation` / `ai_credit_reservation` (where
+  `settled = 0`) and reconciled against Worker usage before any manual refund.
+- D1 errors fail closed. The 2,048-neuron reservation is a conservative admission
+  bound, not a Cloudflare billing limit; re-evaluate it when changing models,
+  input bounds (24k characters), or output-token limits (1,024/2,048).
 
 Rows are a *derived* figure now, not a limit: `rowsAffordable(neurons)` inverts
 the measured cost model for the surfaces that can only speak in rows (`/tools`,

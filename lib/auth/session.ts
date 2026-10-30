@@ -11,7 +11,7 @@ const BYPASS_AUTH =
 async function getSession() {
   try {
     const auth = await getAuth();
-    return await auth.api.getSession({ headers: headers() });
+    return await auth.api.getSession({ headers: await headers() });
   } catch {
     return null;
   }

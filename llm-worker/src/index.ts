@@ -222,6 +222,9 @@ export default {
       log('missing-toon', { rows: rows.length });
       return json({ error: 'toon_required', message: 'TOON input is required in request body as "toon"' }, 400, origin);
     }
+    if (rows.length > 100 || toonInput.length + toBeExtracted.length + extractFrom.length > CHAT_MAX_TOTAL_CHARS) {
+      return json({ error: 'too_large', message: 'Extraction input is too large' }, 400, origin);
+    }
     const user = [
       'Data is in TOON format (tab-separated).',
       '```toon',
